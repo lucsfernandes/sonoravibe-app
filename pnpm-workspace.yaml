@@ -1,0 +1,6 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+allowBuilds:
+  # Script oficial que só valida o binário da plataforma; exigido por vitest e tsx.
+  esbuild: true

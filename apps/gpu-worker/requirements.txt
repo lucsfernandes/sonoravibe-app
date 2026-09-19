@@ -1,0 +1,4 @@
+# Dependências do handler além das que a imagem do ACE-Step já traz
+# (torch, soundfile e o próprio acestep vêm da imagem base).
+runpod==1.12.0
+requests>=2.32,<3
