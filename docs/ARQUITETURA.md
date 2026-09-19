@@ -213,6 +213,12 @@ pesa ~32 MB contra ~4 MB do master — pré-gerar tudo multiplicaria o storage p
 **Download em lote:** endpoint que monta um ZIP em *streaming* (`archiver`), sem carregar
 tudo em memória, transcodificando o que faltar antes de empacotar.
 
+**O R2 não valida o `Content-Type` da URL assinada** (medido em 2026-09-19 contra o bucket
+real: um PUT com tipo divergente voltou HTTP 200 e o objeto ficou gravado com o tipo
+errado). Como o worker GPU roda fora do nosso cluster, quem finaliza a geração confere o
+objeto com `statObject` antes de marcar a música como pronta — tamanho e tipo. Confiar na
+assinatura serviria um arquivo com tipo inválido ao player.
+
 ### 2.5 Better Auth
 
 Roda no nosso Postgres, sem custo por usuário. Entrega e-mail/senha, OAuth (Google),
@@ -248,8 +254,22 @@ sonora/
 └── docs/
 ```
 
-Gerenciador: **pnpm workspaces + Turborepo**. ORM: **TypeORM** (entidades com decorators,
+Gerenciador: **pnpm workspaces + Turborepo**. ORM: **TypeORM 1.x** (entidades com decorators,
 alinhado ao padrão NestJS).
+
+### 3.1 Por que SWC, e não tsx/esbuild, na API e no worker
+
+O `.swcrc` fica na **raiz** do monorepo de propósito. Dois motivos, os dois medidos:
+
+1. **O esbuild não implementa `emitDecoratorMetadata`**, de que NestJS (injeção por tipo)
+   e TypeORM (inferência de coluna) dependem.
+2. **O `tsx` aplica o `tsconfig` só aos arquivos dentro da pasta dele.** Rodando a API a
+   partir de `apps/api`, os arquivos de `packages/db` caíam no padrão do esbuild e os
+   decorators viravam TC39: o TypeORM quebrava em `Reflect.getMetadata` com `TypeError`.
+   O swc resolve o `.swcrc` subindo a partir de cada arquivo, então um único arquivo na
+   raiz vale para todos os pacotes.
+
+O `.swcrc` é JSON estrito: não aceita comentários nem chaves desconhecidas.
 
 ---
 

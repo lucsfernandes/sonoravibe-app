@@ -1,0 +1,1290 @@
+{
+  "info": {
+    "_postman_id": "9a1f4a3e-5b6c-4d7e-8f90-s0n0ra00001",
+    "name": "Sonora — API",
+    "description": "Rotas da API do Sonora (geração de música com IA).\n\nHOJE só `GET /health` está implementado; todo o resto está marcado como \"(planejado)\" e serve como contrato do que está sendo construído.\n\nAutenticação: sessão em cookie do Better Auth. No Postman, faça login em \"Autenticação > Login por e-mail\" e o cookie passa a acompanhar as demais chamadas.\n\nGerado por `node scripts/build-postman.mjs` — edite o script, não este arquivo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "apiUrl",
+      "value": "http://localhost:3001"
+    }
+  ],
+  "item": [
+    {
+      "name": "Saúde",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/health",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nVerifica Postgres e Redis. Responde 503 quando uma dependência está fora, para o readiness probe do k3s tirar a réplica do balanceador.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Autenticação",
+      "item": [
+        {
+          "name": "Cadastro por e-mail (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lucas Fernandes\",\n  \"email\": \"lucas@exemplo.com\",\n  \"password\": \"senha-forte-aqui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/api/auth/sign-up/email",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-up",
+                "email"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nBetter Auth. Cria usuário, perfil, workspace padrão e carteira de créditos.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Login por e-mail (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lucas@exemplo.com\",\n  \"password\": \"senha-forte-aqui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/api/auth/sign-in/email",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-in",
+                "email"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Sessão atual (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/api/auth/session",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "session"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Sair (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/api/auth/sign-out",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-out"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Geração",
+      "item": [
+        {
+          "name": "Criar música — aba Simple (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"simple\",\n  \"prompt\": \"pop rock brasileiro, violão e bateria ao vivo, clima de estrada\",\n  \"instrumental\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/generate",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "generate"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nReserva os créditos, cria a música com status queued e enfileira o job. Responde 402 quando falta saldo e 403 quando a duração passa do limite do plano."
+          }
+        },
+        {
+          "name": "Criar música — aba Advanced (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"advanced\",\n  \"lyrics\": \"[Verse]\\\\nAcordei com o sol batendo na janela\\\\n\\\\n[Chorus]\\\\nVou seguir a estrada até o mar\",\n  \"title\": \"Estrada até o mar\",\n  \"instrumental\": false,\n  \"controls\": {\n    \"styles\": \"pop rock brasileiro, violão, bateria ao vivo\",\n    \"excludeStyles\": \"distorção, autotune\",\n    \"vocalGender\": \"male\",\n    \"bpm\": 104,\n    \"key\": \"G\",\n    \"weirdness\": 50,\n    \"styleInfluence\": 50,\n    \"variety\": \"high\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/generate",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "generate"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nSem durationSeconds a duração é automática (decidida pelo tamanho da letra), que foi o que soou mais natural nos testes. Exclusões de voz viram instrumental nativo."
+          }
+        },
+        {
+          "name": "Criar som curto — aba Sounds (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"sounds\",\n  \"prompt\": \"stab de synth analógico quente\",\n  \"soundType\": \"one-shot\",\n  \"bpm\": 120,\n  \"key\": \"Cm\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/generate",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "generate"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Progresso ao vivo (SSE) (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/generations/stream",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "generations",
+                "stream"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nServer-Sent Events. Emite queued, compiling_prompt, writing_lyrics, generating_audio, uploading, generating_cover e complete. O Postman mostra o stream; no navegador use EventSource."
+          }
+        },
+        {
+          "name": "Status de uma geração (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/generations/{{generationId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "generations",
+                "{{generationId}}"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Cancelar geração (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/generations/{{generationId}}/cancel",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "generations",
+                "{{generationId}}",
+                "cancel"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nCancela o job na fila e estorna os créditos reservados."
+          }
+        },
+        {
+          "name": "Escrever letra com IA (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brief\": \"uma viagem de carro até o litoral, saudade e recomeço\",\n  \"language\": \"pt-BR\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/lyrics/generate",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "lyrics",
+                "generate"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Sugerir estilo (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seed\": \"synthwave melancólico\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/styles/suggest",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "styles",
+                "suggest"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nO botão de dado da interface. Não consome crédito."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Músicas",
+      "item": [
+        {
+          "name": "Listar minhas músicas (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs?workspaceId={{workspaceId}}&cursor=&limit=20&filter=all",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs"
+              ],
+              "query": [
+                {
+                  "key": "workspaceId",
+                  "value": "{{workspaceId}}"
+                },
+                {
+                  "key": "cursor",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "filter",
+                  "value": "all"
+                }
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Detalhe da música (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Atualizar música (planejado)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Novo título\",\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"allowRemixes\": true,\n  \"allowComments\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Mover para a lixeira (planejado)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nExclusão lógica: some da biblioteca e o arquivo é apagado depois de 30 dias."
+          }
+        },
+        {
+          "name": "Publicar no Explore (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isPublic\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/publish",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "publish"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Baixar num formato (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/download?format=mp3",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "download"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "mp3"
+                }
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nResponde 302 para uma URL assinada do R2. Formatos: mp3, wav, flac, opus, m4a. O que ainda não existe é transcodificado sob demanda e fica 7 dias em cache. Free só baixa MP3; o limite vem do plano."
+          }
+        },
+        {
+          "name": "Baixar várias de uma vez (ZIP) (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"songIds\": [\n    \"{{songId}}\"\n  ],\n  \"format\": \"wav\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/download-batch",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "download-batch"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nZIP montado em streaming. Exclusivo de planos pagos."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Edição",
+      "item": [
+        {
+          "name": "Estender a música (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addSeconds\": 60\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/extend",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "extend"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nConsome crédito: é uma nova chamada ao motor."
+          }
+        },
+        {
+          "name": "Remix com outro estilo (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"styles\": \"versão acústica, violão e voz\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/remix",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "remix"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Substituir um trecho (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startMs\": 30000,\n  \"endMs\": 45000,\n  \"styles\": \"solo de guitarra\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/replace-section",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "replace-section"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Edições sem IA (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operation\": \"crop\",\n  \"startMs\": 5000,\n  \"endMs\": 95000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/edit",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "edit"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\ncrop, trim, fade-in, fade-out, speed, reverse e normalize. Roda em FFmpeg no nosso worker: não consome crédito nenhum."
+          }
+        },
+        {
+          "name": "Separar stems (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kinds\": [\n    \"vocals\",\n    \"drums\",\n    \"bass\",\n    \"other\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/stems",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "stems"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nDemucs no worker dedicado. Sem crédito, mas pesado: fila própria e só para planos pagos."
+          }
+        },
+        {
+          "name": "Gerar capa (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"estrada ao entardecer, estética retrô\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/cover-art",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "cover-art"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Biblioteca",
+      "item": [
+        {
+          "name": "Listar workspaces (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/workspaces",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "workspaces"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Criar workspace (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nocturne.sh\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/workspaces",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "workspaces"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Renomear workspace (planejado)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Novo nome\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/workspaces/{{workspaceId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "workspaces",
+                "{{workspaceId}}"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Listar playlists (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/playlists",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Criar playlist (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Madrugada\",\n  \"isPublic\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/playlists",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Adicionar música à playlist (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"songId\": \"{{songId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}/songs",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}",
+                "songs"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Estilos salvos (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/styles",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "styles"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Social",
+      "item": [
+        {
+          "name": "Explore (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/explore?tab=trending",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "explore"
+              ],
+              "query": [
+                {
+                  "key": "tab",
+                  "value": "trending"
+                }
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Perfil público (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/users/{{handle}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{handle}}"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Curtir (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/like",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "like"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Comentários (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/comments",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "comments"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Comentar (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Muito boa!\",\n  \"timestampMs\": 42000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/comments",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "comments"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Seguir criador (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/users/{{handle}}/follow",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{handle}}",
+                "follow"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Registrar reprodução (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listenedMs\": 45000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/play",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "play"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nAlimenta o ranking do Explore. Deduplicado por janela de 30s.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Créditos e cobrança",
+      "item": [
+        {
+          "name": "Saldo e extrato (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/credits",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "credits"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nSaldo do plano, saldo avulso, reservado e o extrato do ledger."
+          }
+        },
+        {
+          "name": "Planos e pacotes (planejado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/plans",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "plans"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Assinar um plano (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planCode\": \"pro\",\n  \"method\": \"pix\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/billing/subscribe",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "billing",
+                "subscribe"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Comprar pacote avulso (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"pix\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/billing/packs/pack_1500/purchase",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "billing",
+                "packs",
+                "pack_1500",
+                "purchase"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado."
+          }
+        },
+        {
+          "name": "Webhook do Asaas (planejado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "asaas-access-token",
+                "value": "{{asaasWebhookToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"PAYMENT_CONFIRMED\",\n  \"payment\": {\n    \"id\": \"pay_000001\",\n    \"status\": \"CONFIRMED\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/webhooks/asaas",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                "asaas"
+              ]
+            },
+            "description": "Status: planejado, ainda não implementado.\n\nConcede os créditos ao confirmar o pagamento. Idempotente pelo provider_ref, porque o Asaas reenvia o evento quando não recebe 200.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,5 +2,7 @@ packages:
   - 'apps/*'
   - 'packages/*'
 allowBuilds:
+  '@swc/core': set this to true or false
   # Script oficial que só valida o binário da plataforma; exigido por vitest e tsx.
   esbuild: true
+  msgpackr-extract: set this to true or false

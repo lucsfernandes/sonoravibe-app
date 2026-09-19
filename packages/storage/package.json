@@ -1,5 +1,5 @@
 {
-  "name": "@sonora/db",
+  "name": "@sonora/storage",
   "version": "0.1.0",
   "private": true,
   "main": "./src/index.ts",
@@ -13,14 +13,13 @@
     "lint": "echo 'no lint'"
   },
   "dependencies": {
-    "@sonora/shared": "workspace:*",
-    "pg": "^8.13.1",
-    "reflect-metadata": "^0.2.2",
-    "typeorm": "^1.1.1"
+    "@aws-sdk/client-s3": "^3.1136.0",
+    "@aws-sdk/s3-request-presigner": "^3.1136.0",
+    "@sonora/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.13.5",
     "tsx": "^4.23.13",
-    "typescript": "^5.7.2"
+    "typescript": "^5.9.3"
   }
 }
