@@ -1,8 +1,21 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# Scripts de instalação aprovados nominalmente.
+#
+# O pnpm 12 não executa script de instalação de dependência sem aprovação — uma
+# proteção contra pacote malicioso rodando código na máquina de quem instala.
+# Ele deixa cada pacote detectado como placeholder aqui até alguém decidir.
+#
+# Deixar em aberto não é neutro: no terminal aparece só um aviso, mas dentro do
+# build do Docker o pnpm falha com ERR_PNPM_IGNORED_BUILDS e a imagem não sai.
 allowBuilds:
-  '@swc/core': set this to true or false
+  # Instala o binário nativo do compilador. Sem ele o @swc-node/register não
+  # carrega, e nem a API nem o worker sobem.
+  '@swc/core': true
   # Script oficial que só valida o binário da plataforma; exigido por vitest e tsx.
   esbuild: true
-  msgpackr-extract: set this to true or false
+  # Acelerador nativo de serialização do BullMQ. Funciona sem ele (cai para a
+  # implementação em JavaScript), mas o aviso viraria erro no build.
+  msgpackr-extract: true

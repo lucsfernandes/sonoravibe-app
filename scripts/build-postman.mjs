@@ -436,8 +436,8 @@ const environments = [
     name: 'Sonora — Produção',
     slug: 'sonora-producao',
     values: [
-      { key: 'apiUrl', value: 'https://api.sonora.app', enabled: true },
-      { key: 'webUrl', value: 'https://sonora.app', enabled: true },
+      { key: 'apiUrl', value: 'https://api.sonoravibe.com', enabled: true },
+      { key: 'webUrl', value: 'https://sonoravibe.com', enabled: true },
       { key: 'songId', value: '', enabled: true },
       { key: 'generationId', value: '', enabled: true },
       { key: 'workspaceId', value: '', enabled: true },

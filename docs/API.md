@@ -28,7 +28,7 @@ e é gerada por `node scripts/build-postman.mjs`.
 | PostgreSQL 16 | Banco | **k3s** — StatefulSet + PVC 20Gi | Dado seu, na sua máquina; backup diário por CronJob |
 | Redis 7 | Filas BullMQ + pub/sub do SSE | **k3s** — StatefulSet + PVC 5Gi | Mesma rede do worker e da API |
 | Áudio, capas, stems | Arquivos | **Cloudflare R2** | Egress gratuito — download de WAV/FLAC não vira conta de banda |
-| Imagens Docker | Registry | **GHCR**, build por GitHub Actions | Já integrado ao repositório |
+| Imagens Docker | Registry | **Docker Hub**, build por GitHub Actions | É o registro já usado nos seus outros projetos do cluster |
 | Lyria 3 (reserva) | Motor de fallback | **OpenRouter** (API externa) | Só é acionado quando o ACE-Step falha de forma recuperável |
 
 **Nada é hospedado na Vercel.** Se existe um projeto "worker" na sua conta Vercel, ele foi criado
@@ -41,9 +41,11 @@ Não há `vercel.json`, `.vercel/` nem qualquer referência a Vercel no reposit�
 ### Fluxo de deploy
 
 ```
-git push → GitHub Actions
-             ├── build web, api, worker             → GHCR → kubectl apply (k3s / Hostinger)
-             └── build gpu-worker (pesos na imagem) → GHCR → endpoint RunPod Serverless
+git push na main → GitHub Actions (um workflow por aplicação, com filtro de caminho)
+             ├── apps/api/**    → Docker Hub → kubectl apply -k k8s/api    (k3s / Hostinger)
+             ├── apps/web/**    → Docker Hub → kubectl apply -k k8s/web    (k3s / Hostinger)
+             ├── apps/worker/** → Docker Hub → kubectl apply -k k8s/worker (k3s / Hostinger)
+             └── gpu-worker (pesos na imagem) → endpoint RunPod Serverless, fora do cluster
 ```
 
 ---
@@ -53,10 +55,13 @@ git push → GitHub Actions
 | Ambiente | Frontend | API | CDN de áudio |
 |---|---|---|---|
 | Desenvolvimento | `http://localhost:3000` | `http://localhost:3001` | MinIO em `http://localhost:9000` |
-| Produção (planejado) | `https://sonora.app` | `https://api.sonora.app` | `https://cdn.sonora.app` |
+| Produção | `https://sonoravibe.com` | `https://api.sonoravibe.com` | `https://cdn.sonoravibe.com` |
 
-O frontend ainda não foi criado (`apps/web` não existe). A porta 3000 já está reservada em `.env`
-(`WEB_PORT`) e é a origem liberada no CORS da API (`CORS_ORIGINS`).
+O frontend é o `apps/web`. Em produção, `sonoravibe.com` e `www.sonoravibe.com` são as origens
+liberadas no CORS da API — sem elas, o navegador recusa toda requisição autenticada e o sintoma é
+"401 em tudo, mesmo logado".
+
+Os manifests do Kubernetes estão em `k8s/` e o passo a passo em [`DEPLOY.md`](DEPLOY.md).
 
 Serviços internos do cluster, sem URL pública: `worker`, `postgres`, `redis`. O `gpu-worker` também
 não tem URL própria — é chamado pelo endpoint da RunPod
@@ -66,7 +71,7 @@ não tem URL própria — é chamado pelo endpoint da RunPod
 
 ## 3. Rotas
 
-Base local `http://localhost:3001` · Base produção `https://api.sonora.app`
+Base local `http://localhost:3001` · Base produção `https://api.sonoravibe.com`
 
 Autenticação por cookie de sessão do Better Auth. Nos exemplos, `-c cookies.txt` grava o cookie no
 login e `-b cookies.txt` o reaproveita.

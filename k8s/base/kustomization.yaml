@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Só o namespace. Cada aplicação referencia esta base para que o PSA "restricted"
+# e as labels do projeto existam mesmo quando um componente é aplicado sozinho.
+resources:
+  - namespace.yaml

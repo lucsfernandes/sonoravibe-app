@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { CreditsLedger, ENTITIES } from '@sonora/db';
 import {
@@ -148,7 +149,22 @@ async function bootstrap(): Promise<void> {
       `concorrência ${config.WORKER_CONCURRENCY} | motor '${config.MUSIC_PROVIDER}'`,
   );
 
+  // Sinal de vida para o liveness probe do Kubernetes.
+  //
+  // O worker não atende HTTP, então um probe HTTP falharia sempre e reiniciaria
+  // o pod em laço. Em vez disso o probe olha a idade deste arquivo: se o laço
+  // de eventos travar, o arquivo para de ser tocado e o pod é reiniciado.
+  // O intervalo (30s) precisa ser bem menor que o limite do probe (180s), para
+  // uma pausa de GC ou um pico de I/O não derrubar um worker saudável.
+  const heartbeatPath = process.env.HEARTBEAT_PATH ?? '/tmp/heartbeat';
+  const bater = () =>
+    void writeFile(heartbeatPath, new Date().toISOString()).catch(() => undefined);
+  bater();
+  const heartbeat = setInterval(bater, 30_000);
+  heartbeat.unref();
+
   const shutdown = async (signal: string): Promise<void> => {
+    clearInterval(heartbeat);
     console.log(`\n${signal} recebido, terminando os jobs em andamento...`);
     // close() espera os jobs ativos, em vez de largá-los no meio: um job
     // interrompido voltaria para a fila e o usuário pagaria a geração duas vezes.
