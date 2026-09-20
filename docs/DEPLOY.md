@@ -77,26 +77,38 @@ O último `GRANT` é necessário no PostgreSQL 15+: desde essa versão o schema
 `public` não é mais gravável por qualquer usuário, e sem ele a criação das
 tabelas falha com `permission denied for schema public`.
 
-### 2.2 Schema das tabelas
+### 2.2 Schema das tabelas — depois do primeiro deploy, não antes
 
-`DB_SYNCHRONIZE` é `false` em produção — o `synchronize` do TypeORM apaga coluna
-que sumiu do código, e aqui isso significaria perder música de usuário. O schema
-precisa ser criado explicitamente, **uma vez**, antes do primeiro deploy:
+`DB_SYNCHRONIZE` é `false` em produção: o `synchronize` do TypeORM apaga coluna
+que sumiu do código, e aqui isso significaria perder música de usuário.
+
+**A consequência é uma armadilha:** com ele desligado, nem as migrations do
+Better Auth nem as tabelas do domínio nascem — mas a API sobe **verde**. O
+`/health` só faz `SELECT 1` e um `ping` no Redis, e os dois passam num banco
+vazio. Todas as rotas reais respondem 500 até o schema existir.
+
+A criação roda com a imagem da API, que só passa a existir depois do primeiro
+build. Por isso este passo vem **depois** do deploy — veja a ordem na seção 3.
 
 ```bash
-kubectl run sonora-schema --rm -it --restart=Never -n sonora \
-  --image=<user>/sonora-api:<sha> \
-  --env=DATABASE_URL='<a URL do banco>' \
-  --env=DB_SYNCHRONIZE=true --env=NODE_ENV=development \
-  --command -- node -r @swc-node/register src/main.ts
+# Usa exatamente a imagem que está rodando, sem precisar descobrir o SHA
+IMG=$(kubectl get deploy sonora-api -n sonora   -o jsonpath='{.spec.template.spec.containers[0].image}')
+
+kubectl run sonora-schema --rm -it --restart=Never -n sonora   --image="$IMG"   --env=DATABASE_URL="$(kubectl get secret sonora-api-secret -n sonora       -o jsonpath='{.data.DATABASE_URL}' | base64 -d)"   --env=REDIS_URL="redis://sonora-redis.sonora.svc.cluster.local:6379"   --env=DB_SYNCHRONIZE=true --env=NODE_ENV=development   --env=BETTER_AUTH_SECRET=apenas-para-criar-o-schema-32-chars   --env=R2_ACCOUNT_ID=x --env=R2_ACCESS_KEY_ID=x   --env=R2_SECRET_ACCESS_KEY=x --env=R2_BUCKET=x   --env=MUSIC_PROVIDER=mock --env=PAYMENT_PROVIDER=fake   --command -- node -r @swc-node/register src/main.ts
 ```
 
-Suba, confira que as tabelas nasceram e encerre. As tabelas `user`, `session`,
-`account` e `verification` são do Better Auth e nascem pelas migrations dele, que
-rodam nesse mesmo comando, antes das do domínio.
+`NODE_ENV=development` é obrigatório aqui: em produção a validação recusa
+`DB_SYNCHRONIZE=true` e `PAYMENT_PROVIDER=fake`, que é justamente a proteção
+que queremos manter. As variáveis com valor `x` só existem para passar na
+validação — este pod não sobe áudio nem cobra ninguém.
 
-> Passo seguinte natural, ainda não feito: trocar isso por migrations
-> versionadas do TypeORM e um `Job` que roda antes do Deployment.
+Espere aparecer `API no ar em :3001` nos logs, confirme as tabelas e encerre com
+`Ctrl+C`. Conferência:
+
+```bash
+kubectl run psql --rm -it --restart=Never -n sonora --image=postgres:16-alpine --   psql "$DATABASE_URL" -c '\dt'
+# Devem aparecer ~22 tabelas: as 18 do domínio + user, session, account, verification
+```
 
 ### 2.3 GitHub Secrets
 
@@ -203,22 +215,38 @@ construir a imagem e criar o endpoint.
 
 ## 3. Ordem do primeiro deploy
 
-1. Aplicar o Redis: ele precisa existir antes da API. O `deploy-api.yml` já faz
-   isso (`kubectl apply -k k8s/redis`), mas dá para adiantar à mão.
-2. Rodar o **Deploy API**, por `workflow_dispatch`. É o que cria o namespace e
-   os secrets, e o que falha mais cedo se algo estiver faltando.
-3. Rodar o **Deploy Worker**. O build passa de 10 minutos na primeira vez: a
-   imagem leva PyTorch e os pesos do Demucs (~2 GB).
-4. Rodar o **Deploy Web**.
-5. Conferir os certificados:
+Antes de tudo, rode o pré-voo na VPS. São só leituras, e cada falha que ele
+pega aqui viraria um erro bem mais obscuro depois — um pod em
+`CreateContainerConfigError` ou um timeout de rede não dizem a causa.
+
+```bash
+bash scripts/pre-deploy.sh
+```
+
+1. **Cloudflare** — token e emissor aplicados (seção 2.4). O certificado leva
+   alguns minutos e não depende da aplicação, então adiantar aqui economiza espera.
+
+2. **Deploy API** (Actions → Deploy API → *Run workflow*). É o que cria o
+   namespace, o Redis e os secrets, e o que falha mais cedo se faltar alguma
+   coisa. Ao final, os pods sobem e `/health` responde — **mas as rotas ainda
+   dão 500**, porque o banco está vazio.
+
+3. **Schema** (seção 2.2). Só agora é possível: a imagem da API acabou de ser
+   construída.
+
+4. **Deploy Worker**. O build passa de 10 minutos na primeira vez — a imagem
+   leva PyTorch e os pesos do Demucs (~2 GB).
+
+5. **Deploy Web**.
+
+6. **Certificados:**
    ```bash
    kubectl get certificate -n sonora
-   # READY=True nos dois (sonora-web-tls e sonora-api-tls)
+   # READY=True em sonora-web-tls e sonora-api-tls
    ```
-6. **Só agora** mudar o modo SSL da Cloudflare para *Full (strict)*. Antes de o
-   certificado existir, esse modo faz a Cloudflare devolver erro 526.
 
----
+7. **Só agora** mude o SSL da Cloudflare para *Full (strict)*. Antes de o
+   certificado existir, esse modo faz a Cloudflare devolver 526.
 
 ## 4. Verificação depois do deploy
 
