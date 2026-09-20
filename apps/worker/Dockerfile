@@ -42,12 +42,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
       dumb-init \
     && rm -rf /var/lib/apt/lists/*
 
-# A roda de CPU do PyTorch: a versão padrão traz CUDA e passa de 2 GB, inútil
-# numa VPS sem GPU (a GPU de verdade é a da RunPod, fora do cluster).
-RUN pip3 install --no-cache-dir --break-system-packages \
-      --index-url https://download.pytorch.org/whl/cpu \
-      torch torchaudio \
-    && pip3 install --no-cache-dir --break-system-packages demucs
+# As versões estão fixadas em requirements.txt, na build de CPU do PyTorch.
+# O porquê do pin está no cabeçalho daquele arquivo: sem ele o pip resolve o
+# torch do PyPI e traz o runtime CUDA inteiro, uns 3 GB inúteis numa VPS sem GPU.
+COPY apps/worker/requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt
 
 # Baixa os pesos do htdemucs durante o build. Sem isto, o primeiro pedido de
 # stems esperaria o download — e falharia, porque o root FS é somente leitura.
