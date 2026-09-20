@@ -107,21 +107,32 @@ Gerar o kubeconfig em base64:
 sudo cat /etc/rancher/k3s/k3s.yaml | sed "s/127.0.0.1/<IP-da-VPS>/" | base64 -w0
 ```
 
-### 2.4 DNS na Hostinger
+### 2.4 DNS e certificados — o domínio está na Cloudflare
 
-| Tipo | Nome | Valor |
-|---|---|---|
-| A | `sonoravibe.com` | IP da VPS |
-| A | `www` | IP da VPS |
-| A | `api` | IP da VPS |
-| CNAME | `cdn` | endpoint público do bucket R2 |
+O passo a passo completo está em [`CLOUDFLARE.md`](CLOUDFLARE.md). O resumo:
 
-O `cdn` é opcional para o produto funcionar (os downloads usam URL assinada), mas
-é o que evita expor o domínio interno do R2 nas capas públicas.
+| Tipo | Nome | Valor | Proxy |
+|---|---|---|---|
+| A | `@` | IP da VPS | laranja |
+| A | `www` | IP da VPS | laranja |
+| A | `api` | IP da VPS | laranja |
+| — | `cdn` | criado pelo painel do R2 | — |
 
-Espere o DNS propagar **antes** do primeiro deploy: o cert-manager valida o
-domínio por HTTP-01, e ele falha se o nome ainda não resolve. Um certificado que
-falha entra em backoff crescente, então tentar cedo demais atrasa.
+Com o proxy da Cloudflare ligado, o desafio **HTTP-01 não funciona**: quem
+responde em `/.well-known/acme-challenge/` é a Cloudflare, não a sua VPS. Por
+isso os ingresses usam um emissor próprio, por **DNS-01**, em
+`k8s/cert-manager/clusterissuer-cloudflare.yaml` — ele não altera o
+`letsencrypt-prod` dos seus outros projetos.
+
+Antes do primeiro deploy:
+
+```bash
+kubectl create secret generic cloudflare-api-token \
+  --namespace cert-manager \
+  --from-literal=api-token='<token de zona>'
+
+kubectl apply -f k8s/cert-manager/clusterissuer-cloudflare.yaml
+```
 
 ### 2.5 RunPod (motor de música)
 
@@ -152,6 +163,8 @@ Duas saídas, escolha uma:
    kubectl get certificate -n sonora
    # READY=True nos dois (sonora-web-tls e sonora-api-tls)
    ```
+6. **Só agora** mudar o modo SSL da Cloudflare para *Full (strict)*. Antes de o
+   certificado existir, esse modo faz a Cloudflare devolver erro 526.
 
 ---
 
@@ -201,7 +214,8 @@ Cada uma existe por um motivo concreto:
 | `violates PodSecurity` | UID do Dockerfile ≠ do `securityContext` | `kubectl describe pod` |
 | Pod sobe e morre em laço | falta variável; a validação recusa na subida | `kubectl logs -n sonora <pod> --previous` |
 | Timeout para o banco ou para a internet | regra faltando na NetworkPolicy | `kubectl describe networkpolicy -n sonora` |
-| Certificado não sai | DNS ainda não resolve | `kubectl describe certificate -n sonora` |
+| Certificado não sai | token da Cloudflare sem permissão de DNS Edit | `kubectl describe challenge -n sonora` |
+| Erro 521/522/526 da Cloudflare | firewall, origem fora, ou SSL strict cedo demais | [`CLOUDFLARE.md` §6](CLOUDFLARE.md) |
 | Progresso da geração não aparece | SSE bufferizado por algum middleware | testar `curl -N https://api.sonoravibe.com/generations/stream` |
 | Frontend chamando `localhost:3001` | `NEXT_PUBLIC_API_URL` não entrou no build | a variável é fixada no build, não no ConfigMap |
 

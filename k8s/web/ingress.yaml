@@ -10,8 +10,14 @@ metadata:
     kubernetes.io/ingress.class: traefik
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
-    # cert-manager emite o certificado sozinho e o grava no secret abaixo (spec.tls.secretName)
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Emissor por DNS-01 na Cloudflare, e não o `letsencrypt-prod` (HTTP-01) dos
+    # outros projetos: com o proxy da Cloudflare ligado, o desafio HTTP-01 é
+    # respondido pela Cloudflare e nunca chega aqui. O porquê completo está em
+    # k8s/cert-manager/clusterissuer-cloudflare.yaml.
+    #
+    # Se preferir deixar o DNS sem proxy (nuvem cinza), o HTTP-01 volta a
+    # funcionar e basta trocar por `letsencrypt-prod`.
+    cert-manager.io/cluster-issuer: letsencrypt-cloudflare
     # Redirect HTTP->HTTPS: só habilite depois de conferir se o Traefik já redireciona globalmente.
     # Se precisar, copie assets/optional/middlewares.yaml para k8s/ e descomente:
     # traefik.ingress.kubernetes.io/router.middlewares: sonora-redirect-to-https@kubernetescrd

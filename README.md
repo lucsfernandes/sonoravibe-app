@@ -37,3 +37,6 @@ pacotes necessários, em vez de liberar tudo.
 `git push` na `main` dispara os workflows em `.github/workflows/`, com filtro de
 caminho: mexer só no frontend não redeploya a API nem o worker.
 Passo a passo e pré-requisitos em [`docs/DEPLOY.md`](docs/DEPLOY.md).
+O domínio está na Cloudflare e a VPS na Hostinger: como ligar os dois, e as
+configurações da Cloudflare que afetam este app, em
+[`docs/CLOUDFLARE.md`](docs/CLOUDFLARE.md).
