@@ -34,3 +34,17 @@ references
 .claude/skills
 settings.json
 settings.local.json
+# Next.js
+apps/web/.next/
+apps/web/next-env.d.ts
+apps/web/tsconfig.tsbuildinfo
+apps/web/.env.local
+
+# Gerados pelo `next dev` (Next 16). São reescritos a cada execução.
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
+
+# Artefatos de verificação local (Playwright, capturas de tela)
+.playwright-mcp/
+*.png
+!references/*.png

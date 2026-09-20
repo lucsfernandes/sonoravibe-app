@@ -1,0 +1,107 @@
+@import 'tailwindcss';
+
+/**
+ * Sonora — tema escuro.
+ *
+ * O escuro é o padrão, e não uma opção: quem cria música passa horas na tela,
+ * muitas vezes à noite, e é a convenção das ferramentas de áudio (Suno, Ableton,
+ * Logic). O acento laranja→magenta é o que separa a marca do preto genérico.
+ */
+
+@theme {
+  --color-fundo: oklch(0.145 0 0);
+  --color-superficie: oklch(0.185 0.004 285);
+  --color-superficie-alta: oklch(0.225 0.006 285);
+  --color-borda: oklch(0.28 0.008 285);
+
+  --color-texto: oklch(0.97 0 0);
+  --color-texto-suave: oklch(0.72 0.008 285);
+  --color-texto-fraco: oklch(0.55 0.01 285);
+
+  --color-acento: oklch(0.7 0.19 42);
+  --color-acento-forte: oklch(0.62 0.24 12);
+  --color-acento-suave: oklch(0.7 0.19 42 / 0.12);
+
+  --color-sucesso: oklch(0.72 0.17 152);
+  --color-perigo: oklch(0.63 0.22 25);
+
+  --radius-card: 0.875rem;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  border-color: var(--color-borda);
+}
+
+html,
+body {
+  background: var(--color-fundo);
+  color: var(--color-texto);
+  font-family: var(--font-sans);
+  /* O player é fixo; sem isto a última faixa da lista fica escondida atrás dele. */
+  overscroll-behavior-y: none;
+}
+
+/* A barra de rolagem padrão do Windows é clara e corta o tema escuro ao meio. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-borda);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-texto-fraco);
+}
+
+@utility gradiente-acento {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-acento) 0%,
+    var(--color-acento-forte) 100%
+  );
+}
+
+@utility card {
+  background: var(--color-superficie);
+  border: 1px solid var(--color-borda);
+  border-radius: var(--radius-card);
+}
+
+/* Foco visível em tudo que é interativo: navegar por teclado não pode ser
+   adivinhação, e o anel padrão some no fundo escuro. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-acento);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+/* Respeita quem pediu menos animação no sistema. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes pulsar-suave {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.pulsando {
+  animation: pulsar-suave 1.6s ease-in-out infinite;
+}

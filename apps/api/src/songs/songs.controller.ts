@@ -160,8 +160,15 @@ export class SongsController {
   }
 
   /**
-   * Download de um formato. Responde 302 para uma URL assinada do R2 quando o
-   * arquivo existe, ou 202 com Retry-After enquanto o FFmpeg converte.
+   * Download de um formato.
+   *
+   * Responde 302 para uma URL assinada do R2 quando o arquivo existe, ou 202
+   * com Retry-After enquanto o FFmpeg converte.
+   *
+   * Com `Accept: application/json`, devolve `{ url }` em vez de redirecionar.
+   * É o que a interface usa: com o 302 puro, o navegador seguiria o redirect e
+   * o front não teria como distinguir "pronto" de "convertendo" para mostrar o
+   * aviso certo — um link simples abriria um JSON numa aba nova.
    */
   @Get(':id/download')
   async download(
@@ -179,6 +186,10 @@ export class SongsController {
     const result = await this.downloads.download(user.id, id, format as AudioFormat);
 
     if (result.ready) {
+      if (res.req.headers.accept?.includes('application/json')) {
+        res.status(HttpStatus.OK).json({ status: 'ready', url: result.url, filename: result.filename });
+        return;
+      }
       res.redirect(HttpStatus.FOUND, result.url);
       return;
     }

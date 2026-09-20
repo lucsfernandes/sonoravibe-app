@@ -18,6 +18,14 @@ export type ExploreTab = 'trending' | 'new' | 'following';
 export interface ExploreItem {
   id: string;
   title: string;
+  /**
+   * `status` e `isPublic` viajam mesmo sendo sempre 'complete' e true aqui: o
+   * mesmo cartão da interface renderiza itens do Explore e da biblioteca, e sem
+   * estes campos ele concluía "não está pronta" e "é privada" — mostrando
+   * "carregando" e um selo de privada numa faixa pública.
+   */
+  status: string;
+  isPublic: boolean;
   durationMs: number;
   stylePrompt: string | null;
   playCount: number;
@@ -104,6 +112,8 @@ export class SocialService {
         return {
           id: song.id,
           title: song.title,
+          status: song.status,
+          isPublic: song.isPublic,
           durationMs: song.durationMs,
           stylePrompt: song.stylePrompt,
           playCount: song.playCount,
@@ -153,9 +163,13 @@ export class SocialService {
         songs.map(async (song) => ({
           id: song.id,
           title: song.title,
+          status: song.status,
+          isPublic: song.isPublic,
           durationMs: song.durationMs,
           playCount: song.playCount,
           likeCount: song.likeCount,
+          commentCount: song.commentCount,
+          stylePrompt: song.stylePrompt,
           audioUrl: song.masterKey ? await this.storage.presignGet(song.masterKey) : null,
           coverUrl: song.coverKey ? await this.storage.presignGet(song.coverKey) : null,
           publishedAt: song.publishedAt,
