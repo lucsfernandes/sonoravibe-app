@@ -119,7 +119,7 @@ Repositório → Settings → Secrets and variables → Actions.
 | `BETTER_AUTH_SECRET` | api | `openssl rand -base64 32` |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | api, worker | Cloudflare R2 |
 | `OPENROUTER_API_KEY` | api, worker | letra, capa e o motor reserva Lyria |
-| `RUNPOD_API_KEY`, `RUNPOD_ENDPOINT_ID` | api, worker | ACE-Step |
+| `RUNPOD_API_KEY`, `RUNPOD_ENDPOINT_ID` | api, worker | **dispensáveis hoje** — só exigidos com `MUSIC_PROVIDER=acestep` (ver 2.5) |
 | `ASAAS_API_KEY` | api | produção, não sandbox |
 | `ASAAS_WEBHOOK_TOKEN` | api | **obrigatório**: sem ele, qualquer um chama o webhook e concede créditos a si mesmo |
 
@@ -157,18 +157,47 @@ kubectl create secret generic cloudflare-api-token \
 kubectl apply -f k8s/cert-manager/clusterissuer-cloudflare.yaml
 ```
 
-### 2.5 RunPod (motor de música)
+### 2.5 Motor de música — hoje o Lyria, ACE-Step depois
 
-O `MUSIC_PROVIDER` do ConfigMap está em `acestep`, mas **o endpoint da RunPod
-ainda não existe**. Até criá-lo e preencher `RUNPOD_ENDPOINT_ID`, a API falha na
-subida com a mensagem da própria validação de configuração.
+Os ConfigMaps estão com `MUSIC_PROVIDER: "lyria"`. É **temporário**: o endpoint
+serverless da RunPod ainda não existe, e a API se recusa a subir com `acestep`
+sem `RUNPOD_ENDPOINT_ID`.
 
-Duas saídas, escolha uma:
+| | ACE-Step (RunPod) | Lyria (OpenRouter) — atual |
+|---|---|---|
+| Custo por música | ~US$ 0,008 | ~US$ 0,08 (**10×**) |
+| Duração máxima | 8 min | ~3 min |
+| Endpoint próprio | precisa criar | não precisa |
 
-- Criar o endpoint serverless na RunPod com a imagem de `apps/gpu-worker/` e
-  preencher os dois secrets.
-- Subir com `MUSIC_PROVIDER: "lyria"` no ConfigMap, usando o OpenRouter. Funciona
-  hoje, mas custa cerca de 10× mais por música e limita a duração a ~3 minutos.
+Com `lyria`, os secrets `RUNPOD_API_KEY` e `RUNPOD_ENDPOINT_ID` **não precisam
+existir** — eles só são exigidos pelo motor ACE-Step.
+
+#### O que isso quebra, e o que não quebra
+
+A duração padrão é **automática**: quando o usuário não mexe no controle, o
+pedido não leva `durationSeconds` e o Lyria atende normalmente, entregando uma
+faixa de até ~3 minutos. Esse é o caminho da maioria e continua funcionando.
+
+O problema aparece quando alguém **fixa** uma duração acima de 3 minutos:
+
+| Plano | Duração anunciada | Com Lyria |
+|---|---|---|
+| Free | 2 min | funciona |
+| Pro | 4 min | **falha** se a duração for fixada acima de ~3 min |
+| Premier | 8 min | **falha** se a duração for fixada acima de ~3 min |
+
+A falha é limpa — o roteador recusa antes de chamar o modelo e os créditos nem
+chegam a ser cobrados —, mas é uma promessa que o produto não cumpre.
+
+> **Antes de abrir para o público pagante**, resolva uma das duas: crie o
+> endpoint da RunPod, ou ajuste `maxDurationSeconds` em `packages/shared/src/plans.ts`
+> e os textos correspondentes no site. Vender um plano de 8 minutos que entrega
+> 3 é o tipo de coisa que gera estorno e reclamação.
+
+Para voltar ao ACE-Step depois: troque as duas linhas `MUSIC_PROVIDER` nos
+ConfigMaps da API e do worker, e preencha os dois secrets da RunPod. O código do
+provider e a imagem de GPU (`apps/gpu-worker/`) já estão prontos — falta só
+construir a imagem e criar o endpoint.
 
 ---
 
