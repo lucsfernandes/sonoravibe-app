@@ -27,8 +27,13 @@
 #      Permissões:  Zone → DNS  → Edit
 #                   Zone → Zone → Read
 #      Recursos:    Include → Specific zone → sonoravibe.com
+#
 #    Use um token com escopo de zona, não a Global API Key: a chave global dá
 #    acesso a toda a sua conta Cloudflare, inclusive ao R2 e ao faturamento.
+#
+#    Se o desafio falhar dizendo que o token não tem permissão para listar
+#    zonas, troque os recursos para "All zones" mantendo as mesmas permissões:
+#    o cert-manager consulta a listagem de zonas para descobrir o ID da zona.
 #
 # 2. Guarde o token no cluster, no namespace do cert-manager:
 #

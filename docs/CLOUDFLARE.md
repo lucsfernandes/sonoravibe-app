@@ -52,8 +52,16 @@ Painel da Cloudflare → `sonoravibe.com` → **DNS** → **Records**.
 | Tipo | Nome | Conteúdo | Proxy |
 |---|---|---|---|
 | A | `@` | `<IP da VPS>` | laranja |
-| A | `www` | `<IP da VPS>` | laranja |
 | A | `api` | `<IP da VPS>` | laranja |
+| CNAME **ou** A | `www` | `sonoravibe.com` **ou** `<IP da VPS>` | laranja |
+
+**Sobre o `www`:** um CNAME apontando para `sonoravibe.com` funciona perfeitamente com o proxy
+ligado — e é até preferível a um registro A, porque no dia em que o IP da VPS mudar você troca um
+registro só, em vez de três. Se o seu `www` já é CNAME para o domínio raiz, **não mexa**: só
+confira se a nuvem está laranja.
+
+Troque para A apenas se o CNAME atual apontar para outro lugar (uma página de estacionamento da
+Hostinger, um host antigo, um construtor de sites).
 
 O `cdn` fica para a seção 4 — ele não aponta para a VPS.
 
@@ -84,11 +92,30 @@ redireciona para HTTPS quem digita o endereço sem `https://`.
 |---|---|
 | Permissões | `Zone` → `DNS` → **Edit** |
 | | `Zone` → `Zone` → **Read** |
-| Recursos | Include → Specific zone → `sonoravibe.com` |
+| Recursos de zona | Include → Specific zone → `sonoravibe.com` |
 
-Use um token com escopo de zona, **não a Global API Key**: a chave global dá
-acesso a toda a sua conta Cloudflare, inclusive ao R2 e ao faturamento. Um token
-de zona vazado só mexe no DNS deste domínio.
+Use um token com escopo de zona, **não a Global API Key**: a chave global dá acesso a toda a sua
+conta Cloudflare, inclusive ao R2 e ao faturamento. Um token de zona vazado só mexe no DNS deste
+domínio.
+
+> **Se o desafio falhar com erro de permissão para listar zonas**, troque os recursos para
+> *Include → All zones*, mantendo as mesmas duas permissões. O cert-manager consulta o endpoint de
+> listagem de zonas para descobrir o ID da zona, e a documentação oficial dele pede *All zones* por
+> causa disso. Comece pelo escopo restrito: nas versões atuais ele costuma bastar, e só vale abrir
+> mais se der erro.
+
+**Confira o token antes de colocar no cluster** — dois comandos que evitam depurar isto de dentro
+do Kubernetes:
+
+```bash
+# Deve responder "status": "active"
+curl -s -H "Authorization: Bearer SEU_TOKEN" \
+  https://api.cloudflare.com/client/v4/user/tokens/verify
+
+# Deve devolver a zona sonoravibe.com e o id dela
+curl -s -H "Authorization: Bearer SEU_TOKEN" \
+  "https://api.cloudflare.com/client/v4/zones?name=sonoravibe.com"
+```
 
 Guarde o token no cluster e aplique o emissor:
 
