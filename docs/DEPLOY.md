@@ -40,6 +40,29 @@ Tudo no namespace `sonora`, com PSA `restricted`.
 ### 2.1 Banco de dados
 
 O Postgres do namespace `databases` é compartilhado com seus outros projetos.
+
+**Endereço interno** (verificado no cluster em 20/09/2026):
+
+```
+postgres-rw.databases.svc.cluster.local:5432
+```
+
+Existem dois Services apontando para o mesmo pod `postgres-0`:
+
+| Service | Tipo | Quando usar |
+|---|---|---|
+| `postgres-rw` | ClusterIP `10.43.26.198` | **este** — é o endpoint de leitura e escrita |
+| `postgres` | headless (`ClusterIP: None`) | resolve direto para o IP do pod; serve, mas é o Service de identidade do StatefulSet |
+
+Os dois funcionam hoje, com uma réplica só. O `-rw` é o certo porque, no dia em que
+existir uma réplica de leitura, ele continua apontando para o primário — o headless
+passaria a devolver os dois.
+
+**Não use o endereço externo** (`divinabella.arcobatrox.com.br:5432`, o do DBeaver): a
+NetworkPolicy libera a porta 5432 apenas para dentro do namespace `databases`, e
+deliberadamente não a abre para a internet. Pelo endereço público a conexão morre em
+timeout — sem mensagem que explique por quê.
+
 Crie o banco e o usuário do Sonora (uma vez só):
 
 ```sql
@@ -91,7 +114,7 @@ Repositório → Settings → Secrets and variables → Actions.
 
 | Secret | Usado por | Observação |
 |---|---|---|
-| `DATABASE_URL` | api, worker | `postgresql://sonora_user_admin:<senha>@postgres.databases.svc.cluster.local:5432/sonora_vibe` |
+| `DATABASE_URL` | api, worker | `postgresql://sonora_user_admin:<senha>@postgres-rw.databases.svc.cluster.local:5432/sonora_vibe` |
 | `REDIS_URL` | api, worker | `redis://sonora-redis.sonora.svc.cluster.local:6379` |
 | `BETTER_AUTH_SECRET` | api | `openssl rand -base64 32` |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | api, worker | Cloudflare R2 |
@@ -114,8 +137,8 @@ O passo a passo completo está em [`CLOUDFLARE.md`](CLOUDFLARE.md). O resumo:
 | Tipo | Nome | Valor | Proxy |
 |---|---|---|---|
 | A | `@` | IP da VPS | laranja |
-| A | `www` | IP da VPS | laranja |
 | A | `api` | IP da VPS | laranja |
+| CNAME ou A | `www` | `sonoravibe.com` ou o IP | laranja |
 | — | `cdn` | criado pelo painel do R2 | — |
 
 Com o proxy da Cloudflare ligado, o desafio **HTTP-01 não funciona**: quem
