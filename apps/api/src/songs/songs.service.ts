@@ -98,19 +98,7 @@ export class SongsService {
       await this.credits.reserve(user.id, cost, generation.id);
     } catch (err) {
       await this.markFailed(song.id, generation.id, err);
-      if (err instanceof InsufficientCreditsError) {
-        // O Nest não tem uma exceção pronta para 402; a semântica é exatamente
-        // esta ("faltou saldo"), então vale montar na mão.
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.PAYMENT_REQUIRED,
-            message: err.message,
-            required: err.required,
-            available: err.available,
-          },
-          HttpStatus.PAYMENT_REQUIRED,
-        );
-      }
+      if (err instanceof InsufficientCreditsError) throw insufficientCredits(err);
       throw err;
     }
 
@@ -224,4 +212,23 @@ export class SongsService {
     }
     return null;
   }
+}
+
+/**
+ * 402 para saldo insuficiente.
+ *
+ * O Nest não traz uma exceção pronta para este status, e a semântica é
+ * exatamente esta ("faltou saldo"), então vale montar na mão. Fica aqui, e não
+ * duplicada, porque geração e edições derivadas cobram do mesmo jeito.
+ */
+export function insufficientCredits(err: InsufficientCreditsError): HttpException {
+  return new HttpException(
+    {
+      statusCode: HttpStatus.PAYMENT_REQUIRED,
+      message: err.message,
+      required: err.required,
+      available: err.available,
+    },
+    HttpStatus.PAYMENT_REQUIRED,
+  );
 }

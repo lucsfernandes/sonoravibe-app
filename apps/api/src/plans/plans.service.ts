@@ -1,6 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Subscription } from '@sonora/db';
-import { PLANS, type Plan, type PlanCode } from '@sonora/shared';
+import {
+  PLANS,
+  canDownloadFormat,
+  type AudioFormat,
+  type Plan,
+  type PlanCode,
+} from '@sonora/shared';
 import { DataSource } from 'typeorm';
 import { DATA_SOURCE } from '../database/database.module';
 
@@ -34,5 +40,10 @@ export class PlansService {
 
   async planOf(userId: string): Promise<Plan> {
     return PLANS[await this.planCodeOf(userId)];
+  }
+
+  /** O plano libera este formato de download? */
+  canDownload(planCode: PlanCode, format: AudioFormat): boolean {
+    return canDownloadFormat(planCode, format);
   }
 }

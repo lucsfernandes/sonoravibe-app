@@ -163,6 +163,49 @@ export class CreditsLedger {
     });
   }
 
+  /**
+   * Débito direto, sem reserva.
+   *
+   * Para operações curtas e síncronas (escrever uma letra), em que o resultado
+   * já está em mãos quando cobramos. Reservar antes exigiria uma linha em
+   * `generations`, que por sua vez exige uma música — e aqui não há música
+   * nenhuma. Como a cobrança vem depois do sucesso, o usuário nunca paga por
+   * uma chamada que falhou.
+   */
+  async spend(
+    userId: string,
+    credits: number,
+    reason: CreditReason,
+    description?: string,
+  ): Promise<void> {
+    if (credits <= 0) return;
+
+    await this.dataSource.transaction(async (em) => {
+      const wallet = await this.lockWallet(em, userId);
+      const available = wallet.planBalance + wallet.packBalance;
+      if (available < credits) throw new InsufficientCreditsError(credits, available);
+
+      const fromPlan = Math.min(wallet.planBalance, credits);
+      const fromPack = credits - fromPlan;
+      wallet.planBalance -= fromPlan;
+      wallet.packBalance -= fromPack;
+      await em.getRepository(CreditWallet).save(wallet);
+
+      await this.record(
+        em,
+        wallet.id,
+        [
+          ...(fromPlan ? [{ amount: -fromPlan, bucket: 'plan' as const }] : []),
+          ...(fromPack ? [{ amount: -fromPack, bucket: 'pack' as const }] : []),
+        ],
+        reason,
+        wallet.planBalance + wallet.packBalance,
+        null,
+        description,
+      );
+    });
+  }
+
   /** Concede créditos: renovação de plano, compra de pacote ou cortesia manual. */
   async grant(
     userId: string,

@@ -98,6 +98,17 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   if (env.NODE_ENV === 'production' && env.DB_SYNCHRONIZE) {
     throw new Error('DB_SYNCHRONIZE não pode ficar ligado em produção: use migrations.');
   }
+  if (env.NODE_ENV === 'production' && env.PAYMENT_PROVIDER === 'fake') {
+    // O gateway falso confirma qualquer cobrança sem cobrar nada: em produção
+    // seria crédito de graça para quem descobrisse.
+    throw new Error("PAYMENT_PROVIDER='fake' não pode ser usado em produção.");
+  }
+  if (env.PAYMENT_PROVIDER === 'asaas' && !env.ASAAS_WEBHOOK_TOKEN) {
+    throw new Error(
+      'ASAAS_WEBHOOK_TOKEN é obrigatório com o Asaas: sem ele, qualquer um chama o ' +
+        'webhook e concede créditos a si mesmo.',
+    );
+  }
 
   return {
     ...env,

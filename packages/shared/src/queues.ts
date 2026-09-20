@@ -46,6 +46,33 @@ export interface GenerationJob {
   kind: GenerationKind;
   /** Créditos já reservados no ledger; estornados se o job falhar. */
   reservedCredits: number;
+  /** Faixa de origem em extend, remix e replace_section. */
+  sourceSongId?: string;
+  /** Descrição da capa, quando kind === 'cover'. */
+  coverPrompt?: string;
+}
+
+/** Edições mecânicas: rodam em FFmpeg no nosso worker e não custam crédito. */
+export const EDIT_OPERATIONS = [
+  'crop',
+  'trim-silence',
+  'fade-in',
+  'fade-out',
+  'speed',
+  'reverse',
+  'normalize',
+] as const;
+export type EditOperation = (typeof EDIT_OPERATIONS)[number];
+
+export interface EditJob {
+  songId: string;
+  userId: string;
+  operation: EditOperation;
+  /**
+   * Parâmetros da operação, em números: `startMs`/`endMs` no corte,
+   * `durationMs` nos fades, `factor` na velocidade. Vazio em reverse e normalize.
+   */
+  params: Record<string, number>;
 }
 
 export interface TranscodeJob {
@@ -53,12 +80,31 @@ export interface TranscodeJob {
   format: AudioFormat;
   /** Quem pediu, para notificar quando ficar pronto. */
   userId: string;
+  /** Identifica a rendição junto com o formato. 0 = formato de versão única. */
+  bitrate: number;
+  /** Args do FFmpeg já resolvidos pela API, que conhece o plano do usuário. */
+  ffmpegArgs: readonly string[];
 }
 
 export interface StemsJob {
   songId: string;
   userId: string;
   kinds: readonly StemKind[];
+}
+
+/**
+ * Monta um id de job estável (usado para deduplicar: o BullMQ descarta um job
+ * cujo id já existe na fila).
+ *
+ * O separador é `-`, e não `:`, por causa de uma regra traiçoeira do BullMQ:
+ * ele aceita `:` no id APENAS quando o resultado tem exatamente 3 partes —
+ * resquício de compatibilidade com jobs repetíveis antigos. Então
+ * `musica:mp3:128` passa e `musica:crop` falha com "Custom Id cannot contain :".
+ * Dois ids irmãos com comportamento diferente é exatamente o tipo de armadilha
+ * que se paga em produção; aqui não usamos `:` em id nenhum.
+ */
+export function jobId(...partes: (string | number)[]): string {
+  return partes.map((p) => String(p).replace(/:/g, '-')).join('-');
 }
 
 /**

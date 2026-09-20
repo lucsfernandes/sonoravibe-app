@@ -4,12 +4,16 @@ Este documento responde três coisas: **onde cada aplicação roda**, **qual URL
 **como chamar cada rota**. A coleção Postman equivalente está em [`docs/postman/`](postman/)
 e é gerada por `node scripts/build-postman.mjs`.
 
-> **Estado atual (honesto):** 11 das 45 rotas existem e respondem hoje — saúde, autenticação
-> completa, geração de música e o progresso ao vivo. O restante está marcado como *planejado*:
-> é o contrato do que está sendo construído, não rota quebrada.
+> **Estado atual:** o backend está completo — as 54 rotas deste documento existem e respondem.
+> Verificado chamando cada uma contra a API no ar, não só por leitura de código.
 >
-> O que já funciona ponta a ponta: cadastro → créditos concedidos → `POST /songs/generate` →
-> fila → worker → master no R2 → `complete` chegando por SSE, com os créditos confirmados.
+> O que falta para o produto: a interface (`apps/web`), o site institucional e a página de
+> vendas. Duas ressalvas honestas sobre o que roda hoje:
+>
+> - A separação de **stems** exige o `demucs` na imagem do worker. Sem ele a rota aceita o
+>   pedido e o job falha com mensagem explícita — falta empacotar o binário.
+> - O motor de música em desenvolvimento é o `mock` (FFmpeg, custo zero). O **ACE-Step** na
+>   RunPod ainda não tem endpoint criado; o código do provider e a imagem GPU estão prontos.
 
 ---
 
@@ -67,7 +71,7 @@ Base local `http://localhost:3001` · Base produção `https://api.sonora.app`
 Autenticação por cookie de sessão do Better Auth. Nos exemplos, `-c cookies.txt` grava o cookie no
 login e `-b cookies.txt` o reaproveita.
 
-### 3.1 Saúde — **implementado**
+### 3.1 Saúde
 
 ```bash
 curl -i http://localhost:3001/health
@@ -86,7 +90,7 @@ probe do k3s usa para tirar a réplica do balanceador.
 
 ---
 
-### 3.2 Autenticação — **implementado**
+### 3.2 Autenticação
 
 ```bash
 # Cadastro
@@ -116,7 +120,7 @@ ferramentas não disputarem o mesmo schema.
 
 ---
 
-### 3.3 Geração de música — **implementado**
+### 3.3 Geração de música
 
 **Aba Simple** — só a descrição:
 
@@ -213,7 +217,7 @@ curl http://localhost:3001/generations/$GENERATION_ID -b cookies.txt
 curl -X POST http://localhost:3001/generations/$GENERATION_ID/cancel -b cookies.txt
 ```
 
-**Apoio de escrita** — *planejado*. Letra custa 1 crédito, sugestão de estilo é grátis:
+**Apoio de escrita** — a letra custa 1 crédito; a sugestão de estilo é grátis e pública:
 
 ```bash
 curl -X POST http://localhost:3001/lyrics/generate \
@@ -227,7 +231,7 @@ curl -X POST http://localhost:3001/styles/suggest \
 
 ---
 
-### 3.4 Biblioteca de músicas — *planejado*
+### 3.4 Biblioteca de músicas
 
 ```bash
 # Listar (paginação por cursor)
@@ -255,8 +259,14 @@ curl -X POST http://localhost:3001/songs/$SONG_ID/publish \
 curl -L -o musica.mp3 "http://localhost:3001/songs/$SONG_ID/download?format=mp3" -b cookies.txt
 ```
 
-Formatos: `mp3`, `wav`, `flac`, `opus`, `m4a`. O que ainda não foi transcodificado é gerado sob
-demanda e fica 7 dias em cache. Plano Free baixa só MP3.
+Formatos: `mp3`, `wav`, `flac`, `opus`, `m4a`. O MP3 é convertido assim que a música nasce; os
+demais são gerados sob demanda e ficam 7 dias em cache. Enquanto a conversão roda, a resposta é
+**202** com `Retry-After` em vez de segurar a requisição aberta — uma faixa de 8 minutos demora o
+bastante para estourar timeout de proxy.
+
+O Free baixa só MP3, e a **128 kbps**; os planos pagos recebem 320 kbps e todos os formatos. As
+duas qualidades coexistem para a mesma música (alguém que assina depois de já ter baixado no
+Free), por isso o bitrate faz parte da identidade do arquivo.
 
 **Download de várias de uma vez** (planos pagos) — ZIP montado em streaming:
 
@@ -269,7 +279,7 @@ curl -X POST http://localhost:3001/songs/download-batch \
 
 ---
 
-### 3.5 Edição — *planejado*
+### 3.5 Edição
 
 ```bash
 # Estender: consome crédito, é uma nova chamada ao motor
@@ -304,7 +314,7 @@ curl -X POST http://localhost:3001/songs/$SONG_ID/cover-art \
 
 ---
 
-### 3.6 Workspaces, playlists e estilos — *planejado*
+### 3.6 Workspaces, playlists e estilos
 
 ```bash
 curl http://localhost:3001/workspaces -b cookies.txt
@@ -321,11 +331,24 @@ curl -X POST http://localhost:3001/playlists/$PLAYLIST_ID/songs \
 
 # Presets de estilo salvos
 curl http://localhost:3001/styles -b cookies.txt
+curl -X POST http://localhost:3001/styles   -H 'Content-Type: application/json' -b cookies.txt   -d '{"name":"Meu lo-fi","prompt":"lofi hip hop, piano, chuva","excludeStyles":"distorção"}'
+curl -X DELETE http://localhost:3001/styles/$STYLE_ID -b cookies.txt
+
+# Reordenar a playlist inteira (o formato que o arrastar-e-soltar produz)
+curl -X PATCH http://localhost:3001/playlists/$PLAYLIST_ID/order   -H 'Content-Type: application/json' -b cookies.txt   -d '{"songIds":["id-1","id-2","id-3"]}'
+
+# Remover música da playlist / excluir playlist / excluir workspace
+curl -X DELETE http://localhost:3001/playlists/$PLAYLIST_ID/songs/$SONG_ID -b cookies.txt
+curl -X DELETE http://localhost:3001/playlists/$PLAYLIST_ID -b cookies.txt
+curl -X DELETE http://localhost:3001/workspaces/$WORKSPACE_ID -b cookies.txt
 ```
+
+Excluir um workspace **não apaga as músicas**: elas voltam para "sem workspace". O workspace
+padrão não pode ser excluído.
 
 ---
 
-### 3.7 Social — *planejado*
+### 3.7 Social
 
 ```bash
 # Públicos, sem sessão
@@ -339,6 +362,7 @@ curl -X POST http://localhost:3001/songs/$SONG_ID/comments \
   -H 'Content-Type: application/json' -b cookies.txt \
   -d '{"body":"Muito boa!","timestampMs":42000}'
 curl -X POST http://localhost:3001/users/lucsfernandes/follow -b cookies.txt
+curl -X DELETE http://localhost:3001/songs/$SONG_ID/comments/$COMMENT_ID -b cookies.txt
 
 # Registro de reprodução: alimenta o ranking do Explore, deduplicado por janela de 30s
 curl -X POST http://localhost:3001/songs/$SONG_ID/play \
@@ -347,7 +371,7 @@ curl -X POST http://localhost:3001/songs/$SONG_ID/play \
 
 ---
 
-### 3.8 Créditos e cobrança — *planejado*
+### 3.8 Créditos e cobrança
 
 ```bash
 # Saldo do plano, saldo avulso, reservado e extrato do ledger
@@ -374,8 +398,10 @@ curl -X POST http://localhost:3001/webhooks/asaas \
   -d '{"event":"PAYMENT_CONFIRMED","payment":{"id":"pay_000001","status":"CONFIRMED"}}'
 ```
 
-Idempotente pelo `provider_ref`: o Asaas reenvia o evento enquanto não receber `200`, e a concessão
-de créditos não pode acontecer duas vezes.
+Idempotente: o Asaas reenvia o evento enquanto não receber `200`, e a concessão de créditos não
+pode acontecer duas vezes. A trava é a flag `credits_granted` do pagamento, lida e escrita na mesma
+transação com a linha travada — duas entregas simultâneas do mesmo evento não podem as duas ver
+`false`. Testado disparando o webhook duas vezes: o saldo não se moveu na segunda.
 
 Custo em créditos: música 10 · clipe 5 · estender/remix 10 · substituir trecho 10 · capa 2 ·
 letra 1 · stems, transcode e edição sem IA 0.
@@ -386,18 +412,17 @@ letra 1 · stems, transcode e edição sem IA 0.
 
 ```
 docs/postman/
-├── sonora.postman_collection.json        45 rotas em 8 pastas
+├── sonora.postman_collection.json        54 rotas em 8 pastas
 ├── sonora-local.postman_environment.json
 └── sonora-producao.postman_environment.json
 ```
 
 Importe os três arquivos (**Import → File**), escolha o ambiente no canto superior direito e rode
 **Autenticação → Login por e-mail** primeiro: o Postman guarda o cookie de sessão e as demais
-chamadas passam a ir autenticadas. Rotas ainda não implementadas têm `(planejado)` no nome e o
-status descrito na aba *Description*.
+chamadas passam a ir autenticadas.
 
 Variáveis do ambiente: `apiUrl`, `webUrl`, `songId`, `generationId`, `workspaceId`, `playlistId`,
-`handle`, `asaasWebhookToken`.
+`styleId`, `commentId`, `handle`, `asaasWebhookToken`.
 
 Os arquivos são **gerados**, não editados à mão. Para mudar uma rota, edite a lista em
 `scripts/build-postman.mjs` e rode:
@@ -406,4 +431,5 @@ Os arquivos são **gerados**, não editados à mão. Para mudar uma rota, edite 
 node scripts/build-postman.mjs
 ```
 
-Assim a documentação não se descola do código conforme as rotas saem do "planejado".
+Assim a documentação não se descola do código. O script `scripts/verify-routes.mjs` confere o
+outro lado: chama cada rota documentada contra a API no ar e acusa qualquer uma que não exista.

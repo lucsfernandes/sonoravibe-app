@@ -110,6 +110,43 @@ export function formatNote(format: AudioFormat, master: MasterFormat): string {
   return master === 'mp3' && spec.lossyMasterNote ? spec.lossyMasterNote : spec.note;
 }
 
+/**
+ * Bitrate do MP3 por qualidade de plano.
+ *
+ * O Free recebe 128 kbps e os pagos 320. Como as duas versões podem coexistir
+ * para a mesma música (alguém que assina depois de baixar no Free), o bitrate
+ * faz parte da identidade da rendição, não é só um dado informativo.
+ */
+export const MP3_BITRATES = { preview: 128, full: 320 } as const;
+export type Mp3Quality = keyof typeof MP3_BITRATES;
+
+/**
+ * Bitrate que identifica a rendição. `0` significa "não se aplica": formatos
+ * sem perdas e os de bitrate fixo têm uma versão só.
+ *
+ * Zero em vez de null porque o índice único do Postgres trata NULLs como
+ * distintos entre si — com null, a mesma rendição poderia ser gravada duas vezes.
+ */
+export function renditionBitrate(format: AudioFormat, quality: Mp3Quality = 'full'): number {
+  return format === 'mp3' ? MP3_BITRATES[quality] : 0;
+}
+
+/**
+ * Rótulo honesto do formato para o plano em questão.
+ *
+ * O rótulo fixo de AUDIO_FORMAT_SPECS.mp3 diz "320 kbps", que é falso para o
+ * Free. Mostrar o número errado numa mensagem de bloqueio é pior do que não
+ * mostrar número nenhum.
+ */
+export function formatLabel(format: AudioFormat, quality: Mp3Quality = 'full'): string {
+  return format === 'mp3' ? `MP3 ${MP3_BITRATES[quality]} kbps` : AUDIO_FORMAT_SPECS[format].label;
+}
+
+/** Args do FFmpeg para o MP3 na qualidade do plano. */
+export function mp3ArgsFor(quality: Mp3Quality): readonly string[] {
+  return ['-codec:a', 'libmp3lame', '-b:a', `${MP3_BITRATES[quality]}k`];
+}
+
 /** Formatos gerados assim que a música fica pronta. */
 export const EAGER_FORMATS = AUDIO_FORMATS.filter((f) => AUDIO_FORMAT_SPECS[f].eager);
 

@@ -130,7 +130,10 @@
                 "get-session"
               ]
             },
-            "description": "Status: implementado e respondendo."
+            "description": "Status: implementado e respondendo.\n\nResponde 200 com `null` quando não há sessão — é o contrato do Better Auth, e é o que permite à interface decidir entre mostrar \"entrar\" ou o avatar.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
           }
         },
         {
@@ -149,7 +152,10 @@
                 "sign-out"
               ]
             },
-            "description": "Status: implementado e respondendo."
+            "description": "Status: implementado e respondendo.\n\nIdempotente: sair sem estar logado responde 200 em vez de erro.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
           }
         }
       ]
@@ -309,7 +315,7 @@
           }
         },
         {
-          "name": "Escrever letra com IA (planejado)",
+          "name": "Escrever letra com IA",
           "request": {
             "method": "POST",
             "header": [
@@ -337,11 +343,11 @@
                 "generate"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Sugerir estilo (planejado)",
+          "name": "Sugerir estilo",
           "request": {
             "method": "POST",
             "header": [
@@ -369,7 +375,10 @@
                 "suggest"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nO botão de dado da interface. Não consome crédito."
+            "description": "Status: implementado e respondendo.\n\nO botão de dado da interface. Não consome crédito.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
           }
         }
       ]
@@ -378,7 +387,7 @@
       "name": "Músicas",
       "item": [
         {
-          "name": "Listar minhas músicas (planejado)",
+          "name": "Listar minhas músicas",
           "request": {
             "method": "GET",
             "header": [],
@@ -409,11 +418,11 @@
                 }
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Detalhe da música (planejado)",
+          "name": "Detalhe da música",
           "request": {
             "method": "GET",
             "header": [],
@@ -427,11 +436,14 @@
                 "{{songId}}"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo.\n\nMúsica publicada abre sem login. Música privada de outra pessoa responde 404, e não 403: confirmar que o id existe já seria informação demais.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
           }
         },
         {
-          "name": "Atualizar música (planejado)",
+          "name": "Atualizar música",
           "request": {
             "method": "PATCH",
             "header": [
@@ -459,11 +471,11 @@
                 "{{songId}}"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Mover para a lixeira (planejado)",
+          "name": "Mover para a lixeira",
           "request": {
             "method": "DELETE",
             "header": [],
@@ -477,11 +489,11 @@
                 "{{songId}}"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nExclusão lógica: some da biblioteca e o arquivo é apagado depois de 30 dias."
+            "description": "Status: implementado e respondendo.\n\nExclusão lógica: some da biblioteca e o arquivo é apagado depois de 30 dias."
           }
         },
         {
-          "name": "Publicar no Explore (planejado)",
+          "name": "Publicar no Explore",
           "request": {
             "method": "POST",
             "header": [
@@ -510,11 +522,11 @@
                 "publish"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Baixar num formato (planejado)",
+          "name": "Baixar num formato",
           "request": {
             "method": "GET",
             "header": [],
@@ -535,11 +547,11 @@
                 }
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nResponde 302 para uma URL assinada do R2. Formatos: mp3, wav, flac, opus, m4a. O que ainda não existe é transcodificado sob demanda e fica 7 dias em cache. Free só baixa MP3; o limite vem do plano."
+            "description": "Status: implementado e respondendo.\n\nResponde 302 para uma URL assinada do R2. Formatos: mp3, wav, flac, opus, m4a. O que ainda não existe é transcodificado sob demanda e fica 7 dias em cache. Free só baixa MP3; o limite vem do plano."
           }
         },
         {
-          "name": "Baixar várias de uma vez (ZIP) (planejado)",
+          "name": "Baixar várias de uma vez (ZIP)",
           "request": {
             "method": "POST",
             "header": [
@@ -567,7 +579,7 @@
                 "download-batch"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nZIP montado em streaming. Exclusivo de planos pagos."
+            "description": "Status: implementado e respondendo.\n\nZIP montado em streaming. Exclusivo de planos pagos."
           }
         }
       ]
@@ -576,7 +588,7 @@
       "name": "Edição",
       "item": [
         {
-          "name": "Estender a música (planejado)",
+          "name": "Estender a música",
           "request": {
             "method": "POST",
             "header": [
@@ -605,11 +617,11 @@
                 "extend"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nConsome crédito: é uma nova chamada ao motor."
+            "description": "Status: implementado e respondendo.\n\nConsome crédito: é uma nova chamada ao motor."
           }
         },
         {
-          "name": "Remix com outro estilo (planejado)",
+          "name": "Remix com outro estilo",
           "request": {
             "method": "POST",
             "header": [
@@ -638,11 +650,11 @@
                 "remix"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Substituir um trecho (planejado)",
+          "name": "Substituir um trecho",
           "request": {
             "method": "POST",
             "header": [
@@ -671,11 +683,11 @@
                 "replace-section"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Edições sem IA (planejado)",
+          "name": "Edições sem IA",
           "request": {
             "method": "POST",
             "header": [
@@ -704,11 +716,11 @@
                 "edit"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\ncrop, trim, fade-in, fade-out, speed, reverse e normalize. Roda em FFmpeg no nosso worker: não consome crédito nenhum."
+            "description": "Status: implementado e respondendo.\n\ncrop, trim, fade-in, fade-out, speed, reverse e normalize. Roda em FFmpeg no nosso worker: não consome crédito nenhum."
           }
         },
         {
-          "name": "Separar stems (planejado)",
+          "name": "Separar stems",
           "request": {
             "method": "POST",
             "header": [
@@ -737,11 +749,11 @@
                 "stems"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nDemucs no worker dedicado. Sem crédito, mas pesado: fila própria e só para planos pagos."
+            "description": "Status: implementado e respondendo.\n\nDemucs no worker dedicado. Sem crédito, mas pesado: fila própria e só para planos pagos."
           }
         },
         {
-          "name": "Gerar capa (planejado)",
+          "name": "Gerar capa",
           "request": {
             "method": "POST",
             "header": [
@@ -770,7 +782,7 @@
                 "cover-art"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         }
       ]
@@ -779,7 +791,7 @@
       "name": "Biblioteca",
       "item": [
         {
-          "name": "Listar workspaces (planejado)",
+          "name": "Listar workspaces",
           "request": {
             "method": "GET",
             "header": [],
@@ -792,11 +804,11 @@
                 "workspaces"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Criar workspace (planejado)",
+          "name": "Criar workspace",
           "request": {
             "method": "POST",
             "header": [
@@ -823,11 +835,11 @@
                 "workspaces"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Renomear workspace (planejado)",
+          "name": "Renomear workspace",
           "request": {
             "method": "PATCH",
             "header": [
@@ -855,11 +867,11 @@
                 "{{workspaceId}}"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Listar playlists (planejado)",
+          "name": "Listar playlists",
           "request": {
             "method": "GET",
             "header": [],
@@ -872,11 +884,11 @@
                 "playlists"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Criar playlist (planejado)",
+          "name": "Criar playlist",
           "request": {
             "method": "POST",
             "header": [
@@ -903,11 +915,11 @@
                 "playlists"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Adicionar música à playlist (planejado)",
+          "name": "Adicionar música à playlist",
           "request": {
             "method": "POST",
             "header": [
@@ -936,11 +948,11 @@
                 "songs"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Estilos salvos (planejado)",
+          "name": "Estilos salvos",
           "request": {
             "method": "GET",
             "header": [],
@@ -953,7 +965,163 @@
                 "styles"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Salvar estilo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Meu lo-fi\",\n  \"prompt\": \"lofi hip hop, piano, chuva\",\n  \"excludeStyles\": \"distorção\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/styles",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "styles"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Excluir estilo",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/styles/{{styleId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "styles",
+                "{{styleId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Excluir workspace",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/workspaces/{{workspaceId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "workspaces",
+                "{{workspaceId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Detalhe da playlist",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Excluir playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Reordenar playlist",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"songIds\": [\n    \"{{songId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}/order",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}",
+                "order"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nReescreve a ordem inteira — é o formato que o arrastar-e-soltar produz."
+          }
+        },
+        {
+          "name": "Remover música da playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}/songs/{{songId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}",
+                "songs",
+                "{{songId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
           }
         }
       ]
@@ -962,7 +1130,7 @@
       "name": "Social",
       "item": [
         {
-          "name": "Explore (planejado)",
+          "name": "Explore",
           "request": {
             "method": "GET",
             "header": [],
@@ -981,14 +1149,14 @@
                 }
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
             "auth": {
               "type": "noauth"
             }
           }
         },
         {
-          "name": "Perfil público (planejado)",
+          "name": "Perfil público",
           "request": {
             "method": "GET",
             "header": [],
@@ -1002,14 +1170,14 @@
                 "{{handle}}"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
             "auth": {
               "type": "noauth"
             }
           }
         },
         {
-          "name": "Curtir (planejado)",
+          "name": "Curtir",
           "request": {
             "method": "POST",
             "header": [],
@@ -1024,11 +1192,11 @@
                 "like"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Comentários (planejado)",
+          "name": "Comentários",
           "request": {
             "method": "GET",
             "header": [],
@@ -1043,14 +1211,34 @@
                 "comments"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
             "auth": {
               "type": "noauth"
             }
           }
         },
         {
-          "name": "Comentar (planejado)",
+          "name": "Apagar comentário",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/comments/{{commentId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "comments",
+                "{{commentId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nApaga quem escreveu — ou o dono da música, que modera o próprio espaço."
+          }
+        },
+        {
+          "name": "Comentar",
           "request": {
             "method": "POST",
             "header": [
@@ -1079,11 +1267,11 @@
                 "comments"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Seguir criador (planejado)",
+          "name": "Seguir criador",
           "request": {
             "method": "POST",
             "header": [],
@@ -1098,11 +1286,11 @@
                 "follow"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Registrar reprodução (planejado)",
+          "name": "Registrar reprodução",
           "request": {
             "method": "POST",
             "header": [
@@ -1131,7 +1319,7 @@
                 "play"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nAlimenta o ranking do Explore. Deduplicado por janela de 30s.\n\nNão exige sessão.",
+            "description": "Status: implementado e respondendo.\n\nAlimenta o ranking do Explore. Deduplicado por janela de 30s.\n\nNão exige sessão.",
             "auth": {
               "type": "noauth"
             }
@@ -1143,7 +1331,7 @@
       "name": "Créditos e cobrança",
       "item": [
         {
-          "name": "Saldo e extrato (planejado)",
+          "name": "Saldo e extrato",
           "request": {
             "method": "GET",
             "header": [],
@@ -1156,11 +1344,11 @@
                 "credits"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nSaldo do plano, saldo avulso, reservado e o extrato do ledger."
+            "description": "Status: implementado e respondendo.\n\nSaldo do plano, saldo avulso, reservado e o extrato do ledger."
           }
         },
         {
-          "name": "Planos e pacotes (planejado)",
+          "name": "Planos e pacotes",
           "request": {
             "method": "GET",
             "header": [],
@@ -1173,14 +1361,14 @@
                 "plans"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
             "auth": {
               "type": "noauth"
             }
           }
         },
         {
-          "name": "Assinar um plano (planejado)",
+          "name": "Assinar um plano",
           "request": {
             "method": "POST",
             "header": [
@@ -1208,11 +1396,11 @@
                 "subscribe"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Comprar pacote avulso (planejado)",
+          "name": "Comprar pacote avulso",
           "request": {
             "method": "POST",
             "header": [
@@ -1242,11 +1430,29 @@
                 "purchase"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Webhook do Asaas (planejado)",
+          "name": "Cancelar assinatura",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/billing/cancel",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "billing",
+                "cancel"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nO acesso vale até o fim do período já pago: cancelar não é estornar."
+          }
+        },
+        {
+          "name": "Webhook do Asaas",
           "request": {
             "method": "POST",
             "header": [
@@ -1278,7 +1484,7 @@
                 "asaas"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nConcede os créditos ao confirmar o pagamento. Idempotente pelo provider_ref, porque o Asaas reenvia o evento quando não recebe 200.\n\nNão exige sessão.",
+            "description": "Status: implementado e respondendo.\n\nConcede os créditos ao confirmar o pagamento. Idempotente pelo provider_ref, porque o Asaas reenvia o evento quando não recebe 200.\n\nNão exige sessão.",
             "auth": {
               "type": "noauth"
             }

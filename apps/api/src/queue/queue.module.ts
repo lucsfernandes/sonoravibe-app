@@ -7,6 +7,7 @@ import { CONFIG, type AppConfig } from '../config/env';
 export const REDIS = Symbol('sonora.redis');
 export const GENERATION_QUEUE = Symbol('sonora.queue.generation');
 export const TRANSCODE_QUEUE = Symbol('sonora.queue.transcode');
+export const EDIT_QUEUE = Symbol('sonora.queue.edit');
 export const STEMS_QUEUE = Symbol('sonora.queue.stems');
 
 /**
@@ -27,6 +28,7 @@ export const STEMS_QUEUE = Symbol('sonora.queue.stems');
     ...[
       [GENERATION_QUEUE, QUEUES.generation],
       [TRANSCODE_QUEUE, QUEUES.transcode],
+      [EDIT_QUEUE, QUEUES.edit],
       [STEMS_QUEUE, QUEUES.stems],
     ].map(([token, name]) => ({
       provide: token as symbol,
@@ -34,7 +36,7 @@ export const STEMS_QUEUE = Symbol('sonora.queue.stems');
       useFactory: (connection: Redis) => new Queue(name as string, { connection }),
     })),
   ],
-  exports: [REDIS, GENERATION_QUEUE, TRANSCODE_QUEUE, STEMS_QUEUE],
+  exports: [REDIS, GENERATION_QUEUE, TRANSCODE_QUEUE, EDIT_QUEUE, STEMS_QUEUE],
 })
 export class QueueModule implements OnModuleDestroy {
   constructor() {}

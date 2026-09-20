@@ -30,6 +30,7 @@ const envSchema = z.object({
 
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
+  OPENROUTER_IMAGE_MODEL: z.string().default('google/gemini-2.5-flash-image'),
   OPENROUTER_MUSIC_MODEL: z.string().default('google/lyria-3-pro-preview'),
   OPENROUTER_CLIP_MODEL: z.string().default('google/lyria-3-clip-preview'),
   OPENROUTER_APP_NAME: z.string().default('Sonora'),
@@ -38,6 +39,8 @@ const envSchema = z.object({
   /** Quantos jobs de geração este processo atende ao mesmo tempo. */
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(3),
   FFMPEG_PATH: z.string().default('ffmpeg'),
+  /** Binário do Demucs. A imagem do worker precisa tê-lo para separar stems. */
+  DEMUCS_PATH: z.string().default('demucs'),
 });
 
 export type WorkerConfig = z.infer<typeof envSchema> & { isProduction: boolean };

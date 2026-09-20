@@ -1,14 +1,24 @@
 import 'reflect-metadata';
 import { resolve } from 'node:path';
 import { CreditsLedger, ENTITIES } from '@sonora/db';
-import { QUEUES, type GenerationJob } from '@sonora/shared';
+import {
+  QUEUES,
+  type EditJob,
+  type GenerationJob,
+  type StemsJob,
+  type TranscodeJob,
+} from '@sonora/shared';
 import { StorageService } from '@sonora/storage';
-import { Worker, type Job } from 'bullmq';
+import { Queue, Worker, type Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { DataSource } from 'typeorm';
 import { loadWorkerConfig } from './config';
+import { CoverArtGenerator } from './generation/cover-art';
 import { GenerationProcessor } from './generation/generation.processor';
 import { buildMusicRouter } from './providers/factory';
+import { EditProcessor } from './edit/edit.processor';
+import { StemsProcessor } from './stems/stems.processor';
+import { TranscodeProcessor } from './transcode/transcode.processor';
 
 try {
   process.loadEnvFile(resolve(__dirname, '../../../.env'));
@@ -50,12 +60,42 @@ async function bootstrap(): Promise<void> {
     );
   });
 
+  const transcodeQueue = new Queue(QUEUES.transcode, { connection });
+
   const processor = new GenerationProcessor({
     dataSource,
     storage,
     redis: connection,
     router,
     credits: new CreditsLedger(dataSource),
+    transcodeQueue,
+    coverArt: new CoverArtGenerator({
+      apiKey: config.OPENROUTER_API_KEY,
+      baseUrl: config.OPENROUTER_BASE_URL,
+      model: config.OPENROUTER_IMAGE_MODEL,
+      siteUrl: config.OPENROUTER_SITE_URL,
+      appName: config.OPENROUTER_APP_NAME,
+    }),
+  });
+
+  const transcoder = new TranscodeProcessor({
+    dataSource,
+    storage,
+    ffmpegPath: config.FFMPEG_PATH,
+  });
+
+  const editor = new EditProcessor({
+    dataSource,
+    storage,
+    redis: connection,
+    ffmpegPath: config.FFMPEG_PATH,
+  });
+
+  const stemmer = new StemsProcessor({
+    dataSource,
+    storage,
+    redis: connection,
+    demucsPath: config.DEMUCS_PATH,
   });
 
   const worker = new Worker<GenerationJob>(
@@ -70,19 +110,55 @@ async function bootstrap(): Promise<void> {
     },
   );
 
-  worker.on('failed', (job, err) => {
-    console.error(`[fila] job ${job?.id} falhou: ${err.message}`);
-  });
+  // Fila separada da geração: converter não pode ficar atrás de uma música de
+  // 8 minutos na fila, e a concorrência é maior porque o trabalho é curto.
+  const transcodeWorker = new Worker<TranscodeJob>(
+    QUEUES.transcode,
+    async (job: Job<TranscodeJob>) => transcoder.process(job.data),
+    { connection, concurrency: config.WORKER_CONCURRENCY * 2, lockDuration: 5 * 60_000 },
+  );
+
+  const editWorker = new Worker<EditJob>(
+    QUEUES.edit,
+    async (job: Job<EditJob>) => editor.process(job.data),
+    { connection, concurrency: config.WORKER_CONCURRENCY, lockDuration: 5 * 60_000 },
+  );
+
+  // Concorrência 1: o Demucs come CPU e memória, e duas separações ao mesmo
+  // tempo num nó pequeno derrubam o pod por falta de memória.
+  const stemsWorker = new Worker<StemsJob>(
+    QUEUES.stems,
+    async (job: Job<StemsJob>) => stemmer.process(job.data),
+    { connection, concurrency: 1, lockDuration: 30 * 60_000 },
+  );
+
+  for (const [nome, w] of [
+    ['geração', worker],
+    ['conversão', transcodeWorker],
+    ['edição', editWorker],
+    ['stems', stemsWorker],
+  ] as const) {
+    w.on('failed', (job, err) => {
+      console.error(`[${nome}] job ${job?.id} falhou: ${err.message}`);
+    });
+  }
 
   console.log(
-    `Worker no ar | fila '${QUEUES.generation}' | concorrência ${config.WORKER_CONCURRENCY} | motor '${config.MUSIC_PROVIDER}'`,
+    `Worker no ar | filas ${Object.values(QUEUES).filter((q) => q !== 'maintenance').join(', ')} | ` +
+      `concorrência ${config.WORKER_CONCURRENCY} | motor '${config.MUSIC_PROVIDER}'`,
   );
 
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`\n${signal} recebido, terminando os jobs em andamento...`);
     // close() espera os jobs ativos, em vez de largá-los no meio: um job
     // interrompido voltaria para a fila e o usuário pagaria a geração duas vezes.
-    await worker.close();
+    await Promise.all([
+      worker.close(),
+      transcodeWorker.close(),
+      editWorker.close(),
+      stemsWorker.close(),
+      transcodeQueue.close(),
+    ]);
     await connection.quit().catch(() => undefined);
     await dataSource.destroy().catch(() => undefined);
     process.exitCode = 0;

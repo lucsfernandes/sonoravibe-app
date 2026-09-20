@@ -1,7 +1,14 @@
 import {
   AUDIO_FORMAT_SPECS,
+  DEFAULT_JOB_OPTIONS,
+  EAGER_FORMATS,
   PROGRESS_CHANNEL,
   STATUS_PROGRESS,
+  ffmpegArgsFor,
+  jobId,
+  mp3ArgsFor,
+  renditionBitrate,
+  type TranscodeJob,
   type AudioFormat,
   type GenerationJob,
   type GenerationProgressMessage,
@@ -12,9 +19,11 @@ import {
 } from '@sonora/shared';
 import { CreditsLedger, Generation, Song } from '@sonora/db';
 import { StorageService, storageKeys } from '@sonora/storage';
+import type { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
 import type { DataSource } from 'typeorm';
 import type { MusicRouter } from '../providers/music-router';
+import type { CoverArtGenerator } from './cover-art';
 
 /**
  * O que acontece com um job de geração, do início ao fim.
@@ -58,6 +67,9 @@ export interface ProcessorDeps {
   redis: Redis;
   router: MusicRouter;
   credits: CreditsLedger;
+  /** Fila de conversão, para já deixar o MP3 pronto quando a música nasce. */
+  transcodeQueue: Queue;
+  coverArt: CoverArtGenerator;
   logger?: { log(msg: string): void; warn(msg: string): void; error(msg: string): void };
 }
 
@@ -80,10 +92,16 @@ export class GenerationProcessor {
       return;
     }
 
+    // A capa é um job próprio e não passa pelo motor de música.
+    if (job.kind === 'cover') {
+      await this.processCover(job, song);
+      return;
+    }
+
     await this.transition(job, 'compiling_prompt');
 
     try {
-      const request = this.buildRequest(song);
+      const request = await this.buildRequest(song, job);
 
       // O destino no R2 é assinado antes de chamar o motor: o worker de GPU
       // roda fora do cluster e sobe o master direto, sem passar o arquivo por
@@ -133,6 +151,8 @@ export class GenerationProcessor {
       // Só agora o crédito sai da reserva: até aqui, qualquer falha estornava.
       await this.deps.credits.commit(userId, job.reservedCredits);
 
+      await this.enqueueEagerFormats(songId, userId, master);
+
       await this.publish({
         userId,
         generationId,
@@ -158,6 +178,48 @@ export class GenerationProcessor {
     }
   }
 
+  /**
+   * Já deixa o MP3 pronto, sem esperar alguém clicar em baixar.
+   *
+   * É o formato que a maioria baixa e o único do plano Free: convertê-lo agora
+   * troca uma espera visível (usuário parado na tela de download) por trabalho
+   * de fundo. Os demais formatos continuam sob demanda, porque guardar os cinco
+   * de toda música multiplicaria o armazenamento à toa.
+   *
+   * Falha aqui não derruba a geração: a música está pronta e a API reconverte
+   * quando alguém pedir.
+   */
+  private async enqueueEagerFormats(
+    songId: string,
+    userId: string,
+    master: MasterFormat,
+  ): Promise<void> {
+    for (const format of EAGER_FORMATS) {
+      // O master já É o formato: não há o que converter.
+      if (format === master) continue;
+
+      const bitrate = renditionBitrate(format, 'full');
+      const eager: TranscodeJob = {
+        songId,
+        userId,
+        format,
+        bitrate,
+        ffmpegArgs: format === 'mp3' ? mp3ArgsFor('full') : ffmpegArgsFor(format, master),
+      };
+
+      await this.deps.transcodeQueue
+        .add('transcode', eager, {
+          ...DEFAULT_JOB_OPTIONS,
+          jobId: jobId(songId, format, bitrate),
+        })
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `Não enfileirei o ${format} de ${songId}: ${(err as Error).message}`,
+          );
+        });
+    }
+  }
+
   private async load(
     generationId: string,
     songId: string,
@@ -171,11 +233,86 @@ export class GenerationProcessor {
     return { generation, song };
   }
 
+  /**
+   * Gera só a capa e grava na própria música.
+   *
+   * Falhar aqui estorna o crédito da capa, mas não toca no áudio: a música
+   * continua pronta e tocável, só sem arte.
+   */
+  private async processCover(job: GenerationJob, song: Song): Promise<void> {
+    await this.transition(job, 'generating_cover');
+
+    try {
+      if (!this.deps.coverArt.available) {
+        throw new Error('Geração de capa indisponível: OPENROUTER_API_KEY não configurada.');
+      }
+
+      const resultado = await this.deps.coverArt.generate(
+        job.coverPrompt ?? song.stylePrompt ?? song.title,
+      );
+      if (!resultado) throw new Error('O modelo de imagem não devolveu nenhuma capa.');
+
+      const key = storageKeys.cover(song.id);
+      await this.deps.storage.putObject(key, resultado.data, resultado.mimeType);
+
+      await this.deps.dataSource.transaction(async (em) => {
+        await em.getRepository(Song).update({ id: song.id }, { coverKey: key });
+        await em.getRepository(Generation).update(
+          { id: job.generationId },
+          { status: 'complete', providerId: 'openrouter-image', finishedAt: new Date() },
+        );
+      });
+
+      await this.deps.credits.commit(job.userId, job.reservedCredits);
+
+      await this.publish({
+        userId: job.userId,
+        generationId: job.generationId,
+        songId: song.id,
+        status: 'complete',
+        progress: STATUS_PROGRESS.complete,
+        song: {
+          id: song.id,
+          title: song.title,
+          durationMs: song.durationMs,
+          audioUrl: song.masterKey ? await this.deps.storage.presignGet(song.masterKey) : '',
+          coverUrl: await this.deps.storage.presignGet(key),
+        },
+      });
+
+      this.logger.log(`Capa de ${song.id} pronta.`);
+    } catch (err) {
+      await this.fail(job, err);
+      throw err;
+    }
+  }
+
   /** Traduz a música gravada no banco para o pedido que o motor entende. */
-  private buildRequest(song: Song): MusicGenerationRequest {
-    const controls = (song.params ?? {}) as Partial<AdvancedControls>;
+  private async buildRequest(song: Song, job: GenerationJob): Promise<MusicGenerationRequest> {
+    const controls = (song.params ?? {}) as Partial<AdvancedControls> & {
+      sectionStartMs?: number;
+      sectionEndMs?: number;
+      addSeconds?: number;
+    };
+
+    // Derivadas precisam ouvir a faixa original. A URL é assinada e curta: o
+    // motor roda fora do cluster e não tem credencial do nosso bucket.
+    let sourceAudioUrl: string | undefined;
+    if (job.sourceSongId) {
+      const origem = await this.deps.dataSource
+        .getRepository(Song)
+        .findOneBy({ id: job.sourceSongId });
+      if (!origem?.masterKey) {
+        throw new Error(`A faixa de origem ${job.sourceSongId} não tem áudio.`);
+      }
+      sourceAudioUrl = await this.deps.storage.presignGet(origem.masterKey, 3600);
+    }
 
     return {
+      ...(sourceAudioUrl ? { sourceAudioUrl } : {}),
+      ...(controls.sectionStartMs !== undefined
+        ? { sectionStartMs: controls.sectionStartMs, sectionEndMs: controls.sectionEndMs }
+        : {}),
       kind: song.kind,
       prompt: song.stylePrompt ?? song.title,
       lyrics: song.instrumental ? null : song.lyrics,

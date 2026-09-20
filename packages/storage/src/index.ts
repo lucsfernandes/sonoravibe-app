@@ -155,7 +155,15 @@ function isNotFound(err: unknown): boolean {
  */
 export const storageKeys = {
   master: (songId: string, format: 'flac' | 'mp3') => `songs/${songId}/master.${format}`,
-  rendition: (songId: string, format: AudioFormat) => `songs/${songId}/renditions/master.${format}`,
+  /**
+   * `bitrate` entra na chave porque o MP3 existe em duas qualidades (128 no
+   * Free, 320 nos pagos). Sem ele, a versão do Free sobrescreveria a do plano
+   * pago no mesmo caminho.
+   */
+  rendition: (songId: string, format: AudioFormat, bitrate = 0) =>
+    bitrate > 0
+      ? `songs/${songId}/renditions/master-${bitrate}.${format}`
+      : `songs/${songId}/renditions/master.${format}`,
   stem: (songId: string, kind: StemKind) => `songs/${songId}/stems/${kind}.flac`,
   cover: (songId: string) => `songs/${songId}/cover.jpg`,
   avatar: (userId: string) => `avatars/${userId}.jpg`,

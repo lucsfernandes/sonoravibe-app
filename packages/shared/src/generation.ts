@@ -121,6 +121,12 @@ export const GENERATION_KINDS = [
   'cover',
   'replace_section',
   'remaster',
+  /**
+   * Edição mecânica (corte, fade, velocidade, reverter, normalizar). Gera uma
+   * faixa nova derivada, como as demais, mas sem chamar motor nenhum — é só
+   * FFmpeg, e por isso não custa crédito.
+   */
+  'edit',
 ] as const;
 export type GenerationKind = (typeof GENERATION_KINDS)[number];
 

@@ -1,11 +1,53 @@
-import { BadRequestException, Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { generationRequestSchema } from '@sonora/shared';
-import { CurrentUser, type SessionUser } from '../auth/session.guard';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
+import { AUDIO_FORMATS, generationRequestSchema, type AudioFormat } from '@sonora/shared';
+import { ZipArchive } from 'archiver';
+import type { Response } from 'express';
+import { z } from 'zod';
+import { CurrentUser, Public, type SessionUser } from '../auth/session.guard';
+import { parseOrThrow as parse } from '../common/parse';
+import { DownloadsService } from './downloads.service';
+import { LibraryService, type Page, type SongDetail, type SongSummary } from './library.service';
 import { SongsService, type GenerateResult } from './songs.service';
+
+const listQuerySchema = z.object({
+  workspaceId: z.string().uuid().optional(),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  filter: z.enum(['all', 'public', 'private', 'liked']).default('all'),
+});
+
+const updateSchema = z.object({
+  title: z.string().trim().min(1).max(160).optional(),
+  workspaceId: z.string().uuid().nullable().optional(),
+  allowRemixes: z.boolean().optional(),
+  allowComments: z.boolean().optional(),
+});
+
+const batchSchema = z.object({
+  songIds: z.array(z.string().uuid()).min(1).max(50),
+  format: z.enum(AUDIO_FORMATS).default('mp3'),
+});
 
 @Controller('songs')
 export class SongsController {
-  constructor(private readonly songs: SongsService) {}
+  constructor(
+    private readonly songs: SongsService,
+    private readonly library: LibraryService,
+    private readonly downloads: DownloadsService,
+  ) {}
 
   /**
    * Enfileira uma geração. Responde 202: o trabalho ainda não aconteceu —
@@ -17,19 +59,137 @@ export class SongsController {
     @CurrentUser() user: SessionUser,
     @Body() body: unknown,
   ): Promise<GenerateResult> {
-    const parsed = generationRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      // O caminho do campo vai junto: "controls.bpm: ..." é acionável na UI,
-      // "requisição inválida" não é.
-      throw new BadRequestException({
-        message: 'Requisição de geração inválida.',
-        issues: parsed.error.issues.map((issue) => ({
-          field: issue.path.join('.'),
-          message: issue.message,
-        })),
+    return this.songs.generate(user, parse(generationRequestSchema, body, 'geração'));
+  }
+
+  @Get()
+  async list(
+    @CurrentUser() user: SessionUser,
+    @Query() query: unknown,
+  ): Promise<Page<SongSummary>> {
+    return this.library.list(user.id, parse(listQuerySchema, query, 'listagem'));
+  }
+
+  /**
+   * Download em lote, como ZIP em streaming.
+   *
+   * Vem antes de `:id` porque o Express casa rotas na ordem de registro, e
+   * `/songs/:id` engoliria `/songs/download-batch`.
+   */
+  @Post('download-batch')
+  async downloadBatch(
+    @CurrentUser() user: SessionUser,
+    @Body() body: unknown,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { songIds, format } = parse(batchSchema, body, 'download em lote');
+    const batch = await this.downloads.prepareBatch(user.id, songIds, format);
+
+    if (!batch.ready) {
+      res.status(HttpStatus.ACCEPTED).set('Retry-After', '10').json({
+        status: 'processing',
+        pending: batch.pending,
+        message: `Convertendo ${batch.pending.length} de ${songIds.length} faixas. Tente de novo em alguns segundos.`,
       });
+      return;
     }
 
-    return this.songs.generate(user, parsed.data);
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="sonora-${format}.zip"`,
+    });
+
+    // `store` e não `deflate`: áudio já é comprimido, e tentar comprimir de novo
+    // gastaria CPU para economizar quase nada.
+    // O archiver 8 não exporta mais a função `archiver('zip')` — só as classes.
+    const zip = new ZipArchive({ store: true });
+    zip.on('error', (err: Error) => res.destroy(err));
+    zip.pipe(res);
+
+    // Nomes repetidos ganham sufixo: duas músicas podem ter o mesmo título, e
+    // um ZIP com entradas duplicadas abre errado em vários descompactadores.
+    const usados = new Map<string, number>();
+    for (const entry of batch.entries) {
+      const vezes = usados.get(entry.filename) ?? 0;
+      usados.set(entry.filename, vezes + 1);
+      const name = vezes === 0 ? entry.filename : sufixar(entry.filename, vezes + 1);
+
+      zip.append(await this.downloads.streamOf(entry.storageKey), { name });
+    }
+
+    await zip.finalize();
   }
+
+  // Pública: música publicada no Explore abre sem login. O serviço devolve 404
+  // para música privada de outra pessoa, então o @Public() não vaza nada.
+  @Public()
+  @Get(':id')
+  async findOne(
+    @CurrentUser() user: SessionUser | undefined,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SongDetail> {
+    return this.library.findOne(user?.id ?? null, id);
+  }
+
+  @Patch(':id')
+  async update(
+    @CurrentUser() user: SessionUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<SongDetail> {
+    return this.library.update(user.id, id, parse(updateSchema, body, 'atualização'));
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @CurrentUser() user: SessionUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.library.remove(user.id, id);
+  }
+
+  @Post(':id/publish')
+  async publish(
+    @CurrentUser() user: SessionUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<SongDetail> {
+    const { isPublic } = parse(z.object({ isPublic: z.boolean() }), body, 'publicação');
+    return this.library.publish(user.id, id, isPublic);
+  }
+
+  /**
+   * Download de um formato. Responde 302 para uma URL assinada do R2 quando o
+   * arquivo existe, ou 202 com Retry-After enquanto o FFmpeg converte.
+   */
+  @Get(':id/download')
+  async download(
+    @CurrentUser() user: SessionUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('format') formatRaw: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { format } = parse(
+      z.object({ format: z.enum(AUDIO_FORMATS).default('mp3') }),
+      { format: formatRaw },
+      'download',
+    );
+
+    const result = await this.downloads.download(user.id, id, format as AudioFormat);
+
+    if (result.ready) {
+      res.redirect(HttpStatus.FOUND, result.url);
+      return;
+    }
+    res
+      .status(HttpStatus.ACCEPTED)
+      .set('Retry-After', String(result.retryAfterSeconds))
+      .json({ status: 'processing', message: result.message });
+  }
+}
+
+function sufixar(filename: string, n: number): string {
+  const ponto = filename.lastIndexOf('.');
+  return `${filename.slice(0, ponto)} (${n})${filename.slice(ponto)}`;
 }
