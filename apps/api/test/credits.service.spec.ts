@@ -26,6 +26,39 @@ beforeAll(async () => {
   await admin.initialize();
   await admin.query(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
   await admin.query(`CREATE SCHEMA ${SCHEMA}`);
+
+  // A tabela `user` é do Better Auth, não do TypeORM (a entidade é
+  // `synchronize: false`), então aqui ela é criada à mão — carteiras e gerações
+  // têm chave estrangeira para ela e o sync falharia sem isso.
+  await admin.query(`
+    CREATE TABLE ${SCHEMA}."user" (
+      id text PRIMARY KEY,
+      name text NOT NULL,
+      email text NOT NULL UNIQUE,
+      "emailVerified" boolean NOT NULL DEFAULT false,
+      image text,
+      "createdAt" timestamptz NOT NULL DEFAULT now(),
+      "updatedAt" timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  // Se o Better Auth mudar o schema dele, este fixture silenciosamente deixa de
+  // representar a tabela real. A comparação abaixo transforma isso num teste
+  // que falha, em vez de numa surpresa em produção.
+  const [real, fixture] = await Promise.all([
+    columnsOf(admin, 'public'),
+    columnsOf(admin, SCHEMA),
+  ]);
+  if (real.length > 0 && real.join(',') !== fixture.join(',')) {
+    throw new Error(
+      `O fixture da tabela "user" divergiu da real.
+` +
+        `  real (public): ${real.join(', ')}
+` +
+        `  fixture:       ${fixture.join(', ')}`,
+    );
+  }
+
   await admin.destroy();
 
   dataSource = new DataSource({
@@ -62,6 +95,16 @@ beforeEach(async () => {
     image: null,
   });
 });
+
+/** Colunas da tabela `user` num schema, em ordem, para comparar fixture e real. */
+async function columnsOf(ds: DataSource, schema: string): Promise<string[]> {
+  const rows = await ds.query<{ column_name: string }[]>(
+    `select column_name from information_schema.columns
+     where table_schema = $1 and table_name = 'user' order by column_name`,
+    [schema],
+  );
+  return rows.map((r) => r.column_name);
+}
 
 async function makeGeneration(songTitle = 'Teste'): Promise<Generation> {
   const song = await dataSource.getRepository(Song).save({

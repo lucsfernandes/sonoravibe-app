@@ -51,7 +51,7 @@ export class MockMusicProvider implements MusicProvider {
 
     return {
       audio: { kind: 'buffer', data: audio },
-      sourceFormat: 'wav',
+      sourceFormat: 'flac',
       durationMs: seconds * 1000,
       providerRef: `mock-${hash(req.prompt).toString(16)}`,
       suggestedTitle: undefined,
@@ -87,10 +87,15 @@ export class MockMusicProvider implements MusicProvider {
       '2',
       '-ar',
       '48000',
+      // FLAC 24 bits, igual ao que o ACE-Step entrega: o mock precisa exercitar
+      // o mesmo caminho de master do motor real, senão esconde problemas de
+      // formato que só apareceriam em produção.
       '-c:a',
-      'pcm_s16le',
+      'flac',
+      '-sample_fmt',
+      's32',
       '-f',
-      'wav',
+      'flac',
       'pipe:1',
     ];
 

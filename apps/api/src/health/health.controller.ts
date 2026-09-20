@@ -2,6 +2,7 @@ import { Controller, Get, HttpStatus, Inject, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { Redis } from 'ioredis';
 import { DataSource } from 'typeorm';
+import { Public } from '../auth/session.guard';
 import { DATA_SOURCE } from '../database/database.module';
 import { REDIS } from '../queue/queue.module';
 
@@ -18,6 +19,7 @@ export class HealthController {
     @Inject(REDIS) private readonly redis: Redis,
   ) {}
 
+  @Public()
   @Get()
   async check(@Res() res: Response): Promise<void> {
     const [database, redis] = await Promise.all([this.checkDatabase(), this.checkRedis()]);

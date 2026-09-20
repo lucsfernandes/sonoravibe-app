@@ -6,7 +6,7 @@
  */
 
 import type { AudioFormat } from './audio';
-import type { GenerationKind } from './generation';
+import type { GenerationKind, GenerationProgressEvent } from './generation';
 import type { StemKind } from './audio';
 
 export const QUEUES = {
@@ -26,6 +26,18 @@ export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
 /** Canal do Redis por onde o progresso chega ao SSE da API. */
 export const PROGRESS_CHANNEL = 'sonora:generation-progress';
+
+/**
+ * O que trafega no canal de progresso.
+ *
+ * Leva `userId` porque o canal é único para toda a instalação: a API assina uma
+ * vez e distribui para as conexões SSE abertas, e é esse campo que decide para
+ * quem cada evento vai. Sem ele, a alternativa seria um canal por usuário —
+ * milhares de assinaturas no Redis para o mesmo efeito.
+ */
+export interface GenerationProgressMessage extends GenerationProgressEvent {
+  userId: string;
+}
 
 export interface GenerationJob {
   generationId: string;

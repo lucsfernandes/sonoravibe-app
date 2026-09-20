@@ -38,7 +38,7 @@ const routes = [
     name: 'Cadastro por e-mail',
     method: 'POST',
     path: '/api/auth/sign-up/email',
-    status: PLANEJADO,
+    status: PRONTO,
     auth: false,
     body: { name: 'Lucas Fernandes', email: 'lucas@exemplo.com', password: 'senha-forte-aqui' },
     description: 'Better Auth. Cria usuário, perfil, workspace padrão e carteira de créditos.',
@@ -48,12 +48,12 @@ const routes = [
     name: 'Login por e-mail',
     method: 'POST',
     path: '/api/auth/sign-in/email',
-    status: PLANEJADO,
+    status: PRONTO,
     auth: false,
     body: { email: 'lucas@exemplo.com', password: 'senha-forte-aqui' },
   },
-  { folder: 'Autenticação', name: 'Sessão atual', method: 'GET', path: '/api/auth/session', status: PLANEJADO },
-  { folder: 'Autenticação', name: 'Sair', method: 'POST', path: '/api/auth/sign-out', status: PLANEJADO },
+  { folder: 'Autenticação', name: 'Sessão atual', method: 'GET', path: '/api/auth/get-session', status: PRONTO },
+  { folder: 'Autenticação', name: 'Sair', method: 'POST', path: '/api/auth/sign-out', status: PRONTO },
 
   // ------------------------------------------------------------- Geração
   {
@@ -61,7 +61,7 @@ const routes = [
     name: 'Criar música — aba Simple',
     method: 'POST',
     path: '/songs/generate',
-    status: PLANEJADO,
+    status: PRONTO,
     body: {
       mode: 'simple',
       prompt: 'pop rock brasileiro, violão e bateria ao vivo, clima de estrada',
@@ -76,7 +76,7 @@ const routes = [
     name: 'Criar música — aba Advanced',
     method: 'POST',
     path: '/songs/generate',
-    status: PLANEJADO,
+    status: PRONTO,
     body: {
       mode: 'advanced',
       lyrics: '[Verse]\\nAcordei com o sol batendo na janela\\n\\n[Chorus]\\nVou seguir a estrada até o mar',
@@ -102,7 +102,7 @@ const routes = [
     name: 'Criar som curto — aba Sounds',
     method: 'POST',
     path: '/songs/generate',
-    status: PLANEJADO,
+    status: PRONTO,
     body: { mode: 'sounds', prompt: 'stab de synth analógico quente', soundType: 'one-shot', bpm: 120, key: 'Cm' },
   },
   {
@@ -110,18 +110,18 @@ const routes = [
     name: 'Progresso ao vivo (SSE)',
     method: 'GET',
     path: '/generations/stream',
-    status: PLANEJADO,
+    status: PRONTO,
     description:
       'Server-Sent Events. Emite queued, compiling_prompt, writing_lyrics, generating_audio, ' +
       'uploading, generating_cover e complete. O Postman mostra o stream; no navegador use EventSource.',
   },
-  { folder: 'Geração', name: 'Status de uma geração', method: 'GET', path: '/generations/{{generationId}}', status: PLANEJADO },
+  { folder: 'Geração', name: 'Status de uma geração', method: 'GET', path: '/generations/{{generationId}}', status: PRONTO },
   {
     folder: 'Geração',
     name: 'Cancelar geração',
     method: 'POST',
     path: '/generations/{{generationId}}/cancel',
-    status: PLANEJADO,
+    status: PRONTO,
     description: 'Cancela o job na fila e estorna os créditos reservados.',
   },
   {

@@ -63,8 +63,20 @@ export type AppConfig = z.infer<typeof envSchema> & {
 
 export const CONFIG = Symbol('sonora.config');
 
+/**
+ * Variável definida como vazia (`FFMPEG_PATH=` no .env) significa "não
+ * configurada", e não "string vazia". Sem isso ela vence o `.default()` do
+ * schema — foi assim que um FFMPEG_PATH em branco derrubou o motor de áudio e
+ * fez o roteador cair no provedor pago.
+ */
+function withoutEmpty(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(
+    Object.entries(source).filter(([, value]) => value?.trim() !== ''),
+  );
+}
+
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
-  const parsed = envSchema.safeParse(source);
+  const parsed = envSchema.safeParse(withoutEmpty(source));
   if (!parsed.success) {
     const problems = parsed.error.issues
       .map((issue) => `  ${issue.path.join('.')}: ${issue.message}`)

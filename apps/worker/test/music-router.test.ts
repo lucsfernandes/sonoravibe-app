@@ -11,7 +11,9 @@ import { MusicRouter } from '../src/providers/music-router';
 
 function fakeProvider(
   id: string,
-  opts: { kinds?: GenerationKind[]; maxDuration?: number; fail?: MusicProviderError } = {},
+  // `fail` aceita Error comum de propósito: o caso mais perigoso é justamente
+  // o erro que NÃO é MusicProviderError, que não pode escalar para o motor pago.
+  opts: { kinds?: GenerationKind[]; maxDuration?: number; fail?: Error } = {},
 ): MusicProvider & { generate: ReturnType<typeof vi.fn> } {
   const result: MusicGenerationResult = {
     audio: { kind: 'buffer', data: Buffer.from(id) },
@@ -103,5 +105,19 @@ describe('MusicRouter', () => {
     const router = new MusicRouter(fakeProvider('acestep', { maxDuration: 480 }), null);
 
     await expect(router.generate(request({ durationSeconds: 600 }))).rejects.toThrow(/Nenhum motor atende 'song' com 600s/);
+  });
+
+  it('erro que não é MusicProviderError não escala para o motor pago', async () => {
+    // Regressão de um caso real: FFMPEG_PATH vazio fez o motor mock lançar um
+    // Error comum, e o roteador, tratando desconhecido como retentável, chamou
+    // o Lyria — pagando por um erro de configuração nosso.
+    const fallback = fakeProvider('lyria');
+    const primary = fakeProvider('acestep', {
+      fail: new Error("The argument 'file' cannot be empty. Received ''"),
+    });
+    const router = new MusicRouter(primary, fallback);
+
+    await expect(router.generate(request())).rejects.toThrow('cannot be empty');
+    expect(fallback.generate).not.toHaveBeenCalled();
   });
 });

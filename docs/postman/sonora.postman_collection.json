@@ -41,7 +41,7 @@
       "name": "Autenticação",
       "item": [
         {
-          "name": "Cadastro por e-mail (planejado)",
+          "name": "Cadastro por e-mail",
           "request": {
             "method": "POST",
             "header": [
@@ -71,14 +71,14 @@
                 "email"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nBetter Auth. Cria usuário, perfil, workspace padrão e carteira de créditos.\n\nNão exige sessão.",
+            "description": "Status: implementado e respondendo.\n\nBetter Auth. Cria usuário, perfil, workspace padrão e carteira de créditos.\n\nNão exige sessão.",
             "auth": {
               "type": "noauth"
             }
           }
         },
         {
-          "name": "Login por e-mail (planejado)",
+          "name": "Login por e-mail",
           "request": {
             "method": "POST",
             "header": [
@@ -108,33 +108,33 @@
                 "email"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nNão exige sessão.",
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
             "auth": {
               "type": "noauth"
             }
           }
         },
         {
-          "name": "Sessão atual (planejado)",
+          "name": "Sessão atual",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{apiUrl}}/api/auth/session",
+              "raw": "{{apiUrl}}/api/auth/get-session",
               "host": [
                 "{{apiUrl}}"
               ],
               "path": [
                 "api",
                 "auth",
-                "session"
+                "get-session"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Sair (planejado)",
+          "name": "Sair",
           "request": {
             "method": "POST",
             "header": [],
@@ -149,7 +149,7 @@
                 "sign-out"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         }
       ]
@@ -158,7 +158,7 @@
       "name": "Geração",
       "item": [
         {
-          "name": "Criar música — aba Simple (planejado)",
+          "name": "Criar música — aba Simple",
           "request": {
             "method": "POST",
             "header": [
@@ -186,11 +186,11 @@
                 "generate"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nReserva os créditos, cria a música com status queued e enfileira o job. Responde 402 quando falta saldo e 403 quando a duração passa do limite do plano."
+            "description": "Status: implementado e respondendo.\n\nReserva os créditos, cria a música com status queued e enfileira o job. Responde 402 quando falta saldo e 403 quando a duração passa do limite do plano."
           }
         },
         {
-          "name": "Criar música — aba Advanced (planejado)",
+          "name": "Criar música — aba Advanced",
           "request": {
             "method": "POST",
             "header": [
@@ -218,11 +218,11 @@
                 "generate"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nSem durationSeconds a duração é automática (decidida pelo tamanho da letra), que foi o que soou mais natural nos testes. Exclusões de voz viram instrumental nativo."
+            "description": "Status: implementado e respondendo.\n\nSem durationSeconds a duração é automática (decidida pelo tamanho da letra), que foi o que soou mais natural nos testes. Exclusões de voz viram instrumental nativo."
           }
         },
         {
-          "name": "Criar som curto — aba Sounds (planejado)",
+          "name": "Criar som curto — aba Sounds",
           "request": {
             "method": "POST",
             "header": [
@@ -250,11 +250,11 @@
                 "generate"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Progresso ao vivo (SSE) (planejado)",
+          "name": "Progresso ao vivo (SSE)",
           "request": {
             "method": "GET",
             "header": [],
@@ -268,11 +268,11 @@
                 "stream"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nServer-Sent Events. Emite queued, compiling_prompt, writing_lyrics, generating_audio, uploading, generating_cover e complete. O Postman mostra o stream; no navegador use EventSource."
+            "description": "Status: implementado e respondendo.\n\nServer-Sent Events. Emite queued, compiling_prompt, writing_lyrics, generating_audio, uploading, generating_cover e complete. O Postman mostra o stream; no navegador use EventSource."
           }
         },
         {
-          "name": "Status de uma geração (planejado)",
+          "name": "Status de uma geração",
           "request": {
             "method": "GET",
             "header": [],
@@ -286,11 +286,11 @@
                 "{{generationId}}"
               ]
             },
-            "description": "Status: planejado, ainda não implementado."
+            "description": "Status: implementado e respondendo."
           }
         },
         {
-          "name": "Cancelar geração (planejado)",
+          "name": "Cancelar geração",
           "request": {
             "method": "POST",
             "header": [],
@@ -305,7 +305,7 @@
                 "cancel"
               ]
             },
-            "description": "Status: planejado, ainda não implementado.\n\nCancela o job na fila e estorna os créditos reservados."
+            "description": "Status: implementado e respondendo.\n\nCancela o job na fila e estorna os créditos reservados."
           }
         },
         {

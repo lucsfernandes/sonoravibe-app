@@ -4,9 +4,12 @@ Este documento responde três coisas: **onde cada aplicação roda**, **qual URL
 **como chamar cada rota**. A coleção Postman equivalente está em [`docs/postman/`](postman/)
 e é gerada por `node scripts/build-postman.mjs`.
 
-> **Estado atual (honesto):** só `GET /health` existe e responde hoje. Todo o resto deste
-> documento é o contrato do que está sendo construído, marcado como *planejado*. Nada aqui é
-> uma rota que "deveria funcionar e está quebrada" — são rotas que ainda não nasceram.
+> **Estado atual (honesto):** 11 das 45 rotas existem e respondem hoje — saúde, autenticação
+> completa, geração de música e o progresso ao vivo. O restante está marcado como *planejado*:
+> é o contrato do que está sendo construído, não rota quebrada.
+>
+> O que já funciona ponta a ponta: cadastro → créditos concedidos → `POST /songs/generate` →
+> fila → worker → master no R2 → `complete` chegando por SSE, com os créditos confirmados.
 
 ---
 
@@ -64,7 +67,7 @@ Base local `http://localhost:3001` · Base produção `https://api.sonora.app`
 Autenticação por cookie de sessão do Better Auth. Nos exemplos, `-c cookies.txt` grava o cookie no
 login e `-b cookies.txt` o reaproveita.
 
-### 3.1 Saúde — implementado
+### 3.1 Saúde — **implementado**
 
 ```bash
 curl -i http://localhost:3001/health
@@ -83,7 +86,7 @@ probe do k3s usa para tirar a réplica do balanceador.
 
 ---
 
-### 3.2 Autenticação — *planejado*
+### 3.2 Autenticação — **implementado**
 
 ```bash
 # Cadastro
@@ -97,17 +100,23 @@ curl -X POST http://localhost:3001/api/auth/sign-in/email \
   -d '{"email":"lucas@exemplo.com","password":"senha-forte-aqui"}'
 
 # Sessão atual
-curl http://localhost:3001/api/auth/session -b cookies.txt
+curl http://localhost:3001/api/auth/get-session -b cookies.txt
 
 # Sair
 curl -X POST http://localhost:3001/api/auth/sign-out -b cookies.txt
 ```
 
-O cadastro cria, na mesma transação: usuário, perfil público, workspace padrão e carteira de créditos.
+O cadastro cria, na mesma transação: usuário, perfil público (handle derivado do e-mail),
+workspace padrão e carteira de créditos — e, logo depois, concede a primeira cota diária do
+plano Free (30 créditos), para a conta nova não nascer sem poder gerar nada.
+
+As tabelas `user`, `session`, `account` e `verification` são do Better Auth, criadas pelas
+migrations dele. A entidade `User` do TypeORM é `synchronize: false` justamente para as duas
+ferramentas não disputarem o mesmo schema.
 
 ---
 
-### 3.3 Geração de música — *planejado*
+### 3.3 Geração de música — **implementado**
 
 **Aba Simple** — só a descrição:
 
@@ -157,7 +166,13 @@ curl -X POST http://localhost:3001/songs/generate \
 ```
 
 Resposta das três abas: `202` com `{ songId, generationId, creditsCharged, status: "queued" }`.
-`402` quando falta crédito, `403` quando a duração excede o plano.
+`402` quando falta crédito, `403` quando a duração ou o Max Mode excedem o plano, `400` com a
+lista de campos inválidos, `401` sem sessão.
+
+Os créditos são reservados **antes** de o job entrar na fila. É o que impede alguém com saldo
+para uma música disparar dez de uma vez: a fila aceitaria todas e a cobrança só apareceria no
+fim. Se a reserva falhar, a geração fica gravada como `failed` em vez de sumir — o usuário vê
+no histórico por que não rodou.
 
 **Progresso ao vivo (SSE):**
 
@@ -167,11 +182,27 @@ curl -N http://localhost:3001/generations/stream -b cookies.txt
 
 ```
 event: progress
-data: {"generationId":"...","status":"generating_audio","progress":45}
+id: 1
+data: {"generationId":"...","songId":"...","status":"compiling_prompt","progress":15}
 
 event: progress
-data: {"generationId":"...","status":"complete","progress":100,"songId":"..."}
+id: 2
+data: {"generationId":"...","songId":"...","status":"generating_audio","progress":60}
+
+event: progress
+id: 4
+data: {"generationId":"...","songId":"...","status":"complete","progress":100,
+       "song":{"id":"...","title":"...","durationMs":30000,"audioUrl":"<URL assinada do R2>","coverUrl":null}}
+
+event: ping
+id: 5
+data: {"at":"2026-09-19T23:58:18.467Z"}
 ```
+
+Uma conexão só cobre todas as gerações do usuário. O `ping` a cada 25 s não é enfeite: Traefik e
+proxies fecham conexão ociosa, e sem tráfego o navegador só descobriria a queda na geração
+seguinte. Os eventos são filtrados por usuário no servidor — testado com duas sessões abertas ao
+mesmo tempo.
 
 **Status pontual e cancelamento:**
 
@@ -182,7 +213,7 @@ curl http://localhost:3001/generations/$GENERATION_ID -b cookies.txt
 curl -X POST http://localhost:3001/generations/$GENERATION_ID/cancel -b cookies.txt
 ```
 
-**Apoio de escrita** — letra custa 1 crédito, sugestão de estilo é grátis:
+**Apoio de escrita** — *planejado*. Letra custa 1 crédito, sugestão de estilo é grátis:
 
 ```bash
 curl -X POST http://localhost:3001/lyrics/generate \
