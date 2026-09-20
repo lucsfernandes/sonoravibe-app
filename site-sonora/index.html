@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonora — crie músicas com IA, com ou sem letra</title>
+<meta name="description" content="Descreva o que você quer ouvir e receba uma música completa em minutos. Com ou sem letra, no seu estilo, em português ou inglês. Baixe em MP3, WAV ou FLAC. Comece de graça.">
+<link rel="canonical" href="https://sonoravibe.com/">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://sonoravibe.com/">
+<meta property="og:title" content="Sonora — crie músicas com IA, com ou sem letra">
+<meta property="og:description" content="Descreva o que você quer ouvir e receba uma música completa em minutos. Baixe em MP3, WAV ou FLAC.">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:image" content="https://sonoravibe.com/img/estudio-mesa.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0D0C0F">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FF8A3D'/%3E%3Cstop offset='1' stop-color='%23E8306B'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M12 22.5V10l9-1.6v11' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='10' cy='22.5' r='2.6' fill='%23fff'/%3E%3Ccircle cx='19' cy='20.9' r='2.6' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="manifest" href="site.webmanifest">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/styles.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Sonora",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Navegador web",
+  "url": "https://sonoravibe.com/",
+  "inLanguage": ["pt-BR", "en"],
+  "description": "Plataforma de geração de música com inteligência artificial. Crie faixas com ou sem letra a partir de uma descrição em texto e baixe em MP3, WAV ou FLAC.",
+  "offers": [
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "BRL" },
+    { "@type": "Offer", "name": "Pro", "price": "39.00", "priceCurrency": "BRL" },
+    { "@type": "Offer", "name": "Premier", "price": "99.00", "priceCurrency": "BRL" }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="cabecalho" id="topo">
+  <div class="envolve cabecalho__linha">
+    <a class="marca" href="#topo" aria-label="Sonora, início">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FF8A3D"/><stop offset="1" stop-color="#E8306B"/>
+        </linearGradient></defs>
+        <rect width="32" height="32" rx="8" fill="url(#mg)"/>
+        <path d="M12 22.5V10l9-1.6v11" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>
+        <circle cx="10" cy="22.5" r="2.6" fill="#fff"/><circle cx="19" cy="20.9" r="2.6" fill="#fff"/>
+      </svg>
+      <span>Sonora</span>
+    </a>
+
+    <nav class="nav" id="menu" aria-label="Navegação principal">
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#formatos">Formatos</a>
+      <a href="#planos">Planos</a>
+      <a href="#duvidas">Dúvidas</a>
+    </nav>
+
+    <div class="cabecalho__acoes">
+      <!-- TROCAR: confirme a URL do app quando estiver no ar -->
+      <a class="btn btn--fantasma" href="https://sonoravibe.com/entrar">Entrar</a>
+      <a class="btn btn--acento" href="https://sonoravibe.com/entrar">Criar conta</a>
+    </div>
+
+    <button class="hamburguer" type="button" aria-expanded="false" aria-controls="menu" aria-label="Abrir menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="conteudo">
+
+<!-- ============================ HERO ============================ -->
+<section class="hero">
+  <div class="hero__brilho" aria-hidden="true"></div>
+  <div class="envolve hero__grade">
+
+    <div class="hero__texto">
+      <p class="sobrancelha">Geração de música com IA</p>
+      <h1 class="display">
+        Descreva a música.<br>
+        <span class="tom-acento">A gente compõe.</span>
+      </h1>
+      <p class="hero__sub prosa">
+        Escreva o que você quer ouvir — “forró pé de serra com sanfona” ou uma letra inteira — e
+        receba uma faixa pronta em minutos. Com ou sem voz, em português ou inglês, sua para baixar
+        em MP3, WAV ou FLAC.
+      </p>
+
+      <div class="hero__acoes">
+        <a class="btn btn--acento btn--g" href="https://sonoravibe.com/entrar">Começar de graça</a>
+        <a class="btn btn--fantasma btn--g" href="#como-funciona">Ver como funciona</a>
+      </div>
+
+      <p class="hero__nota">
+        30 créditos por dia no plano gratuito. Sem cartão de crédito.
+      </p>
+    </div>
+
+    <!-- ANCHOR (parte 1): o produto de verdade, não uma ilustração genérica.
+         É a reprodução fiel do painel de criação do app. -->
+    <div class="hero__produto">
+      <div class="painel" role="img" aria-label="Painel de criação do Sonora, com as abas Simples, Avançado e Sons, um campo de descrição preenchido e o botão Criar indicando o custo de 10 créditos.">
+        <div class="painel__abas">
+          <span class="painel__aba painel__aba--ativa">Simples</span>
+          <span class="painel__aba">Avançado</span>
+          <span class="painel__aba">Sons</span>
+        </div>
+
+        <div class="painel__campo">
+          <span class="painel__rotulo">Descrição</span>
+          <p class="painel__texto">forró pé de serra, sanfona, zabumba e triângulo, andamento animado</p>
+        </div>
+
+        <div class="painel__linha">
+          <span class="painel__rotulo">Instrumental</span>
+          <span class="interruptor" aria-hidden="true"><i></i></span>
+        </div>
+
+        <div class="painel__linha">
+          <span class="painel__rotulo">Duração</span>
+          <span class="painel__valor">Automática</span>
+        </div>
+
+        <div class="painel__botao">
+          <span>Criar</span>
+          <span class="painel__custo">10 créditos</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ======================= BARRA DE FATOS ======================= -->
+<!-- Fatos técnicos verificáveis do produto — não são números de vaidade. -->
+<section class="fatos" aria-label="O que o Sonora entrega">
+  <div class="envolve fatos__grade">
+    <div class="fato">
+      <p class="fato__num">até 8 min</p>
+      <p class="fato__leg">de música por faixa, no plano Premier</p>
+    </div>
+    <div class="fato">
+      <p class="fato__num">5 formatos</p>
+      <p class="fato__leg">MP3, WAV, FLAC, Opus e M4A para baixar</p>
+    </div>
+    <div class="fato">
+      <p class="fato__num">2 idiomas</p>
+      <p class="fato__leg">interface e letras em português e inglês</p>
+    </div>
+    <div class="fato">
+      <p class="fato__num">sem fila paga</p>
+      <p class="fato__leg">o plano gratuito gera de verdade, todo dia</p>
+    </div>
+  </div>
+</section>
+
+<!-- =================== ANCHOR: COMO FUNCIONA =================== -->
+<section class="secao" id="como-funciona">
+  <div class="envolve">
+    <div class="secao__cabeca">
+      <p class="sobrancelha">Como funciona</p>
+      <h2 class="titulo">Do texto à faixa pronta,<br>acompanhando em tempo real</h2>
+      <p class="prosa texto-suave">
+        Você não fica olhando para uma tela parada esperando. Cada etapa aparece enquanto acontece —
+        e se algo falhar no meio do caminho, os créditos voltam para a sua conta automaticamente.
+      </p>
+    </div>
+
+    <ol class="passos">
+      <li class="passo">
+        <div class="passo__num">01</div>
+        <h3 class="passo__titulo">Descreva ou escreva a letra</h3>
+        <p class="passo__texto">
+          Na aba <strong>Simples</strong>, uma frase basta. Na <strong>Avançado</strong>, você traz a
+          letra, escolhe estilos, diz o que <em>não</em> quer ouvir, define andamento e tom. Sem ideia
+          de letra? A IA escreve a partir de um tema, por 1 crédito.
+        </p>
+        <div class="passo__visual passo__visual--prompt">
+          <p class="mono">estilos: <span class="tom-acento">pop rock brasileiro, violão, bateria ao vivo</span></p>
+          <p class="mono">excluir: <span class="tom-apagado">distorção, autotune</span></p>
+        </div>
+      </li>
+
+      <li class="passo">
+        <div class="passo__num">02</div>
+        <h3 class="passo__titulo">Acompanhe a composição</h3>
+        <p class="passo__texto">
+          A barra de progresso mostra a etapa real: interpretando o estilo, escrevendo a letra,
+          compondo, finalizando o áudio. Pode fechar a aba — quando voltar, o progresso continua de
+          onde estava.
+        </p>
+        <div class="passo__visual">
+          <div class="progresso">
+            <div class="progresso__linha"><span style="width:60%"></span></div>
+            <p class="progresso__rotulo">Compondo a música <span class="tom-apagado">60%</span></p>
+          </div>
+        </div>
+      </li>
+
+      <li class="passo">
+        <div class="passo__num">03</div>
+        <h3 class="passo__titulo">Ouça, ajuste e baixe</h3>
+        <p class="passo__texto">
+          Estenda a faixa, faça um remix em outro estilo, troque um trecho específico ou separe os
+          instrumentos. Cortar, aplicar fade e normalizar <strong>não custa crédito nenhum</strong> —
+          isso roda no nosso servidor, sem chamar a IA.
+        </p>
+        <div class="passo__visual passo__visual--faixa">
+          <span class="faixa__play" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+          </span>
+          <span class="faixa__nome">Estrada até o mar</span>
+          <span class="faixa__tempo mono">3:24</span>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ======================= RECURSOS (bento) ======================= -->
+<section class="secao secao--alt" id="recursos">
+  <div class="envolve">
+    <div class="secao__cabeca">
+      <p class="sobrancelha">Recursos</p>
+      <h2 class="titulo">O que dá para fazer</h2>
+    </div>
+
+    <div class="bento">
+      <article class="cartao cartao--largo">
+        <img src="img/estudio-mesa.jpg" alt="Produtor musical trabalhando em uma mesa de som num estúdio" width="1600" height="1067" loading="lazy">
+        <!-- TROCAR: foto do estúdio — troque por uma imagem da sua marca quando tiver -->
+        <div class="cartao__conteudo">
+          <h3>Com letra ou instrumental</h3>
+          <p>Traga sua letra, peça para a IA escrever, ou deixe a faixa inteiramente instrumental.
+             Voz masculina, feminina ou indiferente.</p>
+        </div>
+      </article>
+
+      <article class="cartao">
+        <span class="icone" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </span>
+        <h3>Estilos e exclusões</h3>
+        <p>Diga o que quer — e o que não quer. “Sem autotune”, “sem distorção”: o pedido vira
+           instrução real para o modelo, não um texto decorativo.</p>
+      </article>
+
+      <article class="cartao">
+        <span class="icone" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6v12M9 4v16M14 8v8M19 6v12"/></svg>
+        </span>
+        <h3>Separação de stems</h3>
+        <p>Voz, bateria, baixo e o resto em arquivos separados, prontos para abrir numa DAW.
+           Não consome crédito.</p>
+      </article>
+
+      <article class="cartao">
+        <span class="icone" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 19h16"/></svg>
+        </span>
+        <h3>Download em lote</h3>
+        <p>Selecione várias faixas e baixe tudo num ZIP, no formato que escolher. Sem clicar uma por uma.</p>
+      </article>
+
+      <article class="cartao">
+        <span class="icone" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg>
+        </span>
+        <h3>Estender, remixar, refazer</h3>
+        <p>Continue a música por mais um trecho, refaça em outro estilo mantendo a letra, ou troque
+           só um pedaço. A versão original nunca é sobrescrita.</p>
+      </article>
+
+      <article class="cartao cartao--acento">
+        <h3>Publicar é opcional</h3>
+        <p>Toda música nasce privada. Você decide se ela vai para o Explore, se aceita remix e se
+           aceita comentário — música por música.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ========================== FORMATOS ========================== -->
+<section class="secao" id="formatos">
+  <div class="envolve">
+    <div class="secao__cabeca">
+      <p class="sobrancelha">Download</p>
+      <h2 class="titulo">Cinco formatos, sem letra miúda</h2>
+      <p class="prosa texto-suave">
+        A gente diz o que cada formato realmente entrega — inclusive quando ele <em>não</em> melhora
+        nada. Converter um master com perdas para WAV aumenta o arquivo e não devolve qualidade
+        nenhuma, e isso aparece escrito na hora de baixar.
+      </p>
+    </div>
+
+    <div class="tabela-envolve">
+      <table class="tabela">
+        <caption class="sr">Formatos de download disponíveis e para que serve cada um</caption>
+        <thead>
+          <tr><th scope="col">Formato</th><th scope="col">Para que serve</th><th scope="col">Planos</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">MP3</th>
+            <td>Ouvir e compartilhar. Fica pronto junto com a música.</td>
+            <td><span class="etiqueta etiqueta--ok">Todos</span></td>
+          </tr>
+          <tr>
+            <th scope="row">WAV</th>
+            <td>Sem perdas. É o que DAWs, distribuidoras e editores de vídeo pedem.</td>
+            <td><span class="etiqueta">Pagos</span></td>
+          </tr>
+          <tr>
+            <th scope="row">FLAC</th>
+            <td>Sem perdas e cerca de metade do tamanho do WAV.</td>
+            <td><span class="etiqueta">Pagos</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Opus</th>
+            <td>O menor arquivo. Bom para web e streaming.</td>
+            <td><span class="etiqueta">Pagos</span></td>
+          </tr>
+          <tr>
+            <th scope="row">M4A</th>
+            <td>Compatibilidade com Apple e editores de vídeo.</td>
+            <td><span class="etiqueta">Pagos</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== PLANOS =========================== -->
+<section class="secao secao--alt" id="planos">
+  <div class="envolve">
+    <div class="secao__cabeca">
+      <p class="sobrancelha">Planos</p>
+      <h2 class="titulo">Preço na cara, sem “fale com vendas”</h2>
+      <p class="prosa texto-suave">
+        Créditos mensais que renovam, e pacotes avulsos com 12 meses de validade se precisar de mais
+        num mês específico. Cancelar mantém o acesso até o fim do período já pago.
+      </p>
+    </div>
+
+    <div class="planos">
+      <article class="plano">
+        <h3 class="plano__nome">Free</h3>
+        <p class="plano__preco">R$ 0</p>
+        <p class="plano__creditos">30 créditos por dia</p>
+        <ul class="plano__lista">
+          <li>Músicas de até 2 minutos</li>
+          <li>Download em MP3</li>
+          <li>Publicação no Explore</li>
+          <li>Edições sem IA (corte, fade, normalizar)</li>
+        </ul>
+        <a class="btn btn--fantasma btn--bloco" href="https://sonoravibe.com/entrar">Começar de graça</a>
+      </article>
+
+      <article class="plano plano--destaque">
+        <p class="plano__selo">Mais escolhido</p>
+        <h3 class="plano__nome">Pro</h3>
+        <p class="plano__preco">R$ 39<span class="plano__ciclo">/mês</span></p>
+        <p class="plano__creditos">5.000 créditos por mês</p>
+        <ul class="plano__lista">
+          <li>Músicas de até 4 minutos</li>
+          <li>Todos os cinco formatos</li>
+          <li>Separação de stems</li>
+          <li>Download em lote (ZIP)</li>
+          <li>Uso comercial liberado</li>
+          <li>Fila prioritária</li>
+        </ul>
+        <a class="btn btn--acento btn--bloco" href="https://sonoravibe.com/creditos">Assinar o Pro</a>
+      </article>
+
+      <article class="plano">
+        <h3 class="plano__nome">Premier</h3>
+        <p class="plano__preco">R$ 99<span class="plano__ciclo">/mês</span></p>
+        <p class="plano__creditos">20.000 créditos por mês</p>
+        <ul class="plano__lista">
+          <li>Músicas de até 8 minutos</li>
+          <li>Tudo do Pro</li>
+          <li>Max Mode</li>
+          <li>Seis gerações ao mesmo tempo</li>
+          <li>Prioridade máxima na fila</li>
+        </ul>
+        <a class="btn btn--fantasma btn--bloco" href="https://sonoravibe.com/creditos">Assinar o Premier</a>
+      </article>
+    </div>
+
+    <p class="planos__nota">
+      Pagamento por Pix, boleto ou cartão. Uma música completa custa 10 créditos; um som curto, 5.
+      Cortar, aplicar fade, normalizar e separar stems não custam crédito.
+    </p>
+  </div>
+</section>
+
+<!-- ============================ FAQ ============================ -->
+<section class="secao" id="duvidas">
+  <div class="envolve estreito">
+    <div class="secao__cabeca">
+      <p class="sobrancelha">Dúvidas</p>
+      <h2 class="titulo">Perguntas diretas</h2>
+    </div>
+
+    <div class="faq">
+      <details class="faq__item">
+        <summary>A música é minha? Posso usar comercialmente?</summary>
+        <div class="faq__corpo">
+          <p>Nos planos pagos, sim: o uso comercial está liberado. No plano gratuito a faixa é sua para
+          ouvir, compartilhar e publicar, mas não para uso comercial.</p>
+        </div>
+      </details>
+
+      <details class="faq__item">
+        <summary>Quanto tempo leva para ficar pronta?</summary>
+        <div class="faq__corpo">
+          <p>Depende do tamanho da faixa e de quantas pessoas estão gerando no momento. Em vez de
+          prometer um número, a gente mostra a etapa real na tela enquanto a música é composta — e os
+          planos pagos têm prioridade na fila.</p>
+        </div>
+      </details>
+
+      <details class="faq__item">
+        <summary>E se a geração falhar no meio?</summary>
+        <div class="faq__corpo">
+          <p>Os créditos voltam para a sua conta automaticamente. A cobrança é reservada quando o
+          pedido entra na fila e só é confirmada quando a música fica pronta — se falhar, é estornada,
+          e o motivo aparece no histórico.</p>
+        </div>
+      </details>
+
+      <details class="faq__item">
+        <summary>Preciso saber música para usar?</summary>
+        <div class="faq__corpo">
+          <p>Não. Na aba Simples, uma frase descrevendo o que você quer ouvir já basta. Os controles
+          finos — andamento, tom, aderência ao estilo — ficam na aba Avançado, para quem quiser.</p>
+        </div>
+      </details>
+
+      <details class="faq__item">
+        <summary>Os créditos que sobram expiram?</summary>
+        <div class="faq__corpo">
+          <p>Os créditos do plano renovam a cada ciclo e não acumulam. Os comprados em pacote avulso
+          valem 12 meses, e são sempre os últimos a serem consumidos — você perde primeiro o que
+          expiraria antes.</p>
+        </div>
+      </details>
+
+      <details class="faq__item">
+        <summary>Dá para baixar em WAV ou FLAC?</summary>
+        <div class="faq__corpo">
+          <p>Sim, nos planos pagos, junto com Opus e M4A. O MP3 fica pronto assim que a música nasce;
+          os outros formatos são convertidos quando você pede e ficam em cache por sete dias.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= CTA FINAL ========================= -->
+<section class="cta">
+  <!-- TROCAR: foto de fundo — troque por uma imagem da sua marca quando tiver -->
+  <img class="cta__foto" src="img/fones.jpg" alt="" width="1600" height="1067" loading="lazy" aria-hidden="true">
+  <div class="cta__veu" aria-hidden="true"></div>
+  <div class="cta__brilho" aria-hidden="true"></div>
+  <div class="envolve cta__conteudo">
+    <h2 class="titulo">A primeira música sai hoje</h2>
+    <p class="prosa texto-suave">
+      Conta nova começa com 30 créditos por dia, sem cartão. Dá para gerar, ouvir e baixar antes de
+      decidir se vale assinar.
+    </p>
+    <a class="btn btn--acento btn--g" href="https://sonoravibe.com/entrar">Criar conta de graça</a>
+  </div>
+</section>
+
+</main>
+
+<footer class="rodape">
+  <div class="envolve rodape__grade">
+    <div class="rodape__marca">
+      <a class="marca" href="#topo" aria-label="Sonora, início">
+        <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <defs><linearGradient id="fg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#FF8A3D"/><stop offset="1" stop-color="#E8306B"/>
+          </linearGradient></defs>
+          <rect width="32" height="32" rx="8" fill="url(#fg)"/>
+          <path d="M12 22.5V10l9-1.6v11" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>
+          <circle cx="10" cy="22.5" r="2.6" fill="#fff"/><circle cx="19" cy="20.9" r="2.6" fill="#fff"/>
+        </svg>
+        <span>Sonora</span>
+      </a>
+      <p class="rodape__frase">Geração de música com IA, feita no Brasil.</p>
+    </div>
+
+    <nav class="rodape__col" aria-label="Produto">
+      <h2 class="rodape__titulo">Produto</h2>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#formatos">Formatos</a>
+      <a href="#planos">Planos</a>
+    </nav>
+
+    <nav class="rodape__col" aria-label="Conta">
+      <h2 class="rodape__titulo">Conta</h2>
+      <a href="https://sonoravibe.com/entrar">Entrar</a>
+      <a href="https://sonoravibe.com/entrar">Criar conta</a>
+      <a href="https://sonoravibe.com/creditos">Planos e créditos</a>
+    </nav>
+
+    <div class="rodape__col">
+      <h2 class="rodape__titulo">Contato</h2>
+      <!-- TROCAR: e-mail de suporte real -->
+      <a href="mailto:contato@sonoravibe.com">contato@sonoravibe.com</a>
+      <!-- TROCAR: Instagram da marca (ou remova a linha) -->
+      <a href="https://instagram.com/" rel="noopener">Instagram</a>
+      <a href="politica-de-privacidade.html">Política de privacidade</a>
+    </div>
+  </div>
+
+  <div class="envolve rodape__base">
+    <!-- TROCAR: razão social, CNPJ e cidade/UF reais da empresa -->
+    <p>Sonora Tecnologia LTDA · CNPJ 00.000.000/0001-00 · Cidade/UF</p>
+    <p>&copy; <span id="ano">2026</span> Sonora. Todos os direitos reservados.</p>
+  </div>
+</footer>
+
+<!-- TROCAR: número de WhatsApp do suporte (formato 55 + DDD + número) -->
+<a class="zap" href="https://wa.me/5500000000000?text=Ol%C3%A1%21%20Tenho%20uma%20d%C3%BAvida%20sobre%20o%20Sonora."
+   target="_blank" rel="noopener" aria-label="Falar com o suporte no WhatsApp">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.2-1.8-.9-2-1-.3-.1-.5-.2-.7.1-.2.3-.7 1-.9 1.2-.2.2-.3.2-.6.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.5-.6c.1-.2.2-.3.3-.5 0-.2 0-.4 0-.5 0-.2-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.2 5.1 4.4.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.5.3-.7.3-1.3.2-1.4 0-.2-.2-.3-.5-.4zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg>
+</a>
+
+<div class="lgpd" id="lgpd" role="dialog" aria-live="polite" aria-label="Aviso de cookies" hidden>
+  <p>A gente usa cookies só para o site funcionar e entender o que as pessoas leem por aqui.
+     Veja a <a href="politica-de-privacidade.html">política de privacidade</a>.</p>
+  <button class="btn btn--acento" type="button" id="lgpd-ok">Entendi</button>
+</div>
+
+<script src="assets/js/main.js" defer></script>
+</body>
+</html>

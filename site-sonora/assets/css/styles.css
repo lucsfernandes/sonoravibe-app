@@ -1,0 +1,625 @@
+/* ============================================================
+   Sonora — site institucional
+   Base ESCURA por decisão de nicho, não por template: as referências
+   atuais do setor (Suno, Udio, Splice, LANDR) são escuras, e o próprio
+   app é escuro. Acento laranja→magenta vem da identidade do produto.
+   ============================================================ */
+
+:root {
+  /* Nunca #000 puro: a chapada do preto absoluto é um tell barato. */
+  --fundo:        #0D0C0F;
+  --superficie:   #16141A;
+  --superficie-2: #1E1B24;
+  --linha:        rgba(237, 234, 228, 0.11);
+
+  --ink:       #EDEAE4;   /* off-white, nunca #fff */
+  --ink-2:     #A49CA8;
+  --ink-3:     #6F6875;
+
+  --acento:    #FF8A3D;
+  --acento-2:  #E8306B;
+  --acento-suave: rgba(255, 138, 61, 0.12);
+
+  /* Escala de tipo fluida. Corpo em 18px: abaixo de 16 é tell de amador. */
+  --t-0:   clamp(1.05rem, 1rem + .2vw, 1.14rem);
+  --t--1:  clamp(.88rem, .85rem + .1vw, .94rem);
+  --t-2:   clamp(1.3rem, 1.15rem + .5vw, 1.6rem);
+  --t-3:   clamp(2rem, 1.5rem + 2vw, 3.2rem);
+  /* Teto em 4.4rem: a 5.4rem a manchete quebrava em quatro linhas e empurrava
+     os botões para fora da primeira tela — o CTA principal sumia. */
+  --disp:  clamp(2.6rem, 1.7rem + 3.4vw, 4.4rem);
+
+  --fonte-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --fonte-corpo:   'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --fonte-mono:    'Space Mono', ui-monospace, monospace;
+
+  /* Escala de 8px. */
+  --e-1: .5rem;  --e-2: 1rem;   --e-3: 1.5rem;
+  --e-4: 2rem;   --e-6: 3rem;   --e-8: 4rem;
+  --e-12: 6rem;  --e-16: 8rem;
+
+  --raio: 14px;
+  --raio-g: 20px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--ink);
+  font-family: var(--fonte-corpo);
+  font-size: var(--t-0);
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3 {
+  font-family: var(--fonte-display);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+  margin: 0;
+  /* O opsz da Bricolage é o que faz o display parecer "composto", e não
+     apenas "o mesmo texto maior". */
+  font-variation-settings: 'opsz' 48;
+}
+
+p { margin: 0; }
+/* `height: auto` NÃO é opcional aqui. Os atributos width/height do HTML (que
+   existem para reservar espaço e evitar o pulo de layout) viram altura literal
+   quando o CSS não zera a altura: a foto do estúdio renderizava com 1067px de
+   altura e 333 de largura, espremida na vertical. */
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; }
+
+/* A medida da leitura nunca vai a largura cheia — é um dos tells
+   mais rápidos de site amador. */
+.prosa { max-width: 62ch; }
+
+.envolve { width: min(100% - 2.5rem, 1200px); margin-inline: auto; }
+.estreito { width: min(100% - 2.5rem, 760px); }
+
+.sr, .pular:not(:focus) {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.pular:focus {
+  position: fixed; inset-inline-start: 1rem; inset-block-start: 1rem;
+  z-index: 200; background: var(--ink); color: var(--fundo);
+  padding: .75rem 1.25rem; border-radius: 10px; font-weight: 600;
+}
+
+:where(a, button, summary, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.sobrancelha {
+  font-family: var(--fonte-mono);
+  font-size: .78rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--acento);
+  margin-bottom: var(--e-2);
+}
+
+.titulo { font-size: var(--t-3); }
+.display { font-size: var(--disp); font-weight: 800; font-variation-settings: 'opsz' 96; }
+.texto-suave { color: var(--ink-2); }
+.tom-apagado { color: var(--ink-3); }
+.mono { font-family: var(--fonte-mono); font-size: var(--t--1); }
+
+.tom-acento {
+  background: linear-gradient(100deg, var(--acento) 0%, var(--acento-2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ------------------------------ botões ------------------------------ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .72rem 1.35rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: var(--t--1);
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform .18s ease, background-color .18s ease, border-color .18s ease, opacity .18s ease;
+  white-space: nowrap;
+}
+.btn--g { padding: .95rem 1.8rem; font-size: var(--t-0); }
+.btn--bloco { display: flex; width: 100%; }
+
+.btn--acento {
+  background: linear-gradient(100deg, var(--acento) 0%, var(--acento-2) 100%);
+  color: #fff;
+}
+.btn--acento:hover { transform: translateY(-2px); }
+
+.btn--fantasma { border-color: var(--linha); color: var(--ink); background: transparent; }
+.btn--fantasma:hover { border-color: var(--ink-3); background: rgba(237,234,228,.04); }
+
+/* ----------------------------- cabeçalho ----------------------------- */
+.cabecalho {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(13, 12, 15, .82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid transparent;
+  transition: border-color .2s ease;
+}
+.cabecalho.rolou { border-bottom-color: var(--linha); }
+
+.cabecalho__linha {
+  display: flex; align-items: center; gap: var(--e-4);
+  padding-block: .9rem;
+}
+
+.marca {
+  display: inline-flex; align-items: center; gap: .55rem;
+  font-family: var(--fonte-display);
+  font-weight: 800; font-size: 1.22rem;
+  letter-spacing: -.02em;
+  text-decoration: none;
+}
+
+.nav { display: flex; gap: var(--e-3); margin-inline-start: auto; }
+.nav a {
+  text-decoration: none; color: var(--ink-2);
+  font-size: var(--t--1); font-weight: 500;
+  padding-block: .35rem;
+  border-bottom: 1.5px solid transparent;
+  transition: color .18s ease, border-color .18s ease;
+}
+.nav a:hover { color: var(--ink); }
+.nav a.ativo { color: var(--ink); border-bottom-color: var(--acento); }
+
+.cabecalho__acoes { display: flex; gap: .6rem; }
+
+.hamburguer {
+  display: none;
+  background: none; border: 1px solid var(--linha); border-radius: 10px;
+  width: 42px; height: 42px; padding: 0;
+  cursor: pointer;
+  margin-inline-start: auto;
+}
+.hamburguer span {
+  display: block; width: 18px; height: 1.6px; margin: 4px auto;
+  background: var(--ink); transition: transform .22s ease, opacity .22s ease;
+}
+.hamburguer[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.6px) rotate(45deg); }
+.hamburguer[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+.hamburguer[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.6px) rotate(-45deg); }
+
+/* -------------------------------- hero -------------------------------- */
+.hero { position: relative; padding-block: clamp(3.5rem, 7vw, 7rem) var(--e-12); overflow: hidden; }
+
+/* Duas manchas radiais de baixa saturação. Gradiente de verdade é isto —
+   não uma faixa indigo→roxo atravessando a tela. */
+.hero__brilho {
+  position: absolute; inset: -30% -10% auto -10%; height: 130%;
+  background:
+    radial-gradient(42% 46% at 22% 18%, rgba(255,138,61,.20) 0%, transparent 70%),
+    radial-gradient(38% 42% at 78% 32%, rgba(232,48,107,.16) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+.hero__grade {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.12fr .88fr;
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+}
+
+.hero__sub { margin-block: var(--e-3) var(--e-4); font-size: clamp(1.08rem, 1rem + .4vw, 1.28rem); color: var(--ink-2); }
+.hero__acoes { display: flex; flex-wrap: wrap; gap: .8rem; }
+.hero__nota { margin-top: var(--e-3); font-size: var(--t--1); color: var(--ink-3); }
+
+/* O painel do produto: reprodução fiel da interface real do app. */
+.painel {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-g);
+  padding: var(--e-3);
+  display: grid; gap: .7rem;
+  box-shadow: 0 30px 70px -30px rgba(0,0,0,.85), 0 0 0 1px rgba(255,138,61,.06);
+}
+.painel__abas {
+  display: flex; gap: .25rem;
+  background: var(--fundo);
+  border: 1px solid var(--linha);
+  border-radius: 12px; padding: .28rem;
+}
+.painel__aba {
+  flex: 1; text-align: center;
+  padding: .5rem; border-radius: 9px;
+  font-size: var(--t--1); font-weight: 500; color: var(--ink-3);
+}
+.painel__aba--ativa { background: var(--superficie-2); color: var(--ink); }
+
+.painel__campo {
+  background: var(--fundo); border: 1px solid var(--linha);
+  border-radius: 12px; padding: .8rem .9rem;
+}
+.painel__rotulo { display: block; font-size: .78rem; color: var(--ink-3); margin-bottom: .3rem; }
+.painel__texto { color: var(--ink); font-size: var(--t--1); line-height: 1.5; }
+
+.painel__linha {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .55rem .9rem;
+  background: var(--fundo); border: 1px solid var(--linha); border-radius: 12px;
+}
+.painel__linha .painel__rotulo { margin: 0; }
+.painel__valor { font-size: var(--t--1); color: var(--ink-2); }
+
+.interruptor {
+  position: relative; width: 38px; height: 21px; border-radius: 999px;
+  background: var(--superficie-2); display: inline-block; flex-shrink: 0;
+}
+/* O left explícito é obrigatório: sem ele o absoluto herda a posição
+   estática e o botão aparece no meio da trilha. */
+.interruptor i { position: absolute; top: 3px; left: 3px; width: 15px; height: 15px; border-radius: 50%; background: var(--ink-3); }
+
+.painel__botao {
+  display: flex; align-items: center; justify-content: center; gap: .6rem;
+  background: linear-gradient(100deg, var(--acento) 0%, var(--acento-2) 100%);
+  color: #fff; font-weight: 600; font-size: var(--t--1);
+  padding: .85rem; border-radius: 12px;
+}
+.painel__custo { background: rgba(0,0,0,.26); border-radius: 999px; padding: .12rem .55rem; font-size: .76rem; }
+
+/* ------------------------------- fatos ------------------------------- */
+.fatos { border-block: 1px solid var(--linha); background: var(--superficie); }
+.fatos__grade {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--e-4); padding-block: var(--e-6);
+}
+.fato__num {
+  font-family: var(--fonte-display); font-weight: 700;
+  font-size: clamp(1.25rem, 1rem + .9vw, 1.7rem);
+  letter-spacing: -.02em; margin-bottom: .3rem;
+}
+.fato__leg { font-size: var(--t--1); color: var(--ink-2); line-height: 1.45; }
+
+/* ------------------------------- seções ------------------------------- */
+.secao { padding-block: clamp(4rem, 9vw, var(--e-16)); }
+.secao--alt { background: var(--superficie); border-block: 1px solid var(--linha); }
+.secao__cabeca { margin-bottom: var(--e-8); }
+.secao__cabeca .prosa { margin-top: var(--e-3); }
+
+/* ------------------------------- passos ------------------------------- */
+.passos {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--e-4);
+  counter-reset: passo;
+}
+.passo {
+  background: var(--fundo);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-g);
+  padding: var(--e-4);
+  display: flex; flex-direction: column; gap: .8rem;
+}
+.secao--alt .passo { background: var(--superficie-2); }
+.passo__num {
+  font-family: var(--fonte-mono); font-size: .8rem;
+  color: var(--acento); letter-spacing: .1em;
+}
+.passo__titulo { font-size: var(--t-2); }
+.passo__texto { font-size: var(--t--1); color: var(--ink-2); }
+.passo__texto strong { color: var(--ink); font-weight: 600; }
+
+.passo__visual {
+  margin-top: auto;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+  padding: .9rem;
+}
+.passo__visual--prompt p + p { margin-top: .35rem; }
+
+.progresso__linha { height: 4px; border-radius: 999px; background: var(--superficie-2); overflow: hidden; }
+.progresso__linha span {
+  display: block; height: 100%;
+  background: linear-gradient(100deg, var(--acento), var(--acento-2));
+}
+.progresso__rotulo { margin-top: .55rem; font-size: var(--t--1); display: flex; justify-content: space-between; }
+
+.passo__visual--faixa { display: flex; align-items: center; gap: .7rem; }
+.faixa__play {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(100deg, var(--acento), var(--acento-2));
+  color: #fff; display: grid; place-items: center;
+}
+.faixa__nome { font-size: var(--t--1); font-weight: 500; }
+.faixa__tempo { margin-inline-start: auto; color: var(--ink-3); }
+
+/* -------------------------------- bento -------------------------------- */
+/* Tamanhos variados de propósito: três cards idênticos em linha, cada um
+   com um ícone, é a assinatura visual de site gerado por IA. */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--e-3);
+}
+.cartao {
+  background: var(--fundo);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-g);
+  padding: var(--e-4);
+  display: flex; flex-direction: column; gap: .7rem;
+  /* Centraliza no card que a linha esticou. Alinhado ao topo, o card ao lado
+     da foto ficava com uns 300px de vazio embaixo — lê como erro, não como
+     respiro. Nos cards de altura natural isto não muda nada. */
+  justify-content: center;
+  transition: border-color .2s ease, transform .2s ease;
+}
+.cartao:hover { border-color: rgba(255,138,61,.35); transform: translateY(-3px); }
+.cartao h3 { font-size: var(--t-2); }
+.cartao p { font-size: var(--t--1); color: var(--ink-2); }
+
+.cartao--largo { grid-column: span 2; padding: 0; overflow: hidden; }
+/* aspect-ratio + width:100%. NUNCA height:100% aqui: dentro de um grid de
+   altura indefinida a imagem colapsa e vira uma caixa vazia. */
+.cartao--largo img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.cartao__conteudo { padding: var(--e-4); display: flex; flex-direction: column; gap: .7rem; }
+
+.cartao--acento {
+  /* Faixa de largura inteira fechando a seção. Como card de uma coluna ele
+     sobrava sozinho na última linha, com dois buracos ao lado — e buraco de
+     grade lê como erro, não como respiro. */
+  grid-column: 1 / -1;
+  flex-direction: row; align-items: center; gap: var(--e-4);
+  background: linear-gradient(140deg, rgba(255,138,61,.14), rgba(232,48,107,.10));
+  border-color: rgba(255,138,61,.28);
+}
+.cartao--acento h3 { flex: 0 0 auto; }
+.cartao--acento p { max-width: 64ch; }
+
+.icone {
+  width: 42px; height: 42px; border-radius: 11px;
+  display: grid; place-items: center;
+  background: var(--acento-suave); color: var(--acento);
+  border: 1px solid rgba(255,138,61,.22);
+}
+
+/* ------------------------------- tabela ------------------------------- */
+.tabela-envolve { overflow-x: auto; border: 1px solid var(--linha); border-radius: var(--raio-g); }
+.tabela { width: 100%; border-collapse: collapse; min-width: 560px; }
+.tabela th, .tabela td { text-align: left; padding: 1rem 1.25rem; font-size: var(--t--1); }
+.tabela thead th {
+  font-family: var(--fonte-mono); font-size: .76rem;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3);
+  border-bottom: 1px solid var(--linha); font-weight: 400;
+}
+.tabela tbody tr + tr { border-top: 1px solid var(--linha); }
+.tabela tbody th { font-weight: 600; font-family: var(--fonte-display); }
+.tabela td { color: var(--ink-2); }
+
+.etiqueta {
+  display: inline-block; font-size: .74rem; font-weight: 600;
+  padding: .2rem .6rem; border-radius: 999px;
+  border: 1px solid var(--linha); color: var(--ink-2);
+}
+.etiqueta--ok { border-color: rgba(255,138,61,.4); color: var(--acento); background: var(--acento-suave); }
+
+/* ------------------------------- planos ------------------------------- */
+.planos { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--e-3); align-items: start; }
+.plano {
+  background: var(--fundo);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-g);
+  padding: var(--e-4);
+  display: flex; flex-direction: column; gap: .7rem;
+}
+.plano--destaque {
+  position: relative;
+  border-color: rgba(255,138,61,.42);
+  box-shadow: 0 0 0 1px rgba(255,138,61,.14), 0 24px 60px -30px rgba(232,48,107,.4);
+}
+/* O selo sai do fluxo e senta na borda de cima. No fluxo, ele empurrava só o
+   card do Pro para baixo: os três preços ficavam em linhas de base diferentes,
+   e a comparação — que é a única função desta seção — ficava torta. */
+.plano__selo {
+  position: absolute; top: -.72rem; left: var(--e-4);
+  font-family: var(--fonte-mono); font-size: .72rem;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--acento); background: var(--superficie-2);
+  border: 1px solid rgba(255,138,61,.42);
+  border-radius: 999px; padding: .22rem .7rem;
+}
+.plano__nome { font-size: var(--t-2); }
+.plano__preco {
+  font-family: var(--fonte-display); font-weight: 800;
+  font-size: clamp(2rem, 1.5rem + 1.6vw, 2.9rem);
+  letter-spacing: -.03em; line-height: 1;
+}
+.plano__ciclo { font-size: 1rem; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
+.plano__creditos { font-size: var(--t--1); color: var(--acento); font-weight: 600; }
+.plano__lista { list-style: none; margin: .5rem 0 var(--e-3); padding: 0; display: grid; gap: .45rem; }
+.plano__lista li {
+  font-size: var(--t--1); color: var(--ink-2);
+  padding-inline-start: 1.4rem; position: relative;
+}
+.plano__lista li::before {
+  content: ""; position: absolute; left: 0; top: .62em;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: linear-gradient(100deg, var(--acento), var(--acento-2));
+}
+.plano .btn { margin-top: auto; }
+.planos__nota { margin-top: var(--e-4); font-size: var(--t--1); color: var(--ink-3); max-width: 70ch; }
+
+/* --------------------------------- faq --------------------------------- */
+.faq { display: grid; gap: .6rem; }
+.faq__item {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  padding: 0 1.25rem;
+}
+.faq__item summary {
+  cursor: pointer; list-style: none;
+  padding-block: 1.1rem;
+  font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+}
+.faq__item summary::-webkit-details-marker { display: none; }
+.faq__item summary::after {
+  content: "+"; font-family: var(--fonte-mono); color: var(--acento);
+  font-size: 1.2rem; flex-shrink: 0; transition: transform .2s ease;
+}
+.faq__item[open] summary::after { transform: rotate(45deg); }
+.faq__corpo { padding-bottom: 1.1rem; }
+.faq__corpo p { font-size: var(--t--1); color: var(--ink-2); max-width: 62ch; }
+
+/* --------------------------------- cta --------------------------------- */
+.cta { position: relative; overflow: hidden; padding-block: clamp(4rem, 9vw, var(--e-16)); text-align: center; }
+
+/* Foto de fundo com véu escuro por cima. O véu não é enfeite: sem ele o texto
+   branco cai em cima das partes claras da foto e o contraste quebra. */
+.cta__foto {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  opacity: .22;
+}
+.cta__veu {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(to bottom, var(--fundo) 0%, rgba(13,12,15,.72) 45%, var(--fundo) 100%);
+  pointer-events: none;
+}
+.cta__brilho {
+  position: absolute; inset: auto -10% -60% -10%; height: 160%;
+  background: radial-gradient(45% 50% at 50% 70%, rgba(232,48,107,.20) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta__conteudo { position: relative; display: grid; justify-items: center; gap: var(--e-3); }
+.cta__conteudo .prosa { text-align: center; }
+
+/* -------------------------------- rodapé -------------------------------- */
+.rodape { border-top: 1px solid var(--linha); background: var(--superficie); padding-block: var(--e-8) var(--e-4); }
+.rodape__grade {
+  display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: var(--e-4); padding-bottom: var(--e-6);
+}
+.rodape__frase { margin-top: .7rem; font-size: var(--t--1); color: var(--ink-3); max-width: 32ch; }
+.rodape__col { display: flex; flex-direction: column; gap: .5rem; }
+.rodape__titulo {
+  font-family: var(--fonte-mono); font-size: .76rem; font-weight: 400;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3);
+  margin-bottom: .3rem;
+}
+.rodape__col a { font-size: var(--t--1); color: var(--ink-2); text-decoration: none; }
+.rodape__col a:hover { color: var(--ink); }
+.rodape__base {
+  border-top: 1px solid var(--linha); padding-top: var(--e-3);
+  display: flex; flex-wrap: wrap; gap: .5rem var(--e-3); justify-content: space-between;
+  font-size: .82rem; color: var(--ink-3);
+}
+
+/* ------------------------------ flutuantes ------------------------------ */
+.zap {
+  position: fixed; right: 1.1rem; bottom: 1.1rem; z-index: 90;
+  width: 54px; height: 54px; border-radius: 50%;
+  background: #25D366; color: #fff;
+  display: grid; place-items: center;
+  box-shadow: 0 10px 30px -8px rgba(37,211,102,.5);
+  transition: transform .2s ease;
+}
+.zap:hover { transform: scale(1.06); }
+
+.lgpd {
+  position: fixed; left: 1.1rem; bottom: 1.1rem; z-index: 95;
+  /* Em linha e compacto: empilhado e alto, o aviso cobria exatamente o botão
+     principal do hero — a primeira coisa que o visitante deveria conseguir clicar. */
+  max-width: min(560px, calc(100vw - 2.2rem));
+  background: var(--superficie-2);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  padding: .8rem .9rem;
+  display: flex; align-items: center; gap: .9rem;
+  box-shadow: 0 20px 50px -20px rgba(0,0,0,.8);
+}
+.lgpd[hidden] { display: none; }
+.lgpd p { font-size: .8rem; color: var(--ink-2); line-height: 1.45; }
+.lgpd .btn { flex-shrink: 0; }
+.lgpd a { color: var(--acento); }
+
+/* --------------------------- revelação por JS --------------------------- */
+/* Só esconde quando o JS está ativo. Sem isto, quem está com JS desligado
+   (e os rastreadores) veriam uma página em branco. */
+.js .revela { opacity: 0; transform: translateY(18px); }
+.js .revela.visivel {
+  opacity: 1; transform: none;
+  transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.3,1);
+}
+
+/* -------------------------------- páginas -------------------------------- */
+.pagina { padding-block: var(--e-8) var(--e-12); }
+.pagina h1 { font-size: var(--t-3); margin-bottom: var(--e-3); }
+.pagina h2 { font-size: var(--t-2); margin-block: var(--e-4) var(--e-2); }
+.pagina p, .pagina li { color: var(--ink-2); max-width: 65ch; }
+.pagina ul { padding-inline-start: 1.2rem; display: grid; gap: .4rem; }
+
+/* ------------------------------ responsivo ------------------------------ */
+@media (max-width: 960px) {
+  .hero__grade { grid-template-columns: 1fr; }
+  /* O texto vem primeiro no celular. Com o painel na frente, a primeira coisa
+     na tela era uma interface sem contexto nenhum — a manchete é justamente o
+     que explica o que aquele painel faz. */
+  .hero { padding-block: var(--e-6) var(--e-8); }
+  .fatos__grade { grid-template-columns: repeat(2, 1fr); }
+  .passos { grid-template-columns: 1fr; }
+  .bento { grid-template-columns: repeat(2, 1fr); }
+  .cartao--largo { grid-column: span 2; }
+  .planos { grid-template-columns: 1fr; }
+  .rodape__grade { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .cabecalho__acoes { display: none; }
+  .hamburguer { display: block; }
+
+  .nav {
+    position: fixed; inset: 64px 0 auto 0;
+    flex-direction: column; gap: 0;
+    background: var(--fundo);
+    border-bottom: 1px solid var(--linha);
+    padding: var(--e-2) 1.25rem var(--e-3);
+    margin: 0;
+    display: none;
+  }
+  .nav.aberto { display: flex; }
+  .nav a { padding-block: .85rem; border-bottom: 1px solid var(--linha); font-size: 1rem; }
+  .nav a.ativo { border-bottom-color: var(--acento); }
+
+  .bento, .cartao--largo { grid-column: auto; }
+  .bento { grid-template-columns: 1fr; }
+  /* No celular a faixa volta a empilhar: lado a lado, título e texto ficariam
+     com duas ou três palavras por linha. */
+  .cartao--acento { grid-column: auto; flex-direction: column; align-items: flex-start; gap: .7rem; }
+  .lgpd { left: 1.1rem; right: 1.1rem; max-width: none; bottom: 5.2rem; flex-direction: column; align-items: stretch; }
+}
+
+@media (max-width: 480px) {
+  .fatos__grade { grid-template-columns: 1fr; gap: var(--e-3); }
+  .rodape__grade { grid-template-columns: 1fr; }
+}
+
+/* Respeita quem pediu menos animação no sistema operacional. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+  .js .revela { opacity: 1; transform: none; }
+}

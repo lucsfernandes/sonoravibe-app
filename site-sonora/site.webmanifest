@@ -1,0 +1,18 @@
+{
+  "name": "Sonora",
+  "short_name": "Sonora",
+  "description": "Crie músicas com IA, com ou sem letra.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D0C0F",
+  "theme_color": "#0D0C0F",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "img/icone.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
