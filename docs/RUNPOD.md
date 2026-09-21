@@ -32,8 +32,8 @@ Quando o endpoint existir:
 A RunPod puxa a imagem de um registry; ela não constrói do seu repositório.
 
 ```bash
-docker build -t SEU_USUARIO/sonora-gpu-worker:v1 apps/gpu-worker
-docker push SEU_USUARIO/sonora-gpu-worker:v1
+docker build -t lucsfernandes/sonora-gpu-worker:v1 apps/gpu-worker
+docker push lucsfernandes/sonora-gpu-worker:v1
 ```
 
 A imagem é grande (o ACE-Step e os pesos vêm na base). O primeiro push demora.
@@ -48,7 +48,7 @@ No console: **runpod.io → Serverless → New Endpoint**.
 
 | Campo | O que colocar | Por quê |
 |---|---|---|
-| Container Image | `SEU_USUARIO/sonora-gpu-worker:v1` | a imagem do passo 1 |
+| Container Image | `lucsfernandes/sonora-gpu-worker:v1` | a imagem do passo 1 |
 | GPU | **L4 24 GB** (ou A5000 / 3090) | o benchmark em `docs/ARQUITETURA.md` foi feito na L4; abaixo de 24 GB o LM não cabe junto com o DiT |
 | Active Workers | `0` | escala a zero: você paga só o que gerar |
 | Max Workers | `1` para começar | um worker já atende a fila inicial; subir depois é um clique |

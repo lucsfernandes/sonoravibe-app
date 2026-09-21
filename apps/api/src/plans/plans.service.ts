@@ -1,25 +1,23 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Subscription } from '@sonora/db';
-import {
-  PLANS,
-  canDownloadFormat,
-  type AudioFormat,
-  type Plan,
-  type PlanCode,
-} from '@sonora/shared';
+import { type AudioFormat, type Plan, type PlanCode } from '@sonora/shared';
 import { DataSource } from 'typeorm';
 import { DATA_SOURCE } from '../database/database.module';
+import { PlansRepository } from './plans.repository';
 
 /**
  * De qual plano um usuário é, agora.
  *
- * Os planos vivem em código (`@sonora/shared`), não em tabela: preço e limites
- * mudam por deploy, com revisão, e não por UPDATE solto no banco. A tabela
- * `subscriptions` guarda só o vínculo com o gateway de pagamento.
+ * O plano em si vem de `PlansRepository`, que lê da tabela `plans` e mantém em
+ * memória. Aqui resolvemos só a pergunta "qual código", que depende da
+ * assinatura ativa em `subscriptions`.
  */
 @Injectable()
 export class PlansService {
-  constructor(@Inject(DATA_SOURCE) private readonly dataSource: DataSource) {}
+  constructor(
+    @Inject(DATA_SOURCE) private readonly dataSource: DataSource,
+    private readonly planos: PlansRepository,
+  ) {}
 
   async planCodeOf(userId: string): Promise<PlanCode> {
     const subscription = await this.dataSource.getRepository(Subscription).findOne({
@@ -39,11 +37,17 @@ export class PlansService {
   }
 
   async planOf(userId: string): Promise<Plan> {
-    return PLANS[await this.planCodeOf(userId)];
+    return this.planos.porCodigo(await this.planCodeOf(userId));
   }
 
-  /** O plano libera este formato de download? */
-  canDownload(planCode: PlanCode, format: AudioFormat): boolean {
-    return canDownloadFormat(planCode, format);
+  /**
+   * O plano libera este formato de download?
+   *
+   * Lê a lista do plano carregado do banco, e não mais a constante do código:
+   * liberar um formato passa a ser um UPDATE, não um deploy.
+   */
+  async canDownload(planCode: PlanCode, format: AudioFormat): Promise<boolean> {
+    const plano = await this.planos.porCodigo(planCode);
+    return plano.features.downloadFormats.includes(format);
   }
 }

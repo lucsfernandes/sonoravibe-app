@@ -20,6 +20,7 @@ import {
 import { Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { CreditsService, InsufficientCreditsError } from '../credits/credits.service';
+import { CONFIG, type AppConfig } from '../config/env';
 import { DATA_SOURCE } from '../database/database.module';
 import { PlansService } from '../plans/plans.service';
 import { GENERATION_QUEUE } from '../queue/queue.module';
@@ -52,6 +53,8 @@ export class SongsService {
     @Inject(GENERATION_QUEUE) private readonly queue: Queue,
     private readonly credits: CreditsService,
     private readonly plans: PlansService,
+    // O motor configurado decide o teto de duração que o plano pode prometer.
+    @Inject(CONFIG) private readonly config: AppConfig,
   ) {}
 
   async generate(user: SessionUser, request: GenerationRequest): Promise<GenerateResult> {
@@ -152,7 +155,7 @@ export class SongsService {
     // `maxDurationFor` e não `features.maxDurationSeconds`: o limite que vale é
     // o menor entre o do plano e o do motor ligado. É o mesmo número que a tela
     // de planos publica, então a recusa aqui nunca contradiz o que foi vendido.
-    const limite = maxDurationFor(code);
+    const limite = maxDurationFor(code, this.config.MUSIC_PROVIDER);
     const requested = controls.durationSeconds;
     if (requested && requested > limite) {
       throw new ForbiddenException(
