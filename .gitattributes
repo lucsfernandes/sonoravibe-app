@@ -1,0 +1,60 @@
+# Quebras de linha.
+#
+# O repositório é editado no Windows (core.autocrlf=true) e executado no Linux:
+# containers, k3s e o WSL onde fica o kubectl. Sem este arquivo, o checkout
+# escreve CRLF em tudo, e o `\r` no fim da linha do shebang faz o kernel
+# procurar um interpretador chamado "bash\r":
+#
+#   /usr/bin/env: 'bash\r': Permission denied
+#
+# A mensagem não diz nada sobre quebra de linha, e o arquivo parece correto em
+# qualquer editor — por isso a regra fica aqui, e não na configuração pessoal
+# de cada máquina.
+
+# Normaliza tudo para LF no repositório; o checkout decide o resto.
+* text=auto eol=lf
+
+# ---------------------------------------------------------------- Executáveis
+# Estes NÃO podem ganhar CRLF em hipótese alguma: são lidos por um shell Linux.
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+# O Docker lê o Dockerfile linha a linha; um `\` de continuação seguido de `\r`
+# quebra o comando de um jeito que só aparece no build.
+Dockerfile  text eol=lf
+*.Dockerfile text eol=lf
+.dockerignore text eol=lf
+
+# YAML do Kubernetes: blocos literais (|) preservam o `\r` dentro do valor, e
+# ele vai parar no ConfigMap.
+*.yaml      text eol=lf
+*.yml       text eol=lf
+
+# Entram em imagem Linux ou são executados por node/pnpm lá dentro.
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.mjs       text eol=lf
+*.json      text eol=lf
+*.css       text eol=lf
+*.html      text eol=lf
+*.md        text eol=lf
+*.sql       text eol=lf
+*.py        text eol=lf
+*.txt       text eol=lf
+.env.example text eol=lf
+
+# --------------------------------------------------------------------- Binários
+# Marcados para o Git não tentar converter nada dentro deles.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.webp      binary
+*.gif       binary
+*.ico       binary
+*.woff      binary
+*.woff2     binary
+*.mp3       binary
+*.wav       binary
+*.flac      binary
+*.zip       binary
