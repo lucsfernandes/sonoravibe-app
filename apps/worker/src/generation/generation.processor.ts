@@ -128,6 +128,14 @@ export class GenerationProcessor {
       const masterKey = await this.storeAudio(songId, master, result.audio);
       const durationMs = await this.resolveDuration(result, master);
 
+      // O título do modelo só entra se o usuário não tiver escolhido um. Quem
+      // digitou o nome da música espera vê-lo de volta — e o que o Lyria manda
+      // nem sempre é um nome: já chegou a ser o mapa de seções da faixa.
+      const titulo =
+        job.titleFromUser || !result.suggestedTitle
+          ? undefined
+          : result.suggestedTitle.slice(0, 160);
+
       await this.deps.dataSource.transaction(async (em) => {
         await em.getRepository(Song).update(
           { id: songId },
@@ -137,7 +145,7 @@ export class GenerationProcessor {
             durationMs,
             providerId: result.servedBy,
             compiledPrompt: request.prompt,
-            ...(result.suggestedTitle ? { title: result.suggestedTitle.slice(0, 160) } : {}),
+            ...(titulo ? { title: titulo } : {}),
           },
         );
         await em.getRepository(Generation).update(
@@ -165,7 +173,7 @@ export class GenerationProcessor {
         progress: STATUS_PROGRESS.complete,
         song: {
           id: songId,
-          title: result.suggestedTitle?.slice(0, 160) ?? song.title,
+          title: titulo ?? song.title,
           durationMs,
           audioUrl: await this.deps.storage.presignGet(masterKey),
           coverUrl: null,

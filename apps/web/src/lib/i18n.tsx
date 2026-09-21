@@ -85,6 +85,8 @@ const T: Dicionario = {
   'criar.custo': { pt: 'créditos', en: 'credits' },
   'criar.sortear': { pt: 'Sortear estilo', en: 'Random style' },
   'criar.cancelada': { pt: 'Cancelada', en: 'Cancelled' },
+  'criar.tituloMusica': { pt: 'Título da música', en: 'Song title' },
+  'criar.tituloPlaceholder': { pt: 'Estrada até o mar', en: 'Road to the sea' },
 
   // Biblioteca
   'lib.titulo': { pt: 'Biblioteca', en: 'Library' },

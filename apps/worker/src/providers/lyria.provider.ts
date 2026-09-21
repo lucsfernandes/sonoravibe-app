@@ -360,13 +360,43 @@ export function detectAudioFormat(buffer: Buffer): string | null {
   return null;
 }
 
-/** `delta.content` traz marcadores, não título — só aceita texto que pareça nome. */
-function extractTitle(text: string): string | undefined {
+/**
+ * Tira um título de `delta.content`, se houver um ali.
+ *
+ * Esse canal é misto: o modelo manda pelo mesmo caminho o nome da faixa, os
+ * marcadores de conteúdo (`<instrumental>`) e o mapa de seções da música —
+ * blocos como `[[A0]] [[B1]] [[C2]]`, que dizem a estrutura, não o nome.
+ *
+ * A versão anterior aceitava qualquer texto com menos de 120 caracteres, e
+ * músicas em produção nasciam chamadas "[[A0]] [[B1]] [[C2]] [[B3]] [[C4]]".
+ *
+ * Então a regra deixou de ser "não é um marcador conhecido" e passou a ser
+ * "sobra alguma palavra depois de remover todos os marcadores". Um título de
+ * verdade tem letras; um mapa de seções, não.
+ */
+export function extractTitle(text: string): string | undefined {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > 120) return undefined;
   if (CONTENT_MARKERS.has(trimmed.toLowerCase())) return undefined;
-  if (trimmed.startsWith('<') && trimmed.endsWith('>')) return undefined;
-  return trimmed;
+
+  // Remove [[A0]], [Verse], <instrumental> e o que mais vier nesse formato. O
+  // `[[...]]` sai primeiro porque o padrão de colchete simples comeria só os
+  // internos e deixaria os externos órfãos.
+  const semMarcadores = trimmed
+    .replace(/\[\[[^\]]*\]\]/g, ' ')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // `\p{L}` e não `[a-z]`: "Coração" e "サクラ" são títulos válidos.
+  if (!/\p{L}/u.test(semMarcadores)) return undefined;
+
+  // Duas letras seguidas afastam restos como "A 0 B 1" de um marcador mal
+  // formado, que passaria no teste acima por ter uma letra solta.
+  if (!/\p{L}{2}/u.test(semMarcadores)) return undefined;
+
+  return semMarcadores;
 }
 
 function isRetryableStatus(status: number): boolean {
