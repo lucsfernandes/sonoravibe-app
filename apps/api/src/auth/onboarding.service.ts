@@ -50,15 +50,15 @@ export class OnboardingService {
       this.logger.log(`Usuário ${user.id} pronto: @${handle}, carteira ${wallet.id}`);
     });
 
-    // Primeira cota diária do Free, fora da transação de onboarding: se a
-    // concessão falhar, o cadastro não é desfeito — o usuário só espera o
-    // próximo ciclo diário. Sem isso ele entra com carteira zerada e não
-    // consegue gerar nada na primeira visita, que é justamente quando decide
-    // se fica ou não.
-    const daily = PLANS.free.dailyCredits ?? 0;
+    // Primeira cota do Free, fora da transação de onboarding: se a concessão
+    // falhar, o cadastro não é desfeito e o `PlanRenewalService` concede na
+    // primeira leitura de `/credits`. Sem isto o usuário entraria com carteira
+    // zerada e não conseguiria gerar nada na primeira visita, que é justamente
+    // quando ele decide se fica.
+    const daily = PLANS.free.cycleCredits ?? 0;
     if (daily > 0) {
       try {
-        await this.credits.grant(user.id, daily, 'plan', 'plan_renewal', 'Cota diária do Free');
+        await this.credits.grant(user.id, daily, 'plan', 'plan_renewal', 'Cota mensal do Free');
       } catch (err) {
         this.logger.error(
           `Não concedi a cota inicial de ${user.id}: ${(err as Error).message}`,

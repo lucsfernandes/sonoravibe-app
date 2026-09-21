@@ -324,6 +324,81 @@ const T: Dicionario = {
     pt: 'MP3, WAV, FLAC, Opus e AAC. Separe os stems quando precisar.',
     en: 'MP3, WAV, FLAC, Opus and AAC. Split the stems when you need to.',
   },
+  // Página de vendas. Sem travessão em nenhuma linha: é o tell nº 1 de texto
+  // escrito por IA no Brasil, e o produto inteiro perde credibilidade junto.
+  'planos.titulo': {
+    pt: 'Comece de graça. Assine quando a música virar trabalho.',
+    en: 'Start free. Subscribe when the music becomes work.',
+  },
+  'planos.sub': {
+    pt: 'Cada música custa 10 créditos. No plano gratuito você ganha 30 por mês, sem cartão de crédito.',
+    en: 'Each song costs 10 credits. The free plan gives you 30 a month, no credit card.',
+  },
+  'planos.gratis': { pt: 'Grátis', en: 'Free' },
+  'planos.sugerido': { pt: 'Mais escolhido', en: 'Most popular' },
+  'planos.musica': { pt: 'música', en: 'song' },
+  'planos.musicas': { pt: 'músicas', en: 'songs' },
+  'planos.porMes': { pt: 'por mês', en: 'per month' },
+  'planos.porDia': { pt: 'por dia', en: 'per day' },
+  'planos.saiPor': { pt: 'Sai por', en: 'That is' },
+  'planos.porMusica': { pt: 'a música', en: 'per song' },
+  'planos.soMp3': { pt: 'MP3 128 kbps', en: 'MP3 128 kbps' },
+  'planos.formatos': { pt: 'formatos, na qualidade cheia', en: 'formats, full quality' },
+  'planos.baixarLote': { pt: 'Baixar em lote', en: 'Batch download' },
+  'planos.usoComercial': { pt: 'Uso comercial', en: 'Commercial use' },
+  'planos.simultanea': { pt: 'música por vez', en: 'song at a time' },
+  'planos.simultaneas': { pt: 'músicas ao mesmo tempo', en: 'songs at the same time' },
+  'planos.comparar': { pt: 'Lado a lado', en: 'Side by side' },
+  'planos.linhaMusicas': { pt: 'Músicas por ciclo', en: 'Songs per cycle' },
+  'planos.linhaDuracao': { pt: 'Minutos por música', en: 'Minutes per song' },
+  'planos.linhaFormatos': { pt: 'Formatos para baixar', en: 'Download formats' },
+  'planos.linhaSimultaneas': { pt: 'Gerações ao mesmo tempo', en: 'Concurrent generations' },
+  'planos.semCatalogo': {
+    pt: 'Não consegui carregar os planos agora. Recarregue a página.',
+    en: 'Could not load the plans right now. Reload the page.',
+  },
+  'planos.comecarGratis': { pt: 'Começar de graça', en: 'Start free' },
+  'planos.irCriar': { pt: 'Ir para o estúdio', en: 'Go to the studio' },
+  'planos.fechoTitulo': {
+    pt: 'Dá para testar antes de decidir.',
+    en: 'You can try before deciding.',
+  },
+  'planos.fechoTexto': {
+    pt: 'Crie a conta, gere sua primeira música e veja se o resultado serve. Se não servir, você não gastou nada.',
+    en: 'Create an account, generate your first song and see if it works for you. If it does not, you spent nothing.',
+  },
+  'planos.duvidas': { pt: 'Perguntas', en: 'Questions' },
+  'planos.p1': { pt: 'O que é um crédito?', en: 'What is a credit?' },
+  'planos.r1': {
+    pt: 'A unidade que a plataforma gasta para gerar. Uma música completa custa 10 créditos e um efeito curto custa 5. O plano mostra quantas músicas dá, para você não precisar fazer conta.',
+    en: 'The unit the platform spends to generate. A full song costs 10 credits and a short sound effect costs 5. The plan shows how many songs that is, so you do not have to do the math.',
+  },
+  'planos.p2': { pt: 'Posso usar as músicas comercialmente?', en: 'Can I use the songs commercially?' },
+  'planos.r2': {
+    pt: 'Nos planos pagos, sim. No gratuito não, porque ele existe para você testar a ferramenta e não para produzir material de cliente.',
+    en: 'On paid plans, yes. Not on the free one, which exists for you to try the tool and not to produce client work.',
+  },
+  'planos.p3': { pt: 'E se eu cancelar?', en: 'What if I cancel?' },
+  'planos.r3': {
+    pt: 'Você cancela pela própria interface, sem abrir chamado. O acesso continua até o fim do período que já foi pago. Nos primeiros 7 dias você tem direito a desistir e receber de volta, que é o que o Código de Defesa do Consumidor garante em compra pela internet.',
+    en: 'You cancel from the interface, no support ticket. Access lasts until the end of the period you already paid for. In the first 7 days you can withdraw and get a refund, which Brazilian consumer law guarantees for online purchases.',
+  },
+  'planos.p4': { pt: 'Os créditos acumulam?', en: 'Do credits roll over?' },
+  'planos.r4': {
+    pt: 'Os do plano não acumulam, eles renovam a cada ciclo. Os pacotes avulsos que você compra separado valem 12 meses e só são gastos depois que os do plano acabam.',
+    en: 'Plan credits do not roll over, they renew each cycle. Credit packs you buy separately last 12 months and are only spent after the plan credits run out.',
+  },
+  'planos.p5': { pt: 'Dá para baixar tudo de uma vez?', en: 'Can I download everything at once?' },
+  'planos.r5': {
+    pt: 'Dá, em qualquer plano, inclusive no gratuito. Você marca as músicas na biblioteca e baixa um ZIP com todas. É o recurso que mais economiza tempo de quem produz em volume.',
+    en: 'Yes, on any plan, including the free one. You select the songs in your library and download a ZIP with all of them. It is the feature that saves the most time for anyone producing in volume.',
+  },
+  'planos.p6': { pt: 'Preciso saber de música?', en: 'Do I need to know music?' },
+  'planos.r6': {
+    pt: 'Não. Você escreve o que quer ouvir em português mesmo, tipo "forró pé de serra com sanfona", e recebe a faixa. Se souber, o modo avançado deixa você mexer em andamento, tom, voz e letra.',
+    en: 'No. You write what you want to hear in plain language, like "upbeat folk with accordion", and get the track. If you do know music, advanced mode lets you set tempo, key, vocals and lyrics.',
+  },
+
   // Checkout de assinatura
   'assinar.plano': { pt: 'Plano escolhido', en: 'Chosen plan' },
   'assinar.passoConta': { pt: 'Sua conta', en: 'Your account' },

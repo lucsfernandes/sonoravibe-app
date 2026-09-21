@@ -22,7 +22,7 @@ import { Sidebar } from './sidebar';
  * que exigem login — ela mostra ao visitante um menu inteiro de portas
  * trancadas, e rouba a largura da única coisa que ele precisa fazer ali.
  */
-const SEM_CASCA = ['/entrar', '/criar-conta', '/assinar'];
+const SEM_CASCA = ['/entrar', '/criar-conta', '/assinar', '/planos'];
 
 export function Shell({ children, locale }: { children: ReactNode; locale: Locale }) {
   const caminho = usePathname();

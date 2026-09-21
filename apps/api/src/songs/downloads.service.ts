@@ -61,7 +61,7 @@ export class DownloadsService {
     const song = await this.library.own(userId, songId);
     const plan = await this.plans.planOf(userId);
 
-    this.assertDownloadable(song, plan, format);
+    await this.assertDownloadable(song, plan, format);
 
     const bitrate = renditionBitrate(format, plan.features.mp3Quality);
     const key = await this.resolveKey(song, format, bitrate, plan.features.mp3Quality, userId);
@@ -102,7 +102,7 @@ export class DownloadsService {
     const pending: string[] = [];
 
     for (const song of songs) {
-      this.assertDownloadable(song, plan, format);
+      await this.assertDownloadable(song, plan, format);
       const key = await this.resolveKey(song, format, bitrate, plan.features.mp3Quality, userId);
       if (key) entries.push({ song, storageKey: key, filename: filenameFor(song, format) });
       else pending.push(song.id);
@@ -116,11 +116,11 @@ export class DownloadsService {
     return this.storage.getObjectStream(storageKey);
   }
 
-  private assertDownloadable(song: Song, plan: Plan, format: AudioFormat): void {
+  private async assertDownloadable(song: Song, plan: Plan, format: AudioFormat): Promise<void> {
     if (song.status !== 'complete' || !song.masterKey) {
       throw new ForbiddenException('Esta música ainda não terminou de gerar.');
     }
-    if (!this.plans.canDownload(plan.code, format)) {
+    if (!(await this.plans.canDownload(plan.code, format))) {
       const liberados = plan.features.downloadFormats
         .map((f) => formatLabel(f, plan.features.mp3Quality))
         .join(', ');

@@ -16,7 +16,10 @@ import {
 } from '@sonora/shared';
 import { DataSource } from 'typeorm';
 import { CreditsService } from '../credits/credits.service';
+import { CONFIG, type AppConfig } from '../config/env';
 import { DATA_SOURCE } from '../database/database.module';
+import { PlanRenewalService } from '../plans/plan-renewal.service';
+import { PlansRepository } from '../plans/plans.repository';
 import { PlansService } from '../plans/plans.service';
 import {
   PAYMENT_PROVIDER,
@@ -66,11 +69,24 @@ export class BillingService {
     @Inject(PAYMENT_PROVIDER) private readonly gateway: PaymentProvider,
     private readonly credits: CreditsService,
     private readonly plans: PlansService,
+    private readonly planos: PlansRepository,
+    private readonly renovacao: PlanRenewalService,
+    @Inject(CONFIG) private readonly config: AppConfig,
   ) {}
 
   async creditsOf(userId: string): Promise<CreditsView> {
-    const [planCode, balance, wallet] = await Promise.all([
-      this.plans.planCodeOf(userId),
+    const planCode = await this.plans.planCodeOf(userId);
+
+    // A cota do Free é renovada aqui, e não por CronJob, porque o gatilho certo
+    // é a visita: só faz sentido creditar quem voltou. Um cron percorreria todas
+    // as contas do banco a cada ciclo, inclusive as abandonadas.
+    //
+    // Este é o caminho que toda visita percorre: a interface lê `/credits` para
+    // mostrar o saldo no menu. Roda antes do saldo ser lido, senão o usuário
+    // veria o valor de ontem e só o de hoje no próximo refresh.
+    await this.renovacao.renovarSeVirouCiclo(userId, planCode);
+
+    const [balance, wallet] = await Promise.all([
       this.credits.balanceOf(userId),
       this.dataSource.getRepository(CreditWallet).findOneBy({ userId }),
     ]);
@@ -98,14 +114,21 @@ export class BillingService {
     };
   }
 
-  catalogue() {
+  async catalogue() {
+    // Os planos vêm da tabela `plans`, não da constante do código: mudar preço
+    // ou texto de venda é um UPDATE, não um deploy.
+    const planos = await this.planos.listar();
+
     return {
-      // A duração sai daqui já limitada ao que o motor entrega. Publicar o
-      // número cru do plano faria a tela de preços prometer 8 min enquanto a
-      // API recusa qualquer coisa acima de 3.
-      plans: Object.values(PLANS).map((plan) => ({
+      // A duração sai daqui já limitada ao que o motor ligado entrega. Publicar
+      // o número cru do plano faria a página de preços prometer 8 min enquanto
+      // a API recusa qualquer coisa acima do que o provedor aguenta.
+      plans: planos.map((plan) => ({
         ...plan,
-        features: { ...plan.features, maxDurationSeconds: maxDurationFor(plan.code) },
+        features: {
+          ...plan.features,
+          maxDurationSeconds: maxDurationFor(plan.code, this.config.MUSIC_PROVIDER),
+        },
       })),
       packs: CREDIT_PACKS,
       gateway: this.gateway.id,

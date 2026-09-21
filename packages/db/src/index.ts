@@ -1,6 +1,7 @@
 import { CreditTransaction } from './entities/credit-transaction.entity';
 import { CreditWallet } from './entities/credit-wallet.entity';
 import { Generation } from './entities/generation.entity';
+import { Plan } from './entities/plan.entity';
 import { Payment } from './entities/payment.entity';
 import { Playlist, PlaylistSong } from './entities/playlist.entity';
 import { Profile } from './entities/profile.entity';
@@ -22,6 +23,7 @@ export * from './entities/credit-transaction.entity';
 export * from './entities/credit-wallet.entity';
 export * from './entities/generation.entity';
 export * from './entities/payment.entity';
+export * from './entities/plan.entity';
 export * from './entities/playlist.entity';
 export * from './entities/profile.entity';
 export * from './entities/social.entity';
@@ -41,6 +43,7 @@ export * from './services/credits-ledger';
  */
 export const ENTITIES = [
   User,
+  Plan,
   Profile,
   Workspace,
   Song,

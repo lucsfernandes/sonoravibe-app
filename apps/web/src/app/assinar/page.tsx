@@ -101,7 +101,7 @@ function PaginaAssinar() {
           )}
 
           <p className="mt-8 text-center text-sm text-texto-suave">
-            <Link href="/creditos" className="hover:text-texto">
+            <Link href="/planos" className="hover:text-texto">
               {t('assinar.verOutros')}
             </Link>
           </p>

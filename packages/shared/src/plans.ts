@@ -35,8 +35,16 @@ export interface Plan {
   readonly priceBrl: number;
   /** Créditos concedidos por mês. No Free a concessão é diária. */
   readonly monthlyCredits: number;
-  /** Só no Free: créditos renovados a cada 24h */
-  readonly dailyCredits?: number;
+  /**
+   * Créditos concedidos a cada ciclo do plano gratuito.
+   *
+   * Chamava-se `dailyCredits`, e o nome mentia: nada renovava diariamente, nem
+   * renovava de forma nenhuma. Agora o intervalo é explícito em `cycleDays`,
+   * porque um campo que diz "daily" e concede por mês é como o bug começa.
+   */
+  readonly cycleCredits?: number;
+  /** De quantos em quantos dias `cycleCredits` é concedido de novo. */
+  readonly cycleDays?: number;
   readonly features: PlanFeatures;
 }
 
@@ -46,7 +54,18 @@ export const PLANS: Record<PlanCode, Plan> = {
     name: 'Free',
     priceBrl: 0,
     monthlyCredits: 0,
-    dailyCredits: 30,
+    /**
+     * 30 créditos por CICLO, e o ciclo do Free é mensal (`cycle_days = 30` na
+     * tabela `plans`). São 3 músicas por mês.
+     *
+     * Nasceu diário. O problema não era o número, era que nada renovava: a
+     * concessão acontecia uma vez no cadastro e nunca mais, então "30 por dia"
+     * era, na prática, 30 no total. Agora renova de verdade — e um teto diário
+     * de 30 créditos por conta, renovando mesmo, sairia caro em GPU antes de
+     * existir receita para pagá-la.
+     */
+    cycleCredits: 30,
+    cycleDays: 30,
     features: {
       downloadFormats: ['mp3'],
       mp3Quality: 'preview',
@@ -56,7 +75,20 @@ export const PLANS: Record<PlanCode, Plan> = {
       maxConcurrentGenerations: 1,
       maxMode: false,
       maxDurationSeconds: 120,
-      batchDownload: false,
+      /**
+       * Baixar em lote vale para todo mundo, inclusive no Free.
+       *
+       * É o diferencial da plataforma e custa quase nada: o Free só baixa MP3,
+       * que já é transcodificado na geração (é o único formato `eager`), então
+       * o ZIP só empacota arquivo que já existe. Não há CPU de conversão nem
+       * egress do R2, que é gratuito.
+       *
+       * O custo real é banda da VPS: o ZIP é montado em memória na API, então
+       * os bytes passam por lá. Um MP3 de 3 min tem ~2,9 MB; um lote de 50
+       * faixas dá ~145 MB. É o único download que não vai direto do R2 para o
+       * usuário, e por isso o único que consome banda do servidor.
+       */
+      batchDownload: true,
     },
   },
   /**
@@ -103,20 +135,30 @@ export const PLANS: Record<PlanCode, Plan> = {
 };
 
 /**
- * Teto de duração que os motores ligados hoje realmente entregam.
+ * Teto de duração que cada motor realmente entrega.
  *
- * O Lyria não recebe duração como parâmetro — ela viaja como sugestão de texto
- * dentro do prompt — e devolve no máximo ~3 min. O ACE-Step chega aos 480 s dos
- * planos, mas roda na RunPod, que ainda não está de pé.
+ * O Lyria não recebe duração como parâmetro (ela viaja como sugestão de texto
+ * dentro do prompt) e devolve no máximo ~3 min. O ACE-Step chega aos 480 s que
+ * os planos prometem.
  *
- * Enquanto for assim, anunciar "4 min" no Pro e "8 min" no Premier é cobrar por
- * algo que não sai: numa geração de teste em produção, um usuário Free pediu
- * uma música e recebeu 3:01, acima até do limite do próprio plano.
+ * O teto é indexado pelo MOTOR, e não uma constante única, porque foi assim que
+ * a promessa desandou da primeira vez: o plano dizia 8 min, o motor ligado
+ * entregava 3, e nada no código ligava as duas coisas. Numa geração de teste em
+ * produção um usuário Free pediu uma música e recebeu 3:01, acima do limite do
+ * próprio plano.
  *
- * Quando a RunPod existir, este teto vira 480 e os limites por plano voltam a
- * valer sozinhos — nenhum outro lugar precisa mudar.
+ * Agora `maxDurationFor` recebe qual motor está configurado e o anúncio segue a
+ * realidade sozinho: trocar `MUSIC_PROVIDER` para `acestep` no ConfigMap já
+ * libera os 8 min, sem editar constante nenhuma.
  */
-export const ENGINE_MAX_DURATION_SECONDS = 180;
+export const ENGINE_MAX_DURATION_SECONDS: Record<string, number> = {
+  /** Não aceita duração como parâmetro; ela vai como sugestão no prompt. */
+  lyria: 180,
+  /** Com o LM ligado (`thinking`), que é obrigatório para o ritmo sair certo. */
+  acestep: 480,
+  /** O mock gera tom senoidal; o teto existe só para o teste bater com o Lyria. */
+  mock: 180,
+};
 
 /**
  * Duração máxima real de uma música neste plano, hoje.
@@ -125,8 +167,9 @@ export const ENGINE_MAX_DURATION_SECONDS = 180;
  * número. Ler `features.maxDurationSeconds` direto é o que produz a promessa
  * que o motor não cumpre.
  */
-export function maxDurationFor(code: PlanCode): number {
-  return Math.min(PLANS[code].features.maxDurationSeconds, ENGINE_MAX_DURATION_SECONDS);
+export function maxDurationFor(code: PlanCode, engine = 'lyria'): number {
+  const teto = ENGINE_MAX_DURATION_SECONDS[engine] ?? 180;
+  return Math.min(PLANS[code].features.maxDurationSeconds, teto);
 }
 
 export function planOf(code: PlanCode): Plan {

@@ -147,6 +147,7 @@ export class LibraryService {
     ]);
 
     const planCode = await this.plans.planCodeOf(song.userId);
+    const plano = await this.plans.planOf(song.userId);
     const master = masterFormatOf(song.masterKey);
 
     return {
@@ -166,13 +167,17 @@ export class LibraryService {
           url: await this.storage.presignGet(stem.storageKey),
         })),
       ),
-      downloads: (Object.keys(AUDIO_FORMAT_SPECS) as AudioFormat[]).map((format) => ({
-        format,
-        label: formatLabel(format, PLANS[planCode].features.mp3Quality),
-        note: formatNote(format, master),
-        estimatedMb: estimateDownloadMb(format, song.durationMs),
-        allowed: this.plans.canDownload(planCode, format),
-      })),
+      // `Promise.all` e não um map síncrono: `canDownload` passou a consultar o
+      // plano carregado do banco, então cada formato é uma promessa.
+      downloads: await Promise.all(
+        (Object.keys(AUDIO_FORMAT_SPECS) as AudioFormat[]).map(async (format) => ({
+          format,
+          label: formatLabel(format, plano.features.mp3Quality),
+          note: formatNote(format, master),
+          estimatedMb: estimateDownloadMb(format, song.durationMs),
+          allowed: await this.plans.canDownload(planCode, format),
+        })),
+      ),
     };
   }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ApiError, api, type Saldo } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -26,7 +27,8 @@ interface Catalogo {
 
 export default function Creditos() {
   const { t, locale } = useI18n();
-  const { usuario, saldo, recarregarSaldo } = useSessao();
+  const { usuario, saldo, carregando, recarregarSaldo } = useSessao();
+  const router = useRouter();
   const [catalogo, setCatalogo] = useState<Catalogo | null>(null);
   const [extrato, setExtrato] = useState<Saldo['transactions']>([]);
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -58,6 +60,18 @@ export default function Creditos() {
     } finally {
       setOcupado(null);
     }
+  }
+
+  // Visitante não tem saldo nem assinatura para gerenciar, e esta tela vive
+  // dentro da casca do aplicativo: sem este desvio ele via o menu lateral
+  // inteiro com Biblioteca, Criar e Playlists, que são rotas que exigem login.
+  // A vitrine pública é /planos.
+  useEffect(() => {
+    if (!carregando && !usuario) router.replace('/planos');
+  }, [carregando, usuario, router]);
+
+  if (carregando || !usuario) {
+    return <p className="p-8 text-sm text-texto-suave">{t('geral.carregando')}</p>;
   }
 
   const dinheiro = (v: number) =>
