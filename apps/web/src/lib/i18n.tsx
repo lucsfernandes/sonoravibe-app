@@ -104,6 +104,12 @@ const T: Dicionario = {
   'musica.excluir': { pt: 'Excluir', en: 'Delete' },
   'musica.convertendo': { pt: 'Convertendo...', en: 'Converting...' },
   'musica.somenteePagos': { pt: 'Exclusivo dos planos pagos', en: 'Paid plans only' },
+  // Selo numa música só. `lib.privadas` é o filtro da biblioteca, no plural.
+  'musica.privada': { pt: 'Privada', en: 'Private' },
+  'musica.reproducoes': { pt: 'reproduções', en: 'plays' },
+  'musica.reproducao': { pt: 'reprodução', en: 'play' },
+  'musica.curtidas': { pt: 'curtidas', en: 'likes' },
+  'musica.curtida': { pt: 'curtida', en: 'like' },
 
   // Explorar
   'explorar.titulo': { pt: 'Explorar', en: 'Explore' },
@@ -121,6 +127,14 @@ const T: Dicionario = {
   'creditos.doPlano': { pt: 'do plano', en: 'from plan' },
   'creditos.avulsos': { pt: 'avulsos', en: 'packs' },
   'creditos.extrato': { pt: 'Extrato', en: 'History' },
+  // Motivos do extrato. Sem isto o usuário lê o código cru ("generation") na
+  // própria fatura dele.
+  'motivo.plan_renewal': { pt: 'Renovação do plano', en: 'Plan renewal' },
+  'motivo.pack_purchase': { pt: 'Compra de pacote', en: 'Credit pack purchase' },
+  'motivo.generation': { pt: 'Geração de música', en: 'Song generation' },
+  'motivo.refund': { pt: 'Estorno', en: 'Refund' },
+  'motivo.manual_grant': { pt: 'Crédito concedido', en: 'Credit granted' },
+  'motivo.expiration': { pt: 'Créditos expirados', en: 'Credits expired' },
   'creditos.planos': { pt: 'Planos', en: 'Plans' },
   'creditos.pacotes': { pt: 'Pacotes avulsos', en: 'Credit packs' },
   'creditos.assinar': { pt: 'Assinar', en: 'Subscribe' },

@@ -191,7 +191,10 @@ export function filenameFor(song: Song, format: AudioFormat): string {
       .replace(/[^a-zA-Z0-9\s-]/g, '')
       .trim()
       .replace(/\s+/g, '-')
-      .slice(0, 60) || 'sonora';
+      .slice(0, 60)
+      // O corte em 60 cai no meio de uma palavra e deixa o hífen solto no fim
+      // ("...voz-masculina-grave-.mp3"). Apara as pontas depois de cortar.
+      .replace(/^-+|-+$/g, '') || 'sonora';
   return `${base}.${format}`;
 }
 

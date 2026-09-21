@@ -95,7 +95,11 @@ export function CartaoMusica({
             {autor.displayName}
           </Link>
         ) : (
-          musica.stylePrompt && (
+          // Quando o motor não sugere um nome, o título nasce igual ao prompt.
+          // Repetir a mesma frase em duas linhas parece defeito, então a
+          // segunda linha só aparece se disser algo diferente da primeira.
+          musica.stylePrompt &&
+          musica.stylePrompt.trim() !== musica.title.trim() && (
             <p className="mt-0.5 line-clamp-1 text-xs text-texto-suave">{musica.stylePrompt}</p>
           )
         )}
@@ -109,7 +113,7 @@ export function CartaoMusica({
           </span>
           {!musica.isPublic && (
             <span className="ml-auto rounded bg-superficie-alta px-1.5 py-0.5">
-              {t('lib.privadas')}
+              {t('musica.privada')}
             </span>
           )}
         </div>

@@ -95,14 +95,19 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
 
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold">{musica.title}</h1>
-          {musica.stylePrompt && (
+          {/* Sem título sugerido pelo motor, o título nasce igual ao prompt. */}
+          {musica.stylePrompt && musica.stylePrompt.trim() !== musica.title.trim() && (
             <p className="mt-1 text-sm text-texto-suave">{musica.stylePrompt}</p>
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-texto-fraco">
-            <span>{formatarDuracao(musica.durationMs)}</span>
-            <span>{musica.playCount} plays</span>
-            <span>{musica.likeCount} likes</span>
+            {musica.durationMs > 0 && <span>{formatarDuracao(musica.durationMs)}</span>}
+            <span>
+              {musica.playCount} {t(musica.playCount === 1 ? 'musica.reproducao' : 'musica.reproducoes')}
+            </span>
+            <span>
+              {musica.likeCount} {t(musica.likeCount === 1 ? 'musica.curtida' : 'musica.curtidas')}
+            </span>
             {musica.providerId && <span>{musica.providerId}</span>}
           </div>
 

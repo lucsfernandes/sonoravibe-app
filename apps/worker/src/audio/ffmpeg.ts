@@ -95,3 +95,25 @@ function run(command: string, args: string[]): Promise<string> {
     });
   });
 }
+
+/**
+ * Duração de um áudio que só existe em memória.
+ *
+ * Passa por arquivo temporário em vez de `pipe:0` porque o ffprobe precisa dar
+ * seek para ler o cabeçalho: num MP3 com bitrate variável, sem seek ele estima
+ * a duração pelo primeiro quadro e erra feio.
+ */
+export async function durationOfBuffer(
+  data: Buffer,
+  extension: string,
+  ffmpegPath = 'ffmpeg',
+): Promise<number> {
+  const dir = await mkdtemp(join(tmpdir(), 'sonora-probe-'));
+  try {
+    const path = join(dir, `audio.${extension}`);
+    await writeFile(path, data);
+    return await durationOf(path, ffmpegPath);
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
