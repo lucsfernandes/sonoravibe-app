@@ -28,6 +28,16 @@ export class PlansRepository implements OnModuleInit {
   private cache = new Map<PlanCode, Plan>();
   private carregadoEm = 0;
 
+  /**
+   * De onde vieram os planos que estão em memória agora.
+   *
+   * Existe para ser observável de fora. Os valores do banco e os do código são
+   * iguais por construção (um é semente do outro), então nenhuma resposta da
+   * API denuncia qual dos dois está em uso — e a diferença importa muito: no
+   * fallback, mudar preço por UPDATE não tem efeito nenhum.
+   */
+  private origem: 'banco' | 'codigo' = 'codigo';
+
   /** Um minuto: curto para o preço novo aparecer, longo para não pesar. */
   private static readonly TTL_MS = 60_000;
 
@@ -42,6 +52,12 @@ export class PlansRepository implements OnModuleInit {
   async listar(): Promise<Plan[]> {
     await this.garantirFresco();
     return [...this.cache.values()];
+  }
+
+  /** 'banco' ou 'codigo'. Ver o campo `origem`. */
+  async origemAtual(): Promise<'banco' | 'codigo'> {
+    await this.garantirFresco();
+    return this.origem;
   }
 
   /**
@@ -75,6 +91,7 @@ export class PlansRepository implements OnModuleInit {
       }
 
       this.cache = new Map(linhas.map((l) => [l.code as PlanCode, paraPlano(l)]));
+      this.origem = 'banco';
       this.carregadoEm = Date.now();
     } catch (err) {
       // Postgres fora do ar não pode derrubar a API inteira: sem plano, nenhuma
@@ -87,6 +104,7 @@ export class PlansRepository implements OnModuleInit {
   private usarCodigo(motivo: string): void {
     this.logger.warn(`Usando os planos do código (${motivo}).`);
     this.cache = new Map(Object.entries(PLANS) as [PlanCode, Plan][]);
+    this.origem = 'codigo';
     this.carregadoEm = Date.now();
   }
 
