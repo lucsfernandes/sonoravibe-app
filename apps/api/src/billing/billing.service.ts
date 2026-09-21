@@ -10,6 +10,7 @@ import {
   CREDIT_PACKS,
   PACK_VALIDITY_MONTHS,
   PLANS,
+  maxDurationFor,
   type CreditPack,
   type PlanCode,
 } from '@sonora/shared';
@@ -99,7 +100,13 @@ export class BillingService {
 
   catalogue() {
     return {
-      plans: Object.values(PLANS),
+      // A duração sai daqui já limitada ao que o motor entrega. Publicar o
+      // número cru do plano faria a tela de preços prometer 8 min enquanto a
+      // API recusa qualquer coisa acima de 3.
+      plans: Object.values(PLANS).map((plan) => ({
+        ...plan,
+        features: { ...plan.features, maxDurationSeconds: maxDurationFor(plan.code) },
+      })),
       packs: CREDIT_PACKS,
       gateway: this.gateway.id,
     };

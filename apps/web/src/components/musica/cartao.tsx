@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { formatarContagem, formatarDuracao, useI18n } from '@/lib/i18n';
 import { paraFaixa, usePlayer, type FaixaTocando } from '@/lib/player';
+import { BotaoCurtir } from './curtir';
 import type { ItemExplore, Musica } from '@/lib/api';
 
 /**
@@ -108,9 +109,19 @@ export function CartaoMusica({
           <span className="flex items-center gap-1">
             <PlayPequenoIcone /> {formatarContagem(musica.playCount, locale)}
           </span>
-          <span className="flex items-center gap-1">
-            <CoracaoIcone /> {formatarContagem(musica.likeCount, locale)}
-          </span>
+          {/* `likedByMe` só existe no item do Explore. Na biblioteca a lista
+              não carrega os likes, e aí o coração fica como contador. */}
+          {'likedByMe' in musica ? (
+            <BotaoCurtir
+              songId={musica.id}
+              curtidoInicial={musica.likedByMe}
+              contagemInicial={musica.likeCount}
+            />
+          ) : (
+            <span className="flex items-center gap-1">
+              <CoracaoIcone /> {formatarContagem(musica.likeCount, locale)}
+            </span>
+          )}
           {!musica.isPublic && (
             <span className="ml-auto rounded bg-superficie-alta px-1.5 py-0.5">
               {t('musica.privada')}

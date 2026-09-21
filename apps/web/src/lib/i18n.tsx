@@ -83,6 +83,7 @@ const T: Dicionario = {
   'criar.criando': { pt: 'Criando...', en: 'Creating...' },
   'criar.custo': { pt: 'créditos', en: 'credits' },
   'criar.sortear': { pt: 'Sortear estilo', en: 'Random style' },
+  'criar.cancelada': { pt: 'Cancelada', en: 'Cancelled' },
 
   // Biblioteca
   'lib.titulo': { pt: 'Biblioteca', en: 'Library' },
@@ -166,6 +167,35 @@ const T: Dicionario = {
   'geral.erro': { pt: 'Algo deu errado.', en: 'Something went wrong.' },
   'geral.tentarDeNovo': { pt: 'Tentar de novo', en: 'Try again' },
   'geral.opcional': { pt: 'opcional', en: 'optional' },
+  'geral.enviando': { pt: 'Enviando...', en: 'Sending...' },
+  'geral.excluir': { pt: 'Excluir', en: 'Delete' },
+  'geral.criar': { pt: 'Criar', en: 'Create' },
+  'geral.voltar': { pt: 'Voltar', en: 'Back' },
+
+  // Curtir e comentar
+  'musica.curtir': { pt: 'Curtir', en: 'Like' },
+  'musica.descurtir': { pt: 'Descurtir', en: 'Unlike' },
+  'comentarios.titulo': { pt: 'Comentários', en: 'Comments' },
+  'comentarios.vazio': { pt: 'Nenhum comentário ainda.', en: 'No comments yet.' },
+  'comentarios.placeholder': { pt: 'Escreva um comentário', en: 'Write a comment' },
+  'comentarios.enviar': { pt: 'Comentar', en: 'Post' },
+  'comentarios.marcarInstante': { pt: 'Marcar o instante', en: 'Mark the timestamp' },
+  'comentarios.desativados': {
+    pt: 'O autor desativou os comentários nesta música.',
+    en: 'The author turned off comments on this song.',
+  },
+  'comentarios.paraComentar': { pt: 'para comentar.', en: 'to comment.' },
+
+  // Gerenciar a própria música
+  'gerenciar.titulo': { pt: 'Gerenciar', en: 'Manage' },
+  'gerenciar.nome': { pt: 'Nome da música', en: 'Song name' },
+  'gerenciar.permitirComentarios': { pt: 'Permitir comentários', en: 'Allow comments' },
+  'gerenciar.permitirRemixes': { pt: 'Permitir remixes', en: 'Allow remixes' },
+  'gerenciar.excluirMusica': { pt: 'Excluir esta música', en: 'Delete this song' },
+  'gerenciar.confirmarExclusao': {
+    pt: 'Tem certeza? Ela sai da sua biblioteca.',
+    en: 'Are you sure? It leaves your library.',
+  },
 };
 
 interface I18n {

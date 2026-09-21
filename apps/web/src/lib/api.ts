@@ -108,6 +108,8 @@ export interface MusicaDetalhe extends Musica {
   allowRemixes: boolean;
   allowComments: boolean;
   likedByMe: boolean;
+  /** Quem pediu e o dono da musica sao a mesma pessoa. */
+  isMine: boolean;
   stems: { kind: string; url: string }[];
   downloads: {
     format: string;
@@ -157,4 +159,40 @@ export interface ProgressoGeracao {
   progress: number;
   song?: { id: string; title: string; durationMs: number; audioUrl: string; coverUrl: string | null };
   error?: string;
+}
+
+export interface Comentario {
+  id: string;
+  body: string;
+  timestampMs: number | null;
+  parentId: string | null;
+  createdAt: string;
+  author: { handle: string; displayName: string; avatarUrl?: string | null };
+  isMine: boolean;
+}
+
+export interface Comentarios {
+  /** O autor pode desligar os comentários da própria música. */
+  allowed: boolean;
+  items: Comentario[];
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  songCount: number;
+  createdAt: string;
+}
+
+export interface PlaylistDetalhe extends Playlist {
+  songs: Musica[];
+}
+
+export interface EstiloSalvo {
+  id: string;
+  name: string;
+  prompt: string;
+  excludeStyles: string | null;
 }

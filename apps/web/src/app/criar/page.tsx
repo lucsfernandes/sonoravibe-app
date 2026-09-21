@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { PainelCriar } from '@/components/criar/painel';
+import { BotaoCancelar } from '@/components/criar/cancelar';
 import { CartaoMusica } from '@/components/musica/cartao';
 import { api, type Musica, type Pagina } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -84,6 +85,7 @@ function Conteudo() {
                   {g.error && <p className="mt-1 text-xs text-perigo">{g.error}</p>}
                 </div>
                 <span className="text-xs tabular-nums text-texto-fraco">{g.progress}%</span>
+                <BotaoCancelar generationId={g.generationId} />
               </li>
             ))}
           </ul>

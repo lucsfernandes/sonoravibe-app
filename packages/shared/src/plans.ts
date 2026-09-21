@@ -102,6 +102,33 @@ export const PLANS: Record<PlanCode, Plan> = {
   },
 };
 
+/**
+ * Teto de duração que os motores ligados hoje realmente entregam.
+ *
+ * O Lyria não recebe duração como parâmetro — ela viaja como sugestão de texto
+ * dentro do prompt — e devolve no máximo ~3 min. O ACE-Step chega aos 480 s dos
+ * planos, mas roda na RunPod, que ainda não está de pé.
+ *
+ * Enquanto for assim, anunciar "4 min" no Pro e "8 min" no Premier é cobrar por
+ * algo que não sai: numa geração de teste em produção, um usuário Free pediu
+ * uma música e recebeu 3:01, acima até do limite do próprio plano.
+ *
+ * Quando a RunPod existir, este teto vira 480 e os limites por plano voltam a
+ * valer sozinhos — nenhum outro lugar precisa mudar.
+ */
+export const ENGINE_MAX_DURATION_SECONDS = 180;
+
+/**
+ * Duração máxima real de uma música neste plano, hoje.
+ *
+ * Existe para que a tela de planos, a validação da API e a fila leiam o mesmo
+ * número. Ler `features.maxDurationSeconds` direto é o que produz a promessa
+ * que o motor não cumpre.
+ */
+export function maxDurationFor(code: PlanCode): number {
+  return Math.min(PLANS[code].features.maxDurationSeconds, ENGINE_MAX_DURATION_SECONDS);
+}
+
 export function planOf(code: PlanCode): Plan {
   return PLANS[code];
 }

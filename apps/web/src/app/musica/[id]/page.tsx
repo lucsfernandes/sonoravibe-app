@@ -1,6 +1,9 @@
 'use client';
 
 import { use, useCallback, useEffect, useState } from 'react';
+import { Comentarios } from '@/components/musica/comentarios';
+import { BotaoCurtir } from '@/components/musica/curtir';
+import { GerenciarMusica } from '@/components/musica/gerenciar';
 import { ApiError, api, type MusicaDetalhe } from '@/lib/api';
 import { formatarDuracao, useI18n } from '@/lib/i18n';
 import { paraFaixa, usePlayer } from '@/lib/player';
@@ -39,7 +42,10 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
   if (erro) return <p className="p-8 text-sm text-perigo">{erro}</p>;
   if (!musica) return <p className="p-8 text-sm text-texto-suave">{t('geral.carregando')}</p>;
 
-  const minha = usuario != null && musica.status === 'complete';
+  // `isMine` vem do backend. Antes isto era só `usuario != null`, o que fazia
+  // Publicar, Estender e Separar stems aparecerem na música dos outros.
+  const minha = musica.isMine;
+  const posso = minha && musica.status === 'complete';
   const estaTocando = faixa?.id === musica.id && tocando;
 
   /**
@@ -129,7 +135,16 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
               </button>
             )}
 
-            {minha && (
+            {/* Curtir vale para qualquer pessoa que alcance a música: se ela
+                é privada, só o dono chega até aqui de qualquer forma. */}
+            <BotaoCurtir
+              songId={musica.id}
+              curtidoInicial={musica.likedByMe}
+              contagemInicial={musica.likeCount}
+              tamanho="grande"
+            />
+
+            {posso && (
               <>
                 <BotaoAcao
                   rotulo={musica.isPublic ? t('musica.despublicar') : t('musica.publicar')}
@@ -223,6 +238,12 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
           </ul>
         </section>
       )}
+
+      {/* Comentários só depois do conteúdo: quem abre a página quer ouvir a
+          música, não ler a conversa sobre ela. */}
+      <Comentarios songId={musica.id} />
+
+      {minha && <GerenciarMusica musica={musica} aoAtualizar={carregar} />}
 
       <p className="mt-10 text-xs text-texto-fraco">
         {new Date(musica.createdAt).toLocaleString(locale === 'pt' ? 'pt-BR' : 'en-US')}
