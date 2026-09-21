@@ -119,7 +119,11 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
             <span>
               {musica.likeCount} {t(musica.likeCount === 1 ? 'musica.curtida' : 'musica.curtidas')}
             </span>
-            {musica.providerId && <span>{musica.providerId}</span>}
+            {/* O motor NÃO aparece. Qual modelo gerou a faixa é decisão
+                nossa de infraestrutura, e pode mudar amanhã sem a música
+                mudar; dizer "lyria" ao usuário cria expectativa sobre algo
+                que ele não escolheu e não controla. O dado segue no banco
+                para suporte e diagnóstico. */}
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">

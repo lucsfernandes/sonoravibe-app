@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useI18n, type Locale } from '@/lib/i18n';
 import { useSessao } from '@/lib/sessao';
 
@@ -13,6 +13,8 @@ import { useSessao } from '@/lib/sessao';
  * metade da largura de um celular, e as cinco seções principais cabem numa
  * barra de ícones.
  */
+
+const CHAVE_RECOLHIDO = 'sonora_menu_recolhido';
 
 const ITENS = [
   { href: '/inicio', chave: 'nav.inicio', icone: CasaIcone, soDesktop: false },
@@ -33,22 +35,72 @@ export function Sidebar() {
   const caminho = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
 
+  /**
+   * Menu lateral recolhido, em ícones só.
+   *
+   * Começa aberto e lê a preferência depois da montagem, não durante. Ler o
+   * localStorage no primeiro render faria o servidor renderizar aberto e o
+   * cliente trocar para fechado, o que o React acusa como divergência de
+   * hidratação — e o usuário vê o menu piscar.
+   */
+  const [recolhido, setRecolhido] = useState(false);
+
+  useEffect(() => {
+    try {
+      setRecolhido(localStorage.getItem(CHAVE_RECOLHIDO) === '1');
+    } catch {
+      // Janela anônima ou cookies bloqueados: segue aberto, que é o padrão.
+    }
+  }, []);
+
+  function alternarRecolhido() {
+    setRecolhido((atual) => {
+      const novo = !atual;
+      try {
+        localStorage.setItem(CHAVE_RECOLHIDO, novo ? '1' : '0');
+      } catch {
+        // A preferência só não sobrevive ao recarregamento.
+      }
+      return novo;
+    });
+  }
+
   const ehAtivo = (href: string) => caminho.startsWith(href);
 
   return (
     <>
       {/* Desktop */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-borda bg-fundo px-3 py-5 md:flex">
+      <aside
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-borda bg-fundo py-5 transition-[width] duration-200 md:flex ${
+          recolhido ? 'w-[4.5rem] px-2' : 'w-60 px-3'
+        }`}
+      >
         {/* O logo leva ao site institucional, não ao feed: é a saída de quem
             quer reler a proposta, ver preços ou achar o contato. O caminho de
             volta ao aplicativo é o "Início" logo abaixo. */}
-        <Link
-          href="/"
-          className="mb-7 flex items-center gap-2 px-3 text-xl font-black tracking-tight"
-        >
-          <MarcaIcone />
-          SONORA VIBE
-        </Link>
+        <div className={`mb-7 flex items-center ${recolhido ? 'flex-col gap-3' : 'gap-2 px-3'}`}>
+          <Link
+            href="/"
+            // `whitespace-nowrap` e um corpo menor: o botão de recolher tirou
+            // largura da linha e "SONORA VIBE" quebrava em duas.
+            className="flex items-center gap-2 whitespace-nowrap text-base font-black tracking-tight"
+          >
+            <MarcaIcone />
+            {!recolhido && 'SONORA VIBE'}
+          </Link>
+          <button
+            type="button"
+            onClick={alternarRecolhido}
+            aria-expanded={!recolhido}
+            aria-label={recolhido ? t('nav.expandirMenu') : t('nav.recolherMenu')}
+            title={recolhido ? t('nav.expandirMenu') : t('nav.recolherMenu')}
+            className={`flex size-7 items-center justify-center rounded-lg text-texto-fraco transition-colors hover:bg-superficie hover:text-texto ${
+              recolhido ? '' : 'ml-auto'
+            }`}
+          >
+            <SetaRecolher apontandoParaDireita={recolhido} />
+          </button>
+        </div>
 
         <nav className="flex flex-col gap-1">
           {ITENS.map(({ href, chave, icone: Icone }) => (
@@ -56,20 +108,26 @@ export function Sidebar() {
               key={href}
               href={href}
               aria-current={ehAtivo(href) ? 'page' : undefined}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              // `title` é o que dá nome ao item quando só o ícone aparece.
+              title={recolhido ? t(chave) : undefined}
+              className={`flex items-center rounded-xl py-2.5 text-sm font-medium transition-colors ${
+                recolhido ? 'justify-center px-0' : 'gap-3 px-3'
+              } ${
                 ehAtivo(href)
                   ? 'bg-superficie-alta text-texto'
                   : 'text-texto-suave hover:bg-superficie hover:text-texto'
               }`}
             >
               <Icone />
-              {t(chave)}
+              {!recolhido && t(chave)}
             </Link>
           ))}
         </nav>
 
         <div className="mt-auto flex flex-col gap-3">
-          <SeletorIdioma locale={locale} setLocale={setLocale} />
+          {/* Some quando recolhido: dois botões de idioma não cabem em 4.5rem
+              sem virar um alvo pequeno demais para acertar. */}
+          {!recolhido && <SeletorIdioma locale={locale} setLocale={setLocale} />}
 
           {usuario ? (
             <div className="rounded-xl border border-borda bg-superficie p-3">
@@ -279,6 +337,26 @@ function MarcaIcone() {
         <rect x="17" y="9.5" width="3" height="13" rx="1.5" />
         <rect x="22" y="12.5" width="3" height="7" rx="1.5" />
       </g>
+    </svg>
+  );
+}
+
+/** Seta do botão de recolher. Aponta para onde o menu vai. */
+function SetaRecolher({ apontandoParaDireita }: { apontandoParaDireita: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={apontandoParaDireita ? 'rotate-180' : ''}
+    >
+      <path d="M15 6l-6 6 6 6" />
     </svg>
   );
 }

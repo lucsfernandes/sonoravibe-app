@@ -29,6 +29,14 @@ interface Progresso {
   emAndamento: Record<string, ProgressoGeracao>;
   /** Registra interesse numa geração recém-enfileirada. */
   acompanhar: (generationId: string, songId: string) => void;
+  /**
+   * O progresso de uma música, se ela estiver sendo gerada agora.
+   *
+   * A indexação é por `generationId`, que é o que o SSE manda, mas quem
+   * desenha o card só tem o `songId` em mãos. Sem esta busca, o card teria que
+   * receber a lista inteira de gerações como prop e filtrar sozinho.
+   */
+  progressoDaMusica: (songId: string) => ProgressoGeracao | undefined;
   /** Avisa quando uma geração termina — usado para recarregar a biblioteca. */
   aoConcluir: (callback: (evento: ProgressoGeracao) => void) => () => void;
 }
@@ -80,6 +88,8 @@ export function ProgressoProvider({ children }: { children: ReactNode }) {
   const valor = useMemo<Progresso>(
     () => ({
       emAndamento,
+      progressoDaMusica: (songId) =>
+        Object.values(emAndamento).find((g) => g.songId === songId),
       acompanhar: (generationId, songId) => {
         // Entra na lista já como "na fila", antes do primeiro evento chegar:
         // sem isso o cartão da música nova só apareceria segundos depois.

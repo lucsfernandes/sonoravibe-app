@@ -90,11 +90,14 @@ export function Secao({
   titulo,
   resumo,
   aberta = false,
+  aoLimpar,
   children,
 }: {
   titulo: string;
   resumo?: string;
   aberta?: boolean;
+  /** Quando presente, mostra um botão de limpar o que a seção contém. */
+  aoLimpar?: () => void;
   children: ReactNode;
 }) {
   const [expandida, setExpandida] = useState(aberta);
@@ -102,12 +105,16 @@ export function Secao({
 
   return (
     <section className="card overflow-hidden">
+      {/* O cabeçalho é uma div com dois botões irmãos, e não um botão com
+          outro dentro: botão aninhado é HTML inválido e o navegador
+          reorganiza a árvore por conta própria, quebrando o clique. */}
+      <div className="flex items-center gap-1 pr-2">
       <button
         type="button"
         onClick={() => setExpandida((v) => !v)}
         aria-expanded={expandida}
         aria-controls={id}
-        className="flex w-full items-center gap-2 px-3.5 py-3 text-left"
+        className="flex min-w-0 flex-1 items-center gap-2 px-3.5 py-3 text-left"
       >
         <svg
           width="14"
@@ -130,6 +137,23 @@ export function Secao({
           )}
         </span>
       </button>
+
+      {/* Só aparece quando há o que limpar: um botão que não faz nada é pior
+          que a ausência dele. */}
+      {aoLimpar && resumo && (
+        <button
+          type="button"
+          onClick={aoLimpar}
+          aria-label={`Limpar ${titulo}`}
+          title={`Limpar ${titulo}`}
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-texto-fraco transition-colors hover:bg-superficie-alta hover:text-perigo"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+          </svg>
+        </button>
+      )}
+      </div>
 
       {expandida && (
         <div id={id} className="space-y-3 border-t border-borda px-3.5 py-3">

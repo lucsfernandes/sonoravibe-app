@@ -8,12 +8,47 @@ import { DATA_SOURCE } from '../database/database.module';
 export class WorkspacesService {
   constructor(@Inject(DATA_SOURCE) private readonly dataSource: DataSource) {}
 
+  /**
+   * Os workspaces do usuário, com quantas músicas cada um tem.
+   *
+   * `songCount` é CALCULADO aqui, não guardado na linha. A coluna existia na
+   * entidade e nunca era escrita por ninguém: nenhum increment, nenhum update.
+   * Ficava 0 para sempre, e a biblioteca mostrava pasta vazia com música
+   * dentro.
+   *
+   * Consertar mantendo o contador exigiria acertar quatro caminhos de escrita
+   * (criar música, apagar, mover entre workspaces, restaurar da lixeira) e
+   * torcer para nenhum divergir. Um contador desviado é invisível até alguém
+   * reparar. Aqui um GROUP BY resolve e nunca mente, e o custo é desprezível:
+   * um usuário tem um punhado de pastas, não milhares.
+   *
+   * O `deletedAt IS NULL` importa: a exclusão é lógica, e uma música na
+   * lixeira não deve contar como se estivesse na pasta.
+   */
   async list(userId: string): Promise<Workspace[]> {
-    return this.dataSource.getRepository(Workspace).find({
+    const workspaces = await this.dataSource.getRepository(Workspace).find({
       where: { userId },
       // O padrão sempre primeiro; depois, mais recentes no topo.
       order: { isDefault: 'DESC', createdAt: 'DESC' },
     });
+
+    if (workspaces.length === 0) return workspaces;
+
+    const contagens = await this.dataSource
+      .getRepository(Song)
+      .createQueryBuilder('song')
+      .select('song.workspaceId', 'workspaceId')
+      .addSelect('COUNT(*)', 'total')
+      .where('song.userId = :userId', { userId })
+      .andWhere('song.workspaceId IN (:...ids)', { ids: workspaces.map((w) => w.id) })
+      .andWhere('song.deletedAt IS NULL')
+      .groupBy('song.workspaceId')
+      .getRawMany<{ workspaceId: string; total: string }>();
+
+    const porId = new Map(contagens.map((c) => [c.workspaceId, Number(c.total)]));
+    for (const w of workspaces) w.songCount = porId.get(w.id) ?? 0;
+
+    return workspaces;
   }
 
   async create(userId: string, name: string): Promise<Workspace> {

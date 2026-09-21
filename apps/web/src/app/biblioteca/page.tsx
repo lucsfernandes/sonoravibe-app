@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { BarraSelecao } from '@/components/biblioteca/barra-selecao';
 import { Workspaces } from '@/components/biblioteca/workspaces';
 import { CartaoMusica } from '@/components/musica/cartao';
+import {
+  SeletorVisualizacao,
+  classesDaGrade,
+  useVisualizacao,
+} from '@/components/musica/visualizacao';
 import { api, type Musica, type Pagina } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useAoConcluirGeracao } from '@/lib/progresso';
@@ -19,6 +24,7 @@ export default function Biblioteca() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [selecionadas, setSelecionadas] = useState<string[]>([]);
+  const { modo, escolher } = useVisualizacao();
   const [workspace, setWorkspace] = useState<string | null>(null);
 
   const buscar = useCallback(
@@ -84,7 +90,7 @@ export default function Biblioteca() {
         }}
       />
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
         {filtros.map((f) => (
           <button
             key={f.valor}
@@ -105,6 +111,12 @@ export default function Biblioteca() {
             {f.rotulo}
           </button>
         ))}
+
+        {/* No fim da fileira de filtros: é a mesma barra de controle da lista,
+            e uma linha só para ele desperdiçaria altura de tela. */}
+        <div className="ml-auto">
+          <SeletorVisualizacao modo={modo} onChange={escolher} />
+        </div>
       </div>
 
       {itens.length === 0 && !buscando ? (
@@ -119,13 +131,14 @@ export default function Biblioteca() {
         </div>
       ) : (
         <>
-          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          <div className={`mt-6 ${classesDaGrade(modo)}`}>
             {itens.map((m) => (
               <CartaoMusica
                 key={m.id}
                 musica={m}
                 fila={itens}
                 href={`/musica/${m.id}`}
+                modo={modo}
                 selecionada={selecionadas.includes(m.id)}
                 aoSelecionar={(id) =>
                   setSelecionadas((atual) =>

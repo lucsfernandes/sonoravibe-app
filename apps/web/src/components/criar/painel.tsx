@@ -182,6 +182,21 @@ export function PainelCriar({
 
   return (
     <div className="flex h-full flex-col gap-4">
+      {/* O saldo fica aqui, ao lado das abas. O botão já diz quanto a geração
+          custa, mas não quanto sobra: descobrir que faltava crédito só depois
+          de clicar é o tipo de atrito que dá para evitar com um número. */}
+      {saldo && (
+        <p className="flex items-center gap-1.5 text-xs text-texto-suave">
+          <span
+            aria-hidden
+            className={`size-1.5 rounded-full ${
+              saldo.balance.total >= custo ? 'gradiente-acento' : 'bg-perigo'
+            }`}
+          />
+          {saldo.balance.total.toLocaleString('pt-BR')} {t('criar.custo')}
+        </p>
+      )}
+
       {/* Abas */}
       <div className="flex rounded-xl border border-borda bg-superficie p-1" role="tablist">
         {(['simples', 'avancado', 'sons'] as const).map((opcao) => (
@@ -226,7 +241,12 @@ export function PainelCriar({
               placeholder={t('criar.tituloPlaceholder')}
             />
 
-            <Secao titulo={t('criar.letra')} aberta>
+            <Secao
+              titulo={t('criar.letra')}
+              resumo={letra || undefined}
+              aoLimpar={() => setLetra('')}
+              aberta
+            >
               <Campo
                 valor={letra}
                 onChange={setLetra}
@@ -242,7 +262,15 @@ export function PainelCriar({
               />
             </Secao>
 
-            <Secao titulo={t('criar.estilos')} resumo={estilos} aberta>
+            <Secao
+              titulo={t('criar.estilos')}
+              resumo={estilos || undefined}
+              aoLimpar={() => {
+                setEstilos('');
+                setExcluir('');
+              }}
+              aberta
+            >
               <Campo
                 valor={estilos}
                 onChange={setEstilos}
@@ -393,11 +421,13 @@ export function PainelCriar({
         </p>
       )}
 
+      {/* Fora da área que rola, com uma linha acima: o botão principal não
+          pode sumir quando a pessoa desce até o fim das opções avançadas. */}
       <button
         type="button"
         onClick={() => void criar()}
         disabled={!podeCriar}
-        className="flex items-center justify-center gap-2 rounded-xl gradiente-acento py-3.5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex shrink-0 items-center justify-center gap-2 rounded-xl gradiente-acento py-3.5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
       >
         {enviando ? t('criar.criando') : t('criar.botao')}
         <span className="rounded-full bg-black/25 px-2 py-0.5 text-xs">
