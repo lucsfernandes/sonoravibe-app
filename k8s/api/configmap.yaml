@@ -34,7 +34,13 @@ data:
   #
   # Com "lyria", os secrets RUNPOD_API_KEY e RUNPOD_ENDPOINT_ID podem nem
   # existir: eles só são exigidos pelo motor ACE-Step.
-  MUSIC_PROVIDER: "lyria"
+  # Tem que ser o MESMO do worker (k8s/worker/configmap.yaml).
+  #
+  # A API não chama o motor: o worker chama. Ela lê esta variável só para saber
+  # até quantos minutos cada plano pode prometer (`maxDurationFor`). Desalinhado,
+  # o resultado é a vitrine anunciando 3 min enquanto o worker entrega 8, ou o
+  # contrário, que é pior.
+  MUSIC_PROVIDER: "acestep"
   PAYMENT_PROVIDER: "asaas"
 
   OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
