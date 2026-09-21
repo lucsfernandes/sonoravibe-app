@@ -107,10 +107,15 @@ export function Comentarios({
 
   return (
     <section className="mt-10">
+      {/* O espaço entre título e contagem é explícito: sem ele o leitor de
+          tela anuncia "Comentários1". */}
       <h2 className="text-lg font-semibold">
         {t('comentarios.titulo')}
         {dados.items.length > 0 && (
-          <span className="ml-2 text-sm font-normal text-texto-fraco">{dados.items.length}</span>
+          <>
+            {' '}
+            <span className="text-sm font-normal text-texto-fraco">{dados.items.length}</span>
+          </>
         )}
       </h2>
 

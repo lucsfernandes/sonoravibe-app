@@ -86,6 +86,8 @@ const T: Dicionario = {
   'criar.sortear': { pt: 'Sortear estilo', en: 'Random style' },
   'criar.cancelada': { pt: 'Cancelada', en: 'Cancelled' },
   'criar.tituloMusica': { pt: 'Título da música', en: 'Song title' },
+  'estilos.salvar': { pt: 'Salvar este estilo', en: 'Save this style' },
+  'estilos.nome': { pt: 'Nome do estilo', en: 'Style name' },
   'criar.tituloPlaceholder': { pt: 'Estrada até o mar', en: 'Road to the sea' },
 
   // Biblioteca
@@ -97,6 +99,7 @@ const T: Dicionario = {
   'lib.privadas': { pt: 'Privadas', en: 'Private' },
   'lib.curtidas': { pt: 'Curtidas', en: 'Liked' },
   'lib.carregarMais': { pt: 'Carregar mais', en: 'Load more' },
+  'lib.selecionada': { pt: 'selecionada', en: 'selected' },
   'lib.selecionadas': { pt: 'selecionadas', en: 'selected' },
 
   // Playlists
@@ -119,8 +122,101 @@ const T: Dicionario = {
   'playlists.subir': { pt: 'Mover para cima', en: 'Move up' },
   'playlists.descer': { pt: 'Mover para baixo', en: 'Move down' },
   'musica.tocar': { pt: 'Tocar', en: 'Play' },
+
+  // Edição mecânica — FFmpeg no nosso worker, sem custo de provedor
+  'editar.titulo': { pt: 'Editar o áudio', en: 'Edit the audio' },
+  'editar.semCusto': { pt: 'sem custo', en: 'free' },
+  'editar.aplicar': { pt: 'Aplicar', en: 'Apply' },
+  'editar.enfileirada': {
+    pt: 'Na fila. A versão editada vai aparecer na sua biblioteca como uma faixa nova — esta continua como está.',
+    en: 'Queued. The edited version shows up in your library as a new track — this one stays as it is.',
+  },
+  'editar.de': { pt: 'De', en: 'From' },
+  'editar.ate': { pt: 'Até', en: 'To' },
+  'editar.duracaoFade': { pt: 'Duração', en: 'Length' },
+  'editar.velocidade': { pt: 'Velocidade', en: 'Speed' },
+  'editar.trechoInvertido': {
+    pt: 'O fim tem que vir depois do início.',
+    en: 'The end must come after the start.',
+  },
+  'editar.crop': { pt: 'Cortar', en: 'Crop' },
+  'editar.crop.dica': {
+    pt: 'Mantém só o trecho escolhido e descarta o resto.',
+    en: 'Keeps only the chosen part and discards the rest.',
+  },
+  'editar.trim-silence': { pt: 'Tirar silêncio', en: 'Trim silence' },
+  'editar.trim-silence.dica': {
+    pt: 'Remove o silêncio do começo e do fim.',
+    en: 'Removes silence from the start and the end.',
+  },
+  'editar.fade-in': { pt: 'Fade de entrada', en: 'Fade in' },
+  'editar.fade-in.dica': {
+    pt: 'A música começa no silêncio e sobe até o volume normal.',
+    en: 'The song starts silent and rises to full volume.',
+  },
+  'editar.fade-out': { pt: 'Fade de saída', en: 'Fade out' },
+  'editar.fade-out.dica': {
+    pt: 'O volume cai até o silêncio no fim da faixa.',
+    en: 'Volume falls to silence at the end of the track.',
+  },
+  'editar.speed': { pt: 'Velocidade', en: 'Speed' },
+  'editar.speed.dica': {
+    pt: 'Acelera ou desacelera sem mudar o tom. De 0,5× a 2×.',
+    en: 'Speeds up or slows down without changing pitch. From 0.5× to 2×.',
+  },
+  'editar.reverse': { pt: 'Reverter', en: 'Reverse' },
+  'editar.reverse.dica': {
+    pt: 'Toca a faixa de trás para frente.',
+    en: 'Plays the track backwards.',
+  },
+  'editar.normalize': { pt: 'Normalizar', en: 'Normalize' },
+  'editar.normalize.dica': {
+    pt: 'Ajusta o volume para o padrão de streaming (-14 LUFS).',
+    en: 'Sets loudness to the streaming standard (-14 LUFS).',
+  },
+
+  // Operações derivadas — chamam o motor e custam crédito
+  'derivar.titulo': { pt: 'Criar a partir desta', en: 'Create from this one' },
+  'derivar.remix': { pt: 'Remix', en: 'Remix' },
+  'derivar.remix.dica': {
+    pt: 'Gera uma faixa nova com outro estilo, mantendo a base. A original não muda.',
+    en: 'Generates a new track in another style, keeping the base. The original stays.',
+  },
+  'derivar.trecho': { pt: 'Substituir trecho', en: 'Replace section' },
+  'derivar.trecho.dica': {
+    pt: 'Regera só o pedaço escolhido. O resto da música continua igual.',
+    en: 'Regenerates only the chosen part. The rest stays the same.',
+  },
+  'derivar.capa': { pt: 'Gerar capa', en: 'Generate cover' },
+  'derivar.capa.dica': {
+    pt: 'Cria uma imagem de capa. Sem descrição, ela sai do estilo da música.',
+    en: 'Creates cover art. With no description, it comes from the song style.',
+  },
+  'derivar.capaEnfileirada': {
+    pt: 'Capa na fila. Ela aparece aqui quando ficar pronta.',
+    en: 'Cover queued. It shows up here when it is ready.',
+  },
+  'derivar.capaPlaceholder': {
+    pt: 'quintal à noite, luz quente, violão encostado na parede',
+    en: 'backyard at night, warm light, guitar against the wall',
+  },
+  'derivar.estilosRemix': {
+    pt: 'o novo estilo: rock progressivo, guitarra distorcida',
+    en: 'the new style: progressive rock, distorted guitar',
+  },
+  'derivar.estilosTrecho': {
+    pt: 'como o trecho deve soar (opcional)',
+    en: 'how the section should sound (optional)',
+  },
   'lib.baixarSelecionadas': { pt: 'Baixar em lote', en: 'Download as ZIP' },
   'lib.formato': { pt: 'Formato', en: 'Format' },
+  'workspaces.novo': { pt: 'Novo workspace', en: 'New workspace' },
+  'workspaces.nome': { pt: 'Nome', en: 'Name' },
+  'workspaces.duploClique': { pt: 'Clique duas vezes para renomear', en: 'Double-click to rename' },
+  'workspaces.confirmarExclusao': {
+    pt: 'Excluir o workspace? As músicas continuam na sua biblioteca.',
+    en: 'Delete the workspace? The songs stay in your library.',
+  },
 
   // Música
   'musica.baixar': { pt: 'Baixar', en: 'Download' },
