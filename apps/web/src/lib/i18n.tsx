@@ -290,6 +290,44 @@ const T: Dicionario = {
     pt: 'Conta nova ganha 30 créditos por dia, sem cartão.',
     en: 'New accounts get 30 credits a day, no card needed.',
   },
+  'auth.entrarDica': {
+    pt: 'Suas músicas continuam onde você parou.',
+    en: 'Your songs are right where you left them.',
+  },
+  'auth.nomePlaceholder': { pt: 'Como quer ser chamado', en: 'What should we call you' },
+  'auth.senhaMinima': { pt: 'Pelo menos 8 caracteres', en: 'At least 8 characters' },
+  'auth.semConta': { pt: 'Ainda não tem conta?', en: "Don't have an account?" },
+  'auth.temConta': { pt: 'Já tem conta?', en: 'Already have an account?' },
+  'auth.aoCriar': {
+    pt: 'Ao criar a conta você concorda com a',
+    en: 'By creating an account you agree to the',
+  },
+  'auth.politica': { pt: 'política de privacidade', en: 'privacy policy' },
+
+  // Coluna de apresentação — só no desktop
+  'auth.promessa': {
+    pt: 'Descreva a música. O resto é com a gente.',
+    en: 'Describe the song. We handle the rest.',
+  },
+  'auth.ponto1': { pt: '30 créditos por dia', en: '30 credits a day' },
+  'auth.ponto1Texto': {
+    pt: 'Sem cartão de crédito e sem prazo para acabar.',
+    en: 'No credit card, no expiry date.',
+  },
+  'auth.ponto2': { pt: 'Letra, estilo e instrumentos', en: 'Lyrics, style and instruments' },
+  'auth.ponto2Texto': {
+    pt: 'Escreva a letra ou peça para a IA escrever. Você escolhe o resto.',
+    en: 'Write the lyrics or let the AI write them. You choose the rest.',
+  },
+  'auth.ponto3': { pt: 'Baixe e use', en: 'Download and use' },
+  'auth.ponto3Texto': {
+    pt: 'MP3, WAV, FLAC, Opus e AAC. Separe os stems quando precisar.',
+    en: 'MP3, WAV, FLAC, Opus and AAC. Split the stems when you need to.',
+  },
+  'auth.rodape': {
+    pt: 'Feito no Brasil. Preços em real.',
+    en: 'Made in Brazil. Prices in BRL.',
+  },
 
   // Genéricos
   'geral.salvar': { pt: 'Salvar', en: 'Save' },

@@ -1,0 +1,26 @@
+# O site institucional e o aplicativo dividem o mesmo domínio: a raiz serve a
+# apresentação e o resto é o produto. Então este arquivo tem que separar o que
+# vale indexar do que só existe para quem tem conta.
+
+User-agent: *
+
+# Público e vale indexar: a apresentação, a política, o catálogo aberto, as
+# músicas publicadas e os perfis.
+Allow: /
+Allow: /explorar
+Allow: /musica/
+Allow: /u/
+
+# Exige login. Um robô que entra aqui encontra a mesma tela de "crie uma conta"
+# em todas, e o resultado é um punhado de páginas iguais e inúteis na busca.
+Disallow: /criar
+Disallow: /biblioteca
+Disallow: /playlists
+Disallow: /creditos
+Disallow: /entrar
+
+# A API não tem nada para um buscador: é JSON, e as rotas públicas dela já
+# aparecem renderizadas nas páginas acima.
+Disallow: /api/
+
+Sitemap: https://sonoravibe.com/sitemap.xml

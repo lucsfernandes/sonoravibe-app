@@ -5,6 +5,14 @@
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+  <!-- Catálogo aberto: muda sempre que alguém publica uma música. As faixas em
+       si não entram aqui porque nascem e somem o tempo todo — quem as descobre
+       é o crawler seguindo os links do /explorar. -->
+  <url>
+    <loc>https://sonoravibe.com/explorar</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
   <url>
     <loc>https://sonoravibe.com/politica-de-privacidade.html</loc>
     <changefreq>yearly</changefreq>

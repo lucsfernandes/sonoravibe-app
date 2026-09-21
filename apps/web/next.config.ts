@@ -18,6 +18,30 @@ const config: NextConfig = {
     // Capas e avatares vêm do R2 por URL assinada.
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
+  /**
+   * A raiz serve o site institucional, não o aplicativo.
+   *
+   * Quem chega em sonoravibe.com pela primeira vez precisa entender o que é o
+   * produto antes de ver um campo de prompt. O aplicativo começa em `/inicio`,
+   * e todo o resto (`/criar`, `/explorar`…) continua onde estava.
+   *
+   * `beforeFiles` é obrigatório aqui: os rewrites padrão (`afterFiles`) só
+   * rodam depois de o roteador procurar uma página, e `app/inicio/page.tsx`
+   * não existe em `/` — mas se um dia existir uma página em `/`, ela venceria
+   * o rewrite em silêncio. Com `beforeFiles` a regra vale sempre.
+   *
+   * O destino é um arquivo de `public/`: HTML estático, sem React no caminho.
+   * Os links de dentro dele são relativos (`assets/css/styles.css`,
+   * `img/fones.jpg`), e é por isso que os arquivos ficam na raiz de `public/`
+   * e não numa subpasta — de `/site/` eles apontariam para fora.
+   */
+  async rewrites() {
+    return {
+      beforeFiles: [{ source: '/', destination: '/index.html' }],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
 };
 
 export default config;

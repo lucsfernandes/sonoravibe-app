@@ -15,7 +15,7 @@ import { useSessao } from '@/lib/sessao';
  */
 
 const ITENS = [
-  { href: '/', chave: 'nav.inicio', icone: CasaIcone, soDesktop: false },
+  { href: '/inicio', chave: 'nav.inicio', icone: CasaIcone, soDesktop: false },
   { href: '/explorar', chave: 'nav.explorar', icone: BussolaIcone, soDesktop: false },
   { href: '/criar', chave: 'nav.criar', icone: NotaIcone, soDesktop: false },
   { href: '/biblioteca', chave: 'nav.biblioteca', icone: BibliotecaIcone, soDesktop: false },
@@ -33,13 +33,15 @@ export function Sidebar() {
   const caminho = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
 
-  const ehAtivo = (href: string) =>
-    href === '/' ? caminho === '/' : caminho.startsWith(href);
+  const ehAtivo = (href: string) => caminho.startsWith(href);
 
   return (
     <>
       {/* Desktop */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-borda bg-fundo px-3 py-5 md:flex">
+        {/* O logo leva ao site institucional, não ao feed: é a saída de quem
+            quer reler a proposta, ver preços ou achar o contato. O caminho de
+            volta ao aplicativo é o "Início" logo abaixo. */}
         <Link href="/" className="mb-7 px-3 text-2xl font-black tracking-tight">
           SONORA
         </Link>
