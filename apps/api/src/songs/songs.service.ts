@@ -110,6 +110,8 @@ export class SongsService {
       userId: user.id,
       kind,
       reservedCredits: cost,
+      // Quem nomeou a música não quer que o modelo a renomeie no fim.
+      titleFromUser: request.mode === 'advanced' && Boolean(request.title),
     };
 
     const enqueued = await this.queue.add('generate', job, {

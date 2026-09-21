@@ -50,6 +50,14 @@ export interface GenerationJob {
   sourceSongId?: string;
   /** Descrição da capa, quando kind === 'cover'. */
   coverPrompt?: string;
+  /**
+   * O usuário nomeou a música, então o worker não deve renomeá-la.
+   *
+   * Sem isto, o título sugerido pelo modelo sobrescreve o escolhido por quem
+   * pediu a música — inclusive quando o "título" que o modelo manda é o mapa de
+   * seções da faixa. Quem digitou o nome espera vê-lo de volta.
+   */
+  titleFromUser?: boolean;
 }
 
 /** Edições mecânicas: rodam em FFmpeg no nosso worker e não custam crédito. */

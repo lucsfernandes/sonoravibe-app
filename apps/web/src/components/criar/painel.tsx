@@ -214,6 +214,17 @@ export function PainelCriar({
 
         {aba === 'avancado' && (
           <>
+            {/* Primeiro campo da aba, e não escondido dentro de "Letra": o nome
+                da música é do usuário. Sem ele preenchido, o título vem do
+                modelo — que já devolveu o mapa de seções da faixa como se
+                fosse nome ("[[A0]] [[B1]] [[C2]]"). */}
+            <Campo
+              rotulo={`${t('criar.tituloMusica')} — ${t('geral.opcional')}`}
+              valor={titulo}
+              onChange={setTitulo}
+              placeholder={t('criar.tituloPlaceholder')}
+            />
+
             <Secao titulo={t('criar.letra')} aberta>
               <Campo
                 valor={letra}
@@ -227,12 +238,6 @@ export function PainelCriar({
                   onClick: () => void escreverLetra(),
                   desabilitado: escrevendoLetra || instrumental,
                 }}
-              />
-              <Campo
-                rotulo={`${t('criar.botao')} — ${t('geral.opcional')}`}
-                valor={titulo}
-                onChange={setTitulo}
-                placeholder="Estrada até o mar"
               />
             </Secao>
 
