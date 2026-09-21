@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Inject,
   Injectable,
   SetMetadata,
@@ -10,6 +11,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { fromNodeHeaders } from 'better-auth/node';
+import { CONFIG, type AppConfig } from '../config/env';
 import { AUTH, type SonoraAuth } from './auth.config';
 
 /**
@@ -21,6 +23,9 @@ import { AUTH, type SonoraAuth } from './auth.config';
  */
 
 const IS_PUBLIC = 'sonora:isPublic';
+
+/** Métodos que não mudam estado: não precisam da checagem de origem. */
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** Libera a rota para quem não está autenticado. */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
@@ -47,6 +52,7 @@ export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionC
 export class SessionGuard implements CanActivate {
   constructor(
     @Inject(AUTH) private readonly auth: SonoraAuth,
+    @Inject(CONFIG) private readonly config: AppConfig,
     private readonly reflector: Reflector,
   ) {}
 
@@ -66,6 +72,7 @@ export class SessionGuard implements CanActivate {
         name: session.user.name,
         image: session.user.image ?? null,
       };
+      if (!SAFE_METHODS.has(request.method)) this.assertSameSite(request);
     }
 
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, [
@@ -78,5 +85,29 @@ export class SessionGuard implements CanActivate {
       throw new UnauthorizedException('Faça login para continuar.');
     }
     return true;
+  }
+
+  /**
+   * O cookie de sessão é SameSite=None (o app e a API vivem em origens
+   * diferentes), então o navegador o envia até em requisição disparada por
+   * outro site. Sem esta checagem, uma página maliciosa faz o navegador de
+   * quem está logado gastar créditos ou cancelar a assinatura sem a pessoa
+   * perceber. CORS não protege disso: ele só esconde a resposta, o pedido
+   * chega do mesmo jeito.
+   *
+   * Cliente sem navegador (curl, Postman) não manda Origin nem Sec-Fetch-Site
+   * e passa: ele também não carrega o cookie de outra pessoa.
+   */
+  private assertSameSite(request: AuthedRequest): void {
+    const origin = request.headers.origin;
+    if (origin !== undefined) {
+      if (!this.config.corsOrigins.includes(origin)) {
+        throw new ForbiddenException('Origem não permitida.');
+      }
+      return;
+    }
+    if (request.headers['sec-fetch-site'] === 'cross-site') {
+      throw new ForbiddenException('Origem não permitida.');
+    }
   }
 }

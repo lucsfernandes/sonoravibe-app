@@ -12,6 +12,7 @@ import {
   Query,
   Res,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AUDIO_FORMATS, generationRequestSchema, type AudioFormat } from '@sonora/shared';
 import { ZipArchive } from 'archiver';
 import type { Response } from 'express';
@@ -55,6 +56,7 @@ export class SongsController {
    */
   @Post('generate')
   @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async generate(
     @CurrentUser() user: SessionUser,
     @Body() body: unknown,
