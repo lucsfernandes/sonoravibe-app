@@ -70,6 +70,7 @@ async function bootstrap(): Promise<void> {
     router,
     credits: new CreditsLedger(dataSource),
     transcodeQueue,
+    ffmpegPath: config.FFMPEG_PATH,
     coverArt: new CoverArtGenerator({
       apiKey: config.OPENROUTER_API_KEY,
       baseUrl: config.OPENROUTER_BASE_URL,

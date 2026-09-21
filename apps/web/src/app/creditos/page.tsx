@@ -189,7 +189,7 @@ export default function Creditos() {
                   {tx.amount}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-texto-suave">
-                  {tx.description || tx.reason}
+                  {tx.description || t(`motivo.${tx.reason}`)}
                 </span>
                 <span className="shrink-0 text-xs text-texto-fraco">
                   {new Date(tx.createdAt).toLocaleDateString(

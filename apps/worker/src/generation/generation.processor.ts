@@ -23,6 +23,7 @@ import type { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
 import type { DataSource } from 'typeorm';
 import type { MusicRouter } from '../providers/music-router';
+import { durationOfBuffer } from '../audio/ffmpeg';
 import type { CoverArtGenerator } from './cover-art';
 
 /**
@@ -70,6 +71,8 @@ export interface ProcessorDeps {
   /** Fila de conversão, para já deixar o MP3 pronto quando a música nasce. */
   transcodeQueue: Queue;
   coverArt: CoverArtGenerator;
+  /** Usado para medir a duração quando o provedor não informa. Ver `resolveDuration`. */
+  ffmpegPath: string;
   logger?: { log(msg: string): void; warn(msg: string): void; error(msg: string): void };
 }
 
@@ -123,6 +126,7 @@ export class GenerationProcessor {
       await this.transition(job, 'uploading');
       const master = masterFormatOf(result.sourceFormat, result.servedBy);
       const masterKey = await this.storeAudio(songId, master, result.audio);
+      const durationMs = await this.resolveDuration(result, master);
 
       await this.deps.dataSource.transaction(async (em) => {
         await em.getRepository(Song).update(
@@ -130,7 +134,7 @@ export class GenerationProcessor {
           {
             status: 'complete',
             masterKey,
-            durationMs: result.durationMs,
+            durationMs,
             providerId: result.servedBy,
             compiledPrompt: request.prompt,
             ...(result.suggestedTitle ? { title: result.suggestedTitle.slice(0, 160) } : {}),
@@ -162,7 +166,7 @@ export class GenerationProcessor {
         song: {
           id: songId,
           title: result.suggestedTitle?.slice(0, 160) ?? song.title,
-          durationMs: result.durationMs,
+          durationMs,
           audioUrl: await this.deps.storage.presignGet(masterKey),
           coverUrl: null,
         },
@@ -170,7 +174,8 @@ export class GenerationProcessor {
 
       const viaReserva = result.fallbackReason ? ` (reserva: ${result.fallbackReason})` : '';
       this.logger.log(
-        `Geração ${generationId} concluída por ${result.servedBy} em ${result.durationMs}ms${viaReserva}`,
+        `Geração ${generationId} concluída por ${result.servedBy}: ` +
+          `${Math.round(durationMs / 1000)}s de áudio${viaReserva}`,
       );
     } catch (err) {
       await this.fail(job, err);
@@ -338,6 +343,41 @@ export class GenerationProcessor {
    * O áudio ou já está no R2 (o motor de GPU subiu direto) ou veio em memória
    * e precisa ser gravado aqui.
    */
+  /**
+   * Duração real da música, em milissegundos.
+   *
+   * O Lyria não informa duração nenhuma e devolve 0. Aceitar esse 0 deixa a
+   * música com "0:00" na tela e todo download estimado em "~0 MB" — foi
+   * exatamente o que aconteceu com a primeira música gerada em produção, cujo
+   * arquivo tinha 180s e 2,8 MB de verdade. Quando o provedor não diz, medimos.
+   *
+   * Só dá para medir o que passou por aqui: quando o motor de GPU sobe o master
+   * direto para o R2, o buffer nunca chega ao worker. Esse caminho é o
+   * ACE-Step, que informa `duration_ms` corretamente, então não há perda.
+   *
+   * Duração é informativa, nunca motivo para perder a música: se o ffprobe
+   * falhar, `durationOfBuffer` devolve 0 e a geração continua valendo.
+   */
+  private async resolveDuration(
+    result: {
+      durationMs: number;
+      audio: { kind: 'buffer'; data: Buffer } | { kind: 'stored'; storageKey: string };
+    },
+    master: MasterFormat,
+  ): Promise<number> {
+    if (result.durationMs > 0) return result.durationMs;
+    if (result.audio.kind !== 'buffer') return 0;
+
+    const medido = await durationOfBuffer(result.audio.data, master, this.deps.ffmpegPath);
+    if (medido === 0) {
+      this.logger.warn(
+        'O provedor não informou a duração e o ffprobe não conseguiu medir; ' +
+          'a música fica com 0:00 na interface.',
+      );
+    }
+    return medido;
+  }
+
   private async storeAudio(
     songId: string,
     master: MasterFormat,

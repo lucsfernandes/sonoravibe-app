@@ -6,7 +6,7 @@ import { DataSource } from 'typeorm';
 import { CreditsService, InsufficientCreditsError } from '../src/credits/credits.service';
 
 /**
- * Roda contra o Postgres de desenvolvimento, num schema próprio.
+ * Roda contra um Postgres de verdade, num schema próprio.
  *
  * O ponto central aqui é a concorrência: o lock de carteira só pode ser
  * verificado com transações de verdade disputando a mesma linha. Um mock
@@ -15,6 +15,16 @@ import { CreditsService, InsufficientCreditsError } from '../src/credits/credits
 
 process.loadEnvFile(resolve(__dirname, '../../../.env'));
 
+/**
+ * Prefere `TEST_DATABASE_URL` quando existir.
+ *
+ * Sem isso o teste roda no mesmo banco de `DATABASE_URL` — que hoje é o de
+ * produção. Ele cria e derruba um schema só seu e nunca toca em `public`, mas
+ * "rodar o teste faz DDL em produção" é a classe de coisa que funciona até o
+ * dia em que alguém muda o nome do schema.
+ */
+const DB_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+
 const SCHEMA = 'sonora_test_credits';
 let dataSource: DataSource;
 let credits: CreditsService;
@@ -22,7 +32,7 @@ let credits: CreditsService;
 const USER_ID = 'user_test_credits';
 
 beforeAll(async () => {
-  const admin = new DataSource({ type: 'postgres', url: process.env.DATABASE_URL });
+  const admin = new DataSource({ type: 'postgres', url: DB_URL });
   await admin.initialize();
   await admin.query(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
   await admin.query(`CREATE SCHEMA ${SCHEMA}`);
@@ -63,7 +73,7 @@ beforeAll(async () => {
 
   dataSource = new DataSource({
     type: 'postgres',
-    url: process.env.DATABASE_URL,
+    url: DB_URL,
     schema: SCHEMA,
     entities: ENTITIES,
     synchronize: true,
@@ -71,7 +81,11 @@ beforeAll(async () => {
   });
   await dataSource.initialize();
   credits = new CreditsService(dataSource);
-}, 60_000);
+  // 60s era apertado demais: contra um Postgres remoto o `synchronize` das ~20
+  // entidades leva ~10s, mas o conjunto (conexão fria + DDL + a comparação do
+  // fixture) encosta no limite e o teste falhava de forma intermitente, sempre
+  // no hook e nunca numa asserção — o sintoma mais confuso possível.
+}, 180_000);
 
 afterAll(async () => {
   if (dataSource?.isInitialized) {
