@@ -12,6 +12,15 @@ SaaS de geração de música com IA. Monorepo pnpm com quatro aplicações:
 Documentação: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) e [`docs/API.md`](docs/API.md).
 Coleção do Postman em [`docs/postman/`](docs/postman/).
 
+## Como o domínio é dividido
+
+| URL | O que serve |
+|---|---|
+| `sonoravibe.com/` | Site institucional — HTML estático de `apps/web/public/`, servido por um rewrite. Ver [`docs/SITE-INSTITUCIONAL.md`](docs/SITE-INSTITUCIONAL.md) |
+| `sonoravibe.com/inicio` | Home do aplicativo (feed e campo de criação) |
+| `sonoravibe.com/criar`, `/explorar`, … | O resto do aplicativo |
+| `api.sonoravibe.com` | A API |
+
 ## O que o produto faz
 
 Gerar música por descrição (aba Simples), por letra e controles finos (Avançado) ou efeitos
@@ -31,7 +40,6 @@ mesmo saldo.
 |---|---|
 | Endpoint ACE-Step na RunPod | O Lyria entrega ~3 min. Enquanto não existir, `ENGINE_MAX_DURATION_SECONDS` segura o que os planos anunciam, e Pro/Premier não entregam os 4 e 8 min do plano |
 | Migrations versionadas do TypeORM | Hoje o schema nasce de um `synchronize` manual (`scripts/criar-schema.sh`). Funciona uma vez; não serve para evoluir o schema com dados dentro |
-| Onde publicar `site-sonora/` | A raiz `sonoravibe.com` é o app. O site institucional precisa de subdomínio — ou o app muda para `app.` |
 | Testes na `apps/web` | Não há vitest configurado ali. API e worker têm 74 testes; a interface é coberta só por teste manual no navegador |
 
 ## Desenvolvimento
