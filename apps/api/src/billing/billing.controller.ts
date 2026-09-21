@@ -39,8 +39,15 @@ export class BillingController {
   /** Catálogo público: a página de vendas precisa dele sem login. */
   @Public()
   @Get('plans')
-  plans() {
-    return this.billing.catalogue();
+  plans(@CurrentUser() user: SessionUser | undefined) {
+    // O catálogo é público (a página de vendas precisa dele sem login), mas o
+    // diagnóstico de onde os planos vieram só vai para quem tem sessão.
+    //
+    // `source: 'codigo'` significa "a tabela `plans` sumiu ou o Postgres não
+    // responde". É sinal de problema interno, e numa rota sem autenticação
+    // vira reconhecimento de graça para quem estiver sondando. Os preços são
+    // públicos; o estado da nossa infraestrutura, não.
+    return this.billing.catalogue({ comDiagnostico: Boolean(user) });
   }
 
   @Post('billing/subscribe')
