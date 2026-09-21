@@ -1,4 +1,4 @@
-# Sonora
+# Sonora Vibe
 
 SaaS de geração de música com IA. Monorepo pnpm com quatro aplicações:
 
@@ -38,7 +38,7 @@ mesmo saldo.
 
 | Pendência | Por quê importa |
 |---|---|
-| Endpoint ACE-Step na RunPod | O Lyria entrega ~3 min. Enquanto não existir, `ENGINE_MAX_DURATION_SECONDS` segura o que os planos anunciam, e Pro/Premier não entregam os 4 e 8 min do plano |
+| Endpoint ACE-Step na RunPod | O Lyria entrega ~3 min. Enquanto não existir, `ENGINE_MAX_DURATION_SECONDS` segura o que os planos anunciam. Passo a passo em [`docs/RUNPOD.md`](docs/RUNPOD.md) |
 | Migrations versionadas do TypeORM | Hoje o schema nasce de um `synchronize` manual (`scripts/criar-schema.sh`). Funciona uma vez; não serve para evoluir o schema com dados dentro |
 | Testes na `apps/web` | Não há vitest configurado ali. API e worker têm 74 testes; a interface é coberta só por teste manual no navegador |
 

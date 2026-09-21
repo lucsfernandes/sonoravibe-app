@@ -1,12 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<!--
+  Sonora Vibe — marca.
+
+  Quatro barras de equalizador com alturas desiguais: é som medido, não uma
+  nota musical desenhada. A desigualdade é o ponto — barras iguais viram um
+  gráfico, e o que se quer dizer é vibração.
+
+  Desenhada para o pior caso, que é o favicon a 16px. Nesse tamanho só sobra
+  silhueta: por isso são quatro formas cheias e nada de traço fino, contorno ou
+  detalhe interno (a versão anterior tinha uma colcheia de 2.2px de traço, que
+  a 16px virava um borrão).
+
+  O gradiente é o mesmo violeta do tema (globals.css) e roda na diagonal para
+  a barra mais alta pegar o tom mais claro.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Sonora Vibe">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ff8a3d"/>
-      <stop offset="1" stop-color="#e8306b"/>
+    <linearGradient id="v" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7B54F7"/>
+      <stop offset="1" stop-color="#B235EC"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="8" fill="url(#g)"/>
-  <path d="M12 22.5V10l9-1.6v11" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>
-  <circle cx="10" cy="22.5" r="2.6" fill="#fff"/>
-  <circle cx="19" cy="20.9" r="2.6" fill="#fff"/>
+  <rect width="32" height="32" rx="9" fill="url(#v)"/>
+  <g fill="#fff">
+    <rect x="7"  y="11.5" width="3" height="9"  rx="1.5"/>
+    <rect x="12" y="7.5"  width="3" height="17" rx="1.5"/>
+    <rect x="17" y="9.5"  width="3" height="13" rx="1.5"/>
+    <rect x="22" y="12.5" width="3" height="7"  rx="1.5"/>
+  </g>
 </svg>
