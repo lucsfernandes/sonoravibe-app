@@ -99,6 +99,7 @@ const T: Dicionario = {
   'lib.privadas': { pt: 'Privadas', en: 'Private' },
   'lib.curtidas': { pt: 'Curtidas', en: 'Liked' },
   'lib.carregarMais': { pt: 'Carregar mais', en: 'Load more' },
+  'lib.selecionada': { pt: 'selecionada', en: 'selected' },
   'lib.selecionadas': { pt: 'selecionadas', en: 'selected' },
 
   // Playlists
@@ -127,8 +128,8 @@ const T: Dicionario = {
   'editar.semCusto': { pt: 'sem custo', en: 'free' },
   'editar.aplicar': { pt: 'Aplicar', en: 'Apply' },
   'editar.enfileirada': {
-    pt: 'Edição na fila. A música atualiza quando terminar.',
-    en: 'Edit queued. The song updates when it finishes.',
+    pt: 'Na fila. A versão editada vai aparecer na sua biblioteca como uma faixa nova — esta continua como está.',
+    en: 'Queued. The edited version shows up in your library as a new track — this one stays as it is.',
   },
   'editar.de': { pt: 'De', en: 'From' },
   'editar.ate': { pt: 'Até', en: 'To' },

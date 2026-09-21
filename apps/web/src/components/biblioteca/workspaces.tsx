@@ -99,13 +99,20 @@ export function Workspaces({
                   onClick={() => aoSelecionar(w.id)}
                   onDoubleClick={() => setEditando(w.id)}
                   title={t('workspaces.duploClique')}
+                  // Sem o aria-label, o nome acessível cola o nome na contagem
+                  // e o leitor de tela anuncia "Trilhas de vídeo0".
+                  aria-label={`${w.name}: ${w.songCount} ${t(
+                    w.songCount === 1 ? 'playlists.musica' : 'playlists.musicas',
+                  )}`}
                   className={`py-1.5 pl-3 pr-1.5 text-sm transition-colors ${
                     selecionado === w.id ? 'text-acento' : 'text-texto-suave hover:text-texto'
                   }`}
                 >
-                  {w.name}
-                  <span className="ml-1.5 text-xs tabular-nums text-texto-fraco">
-                    {w.songCount}
+                  <span aria-hidden>
+                    {w.name}
+                    <span className="ml-1.5 text-xs tabular-nums text-texto-fraco">
+                      {w.songCount}
+                    </span>
                   </span>
                 </button>
                 {!w.isDefault && (

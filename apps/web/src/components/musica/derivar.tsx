@@ -187,9 +187,12 @@ export function Derivar({
           >
             {enviando ? t('geral.enviando') : t('criar.botao')}
             {modo !== 'capa' && (
-              <span className="rounded bg-black/25 px-1.5 py-0.5 text-xs">
-                {custoRemix} {t('criar.custo')}
-              </span>
+              <>
+                {' '}
+                <span className="rounded bg-black/25 px-1.5 py-0.5 text-xs">
+                  {custoRemix} {t('criar.custo')}
+                </span>
+              </>
             )}
           </button>
 

@@ -11,6 +11,12 @@ import { useI18n } from '@/lib/i18n';
  * custam crédito, e a tela diz isso: alguém que já gastou crédito para gerar
  * hesita antes de clicar em qualquer coisa que pareça cobrar de novo.
  *
+ * Cada edição gera uma FAIXA NOVA, com `parentSongId` apontando para esta — o
+ * original nunca é alterado. O aviso depois de aplicar precisa dizer isso: na
+ * primeira versão ele prometia que "a música atualiza quando terminar", e a
+ * pessoa ficaria olhando para uma faixa que nunca muda enquanto a editada
+ * aparecia calada na biblioteca.
+ *
  * Cada operação pede parâmetros diferentes, e mostrar todos os campos sempre
  * deixaria a maioria deles inúteis na tela. O formulário troca conforme a
  * escolha.
@@ -85,9 +91,12 @@ export function EditarAudio({
         type="button"
         onClick={() => setAberto((a) => !a)}
         aria-expanded={aberto}
+        // O nome acessível vem do `aria-label`, não dos dois spans: concatenados
+        // sem espaço, o leitor de tela anuncia "Editar o áudiosem custo".
+        aria-label={`${t('editar.titulo')} — ${t('editar.semCusto')}`}
         className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium"
       >
-        <span>
+        <span aria-hidden>
           {t('editar.titulo')}
           <span className="ml-2 text-xs font-normal text-texto-fraco">{t('editar.semCusto')}</span>
         </span>

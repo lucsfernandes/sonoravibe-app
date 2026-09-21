@@ -66,7 +66,8 @@ export function BarraSelecao({
     >
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium tabular-nums">
-          {selecionadas.length} {t('lib.selecionadas')}
+          {selecionadas.length}{' '}
+          {t(selecionadas.length === 1 ? 'lib.selecionada' : 'lib.selecionadas')}
         </span>
 
         <label className="sr-only" htmlFor="formato-lote">
