@@ -11,9 +11,11 @@ import {
   CREDIT_COSTS,
   DEFAULT_JOB_OPTIONS,
   MAX_DURATION_SECONDS,
+  maxDurationFor,
   type AdvancedControls,
   type GenerationJob,
   type GenerationRequest,
+  type PlanCode,
 } from '@sonora/shared';
 import { Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
@@ -58,7 +60,7 @@ export class SongsService {
     const cost = request.mode === 'sounds' ? CREDIT_COSTS.clip : CREDIT_COSTS.song;
 
     const controls = request.mode === 'advanced' ? request.controls : undefined;
-    this.assertPlanAllows(plan.features, controls);
+    this.assertPlanAllows(plan.code, plan.features, controls);
 
     const workspaceId = await this.resolveWorkspace(user.id, request.workspaceId);
 
@@ -133,7 +135,8 @@ export class SongsService {
    * e inválido para quem está no Free.
    */
   private assertPlanAllows(
-    features: { maxDurationSeconds: number; maxMode: boolean },
+    code: PlanCode,
+    features: { maxMode: boolean },
     controls: AdvancedControls | undefined,
   ): void {
     if (!controls) return;
@@ -144,11 +147,15 @@ export class SongsService {
       );
     }
 
+    // `maxDurationFor` e não `features.maxDurationSeconds`: o limite que vale é
+    // o menor entre o do plano e o do motor ligado. É o mesmo número que a tela
+    // de planos publica, então a recusa aqui nunca contradiz o que foi vendido.
+    const limite = maxDurationFor(code);
     const requested = controls.durationSeconds;
-    if (requested && requested > features.maxDurationSeconds) {
+    if (requested && requested > limite) {
       throw new ForbiddenException(
-        `Seu plano gera músicas de até ${features.maxDurationSeconds}s ` +
-          `(pediu ${requested}s). O teto técnico é ${MAX_DURATION_SECONDS}s no plano Premier.`,
+        `Seu plano gera músicas de até ${limite}s (pediu ${requested}s). ` +
+          `O teto técnico é ${MAX_DURATION_SECONDS}s.`,
       );
     }
   }

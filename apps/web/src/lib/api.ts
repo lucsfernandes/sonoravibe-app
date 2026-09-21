@@ -71,6 +71,58 @@ function seguroJson(texto: string): unknown {
   }
 }
 
+/**
+ * Baixa um ZIP de varias musicas.
+ *
+ * Nao passa pelo `request` porque a resposta de sucesso e binaria, nao JSON —
+ * e porque a mesma rota devolve 202 com JSON enquanto o FFmpeg ainda converte
+ * alguma das faixas. Quem chama precisa distinguir os dois casos.
+ *
+ * O ZIP vem por POST (a lista de ids nao cabe numa URL), entao nao da para usar
+ * um link comum: o arquivo vira blob e um `<a download>` sintetico dispara o
+ * salvamento. A URL do blob e revogada logo depois, senao o arquivo inteiro
+ * fica preso na memoria da aba ate o usuario recarregar a pagina.
+ */
+export async function baixarLote(
+  songIds: string[],
+  format: string,
+): Promise<{ baixou: true } | { baixou: false; mensagem: string; pendentes: number }> {
+  const resposta = await fetch(`${API_URL}/songs/download-batch`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ songIds, format }),
+  });
+
+  if (resposta.status === 202) {
+    const corpo = (await resposta.json()) as { message?: string; pending?: string[] };
+    return {
+      baixou: false,
+      mensagem: corpo.message ?? '',
+      pendentes: corpo.pending?.length ?? 0,
+    };
+  }
+
+  if (!resposta.ok) {
+    const texto = await resposta.text();
+    const corpo = texto ? seguroJson(texto) : null;
+    const mensagem = (corpo as { message?: string })?.message ?? `Erro ${resposta.status}`;
+    throw new ApiError(mensagem, resposta.status, corpo);
+  }
+
+  const blob = await resposta.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `sonora-${format}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+
+  return { baixou: true };
+}
+
 export const api = {
   get: <T>(caminho: string) => request<T>(caminho),
   post: <T>(caminho: string, corpo?: unknown) =>
@@ -108,6 +160,8 @@ export interface MusicaDetalhe extends Musica {
   allowRemixes: boolean;
   allowComments: boolean;
   likedByMe: boolean;
+  /** Quem pediu e o dono da musica sao a mesma pessoa. */
+  isMine: boolean;
   stems: { kind: string; url: string }[];
   downloads: {
     format: string;
@@ -157,4 +211,40 @@ export interface ProgressoGeracao {
   progress: number;
   song?: { id: string; title: string; durationMs: number; audioUrl: string; coverUrl: string | null };
   error?: string;
+}
+
+export interface Comentario {
+  id: string;
+  body: string;
+  timestampMs: number | null;
+  parentId: string | null;
+  createdAt: string;
+  author: { handle: string; displayName: string; avatarUrl?: string | null };
+  isMine: boolean;
+}
+
+export interface Comentarios {
+  /** O autor pode desligar os comentários da própria música. */
+  allowed: boolean;
+  items: Comentario[];
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  songCount: number;
+  createdAt: string;
+}
+
+export interface PlaylistDetalhe extends Playlist {
+  songs: Musica[];
+}
+
+export interface EstiloSalvo {
+  id: string;
+  name: string;
+  prompt: string;
+  excludeStyles: string | null;
 }

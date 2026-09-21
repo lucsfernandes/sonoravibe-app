@@ -43,6 +43,15 @@ export interface SongDetail extends SongSummary {
   allowRemixes: boolean;
   allowComments: boolean;
   likedByMe: boolean;
+  /**
+   * Quem está pedindo é o dono da música.
+   *
+   * Sem este campo a interface não tem como distinguir "minha" de "de outra
+   * pessoa" numa música pública, e acabava mostrando Publicar, Estender e
+   * Separar stems na música dos outros — botões que só existem para devolver
+   * 403 quando clicados.
+   */
+  isMine: boolean;
   stems: { kind: string; url: string }[];
   /** O que o usuário pode baixar, com aviso honesto sobre o que cada formato entrega. */
   downloads: {
@@ -150,6 +159,7 @@ export class LibraryService {
       allowRemixes: song.allowRemixes,
       allowComments: song.allowComments,
       likedByMe,
+      isMine: userId !== null && song.userId === userId,
       stems: await Promise.all(
         stems.map(async (stem) => ({
           kind: stem.kind,

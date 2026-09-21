@@ -83,6 +83,7 @@ const T: Dicionario = {
   'criar.criando': { pt: 'Criando...', en: 'Creating...' },
   'criar.custo': { pt: 'créditos', en: 'credits' },
   'criar.sortear': { pt: 'Sortear estilo', en: 'Random style' },
+  'criar.cancelada': { pt: 'Cancelada', en: 'Cancelled' },
 
   // Biblioteca
   'lib.titulo': { pt: 'Biblioteca', en: 'Library' },
@@ -93,6 +94,9 @@ const T: Dicionario = {
   'lib.privadas': { pt: 'Privadas', en: 'Private' },
   'lib.curtidas': { pt: 'Curtidas', en: 'Liked' },
   'lib.carregarMais': { pt: 'Carregar mais', en: 'Load more' },
+  'lib.selecionadas': { pt: 'selecionadas', en: 'selected' },
+  'lib.baixarSelecionadas': { pt: 'Baixar em lote', en: 'Download as ZIP' },
+  'lib.formato': { pt: 'Formato', en: 'Format' },
 
   // Música
   'musica.baixar': { pt: 'Baixar', en: 'Download' },
@@ -140,6 +144,15 @@ const T: Dicionario = {
   'creditos.assinar': { pt: 'Assinar', en: 'Subscribe' },
   'creditos.comprar': { pt: 'Comprar', en: 'Buy' },
   'creditos.planoAtual': { pt: 'Seu plano', en: 'Your plan' },
+  'creditos.minPorMusica': { pt: 'min por música', en: 'min per song' },
+  'creditos.cancelarAssinatura': { pt: 'Cancelar assinatura', en: 'Cancel subscription' },
+  'creditos.confirmarCancelamento': { pt: 'Sim, cancelar', en: 'Yes, cancel' },
+  'creditos.manterPlano': { pt: 'Manter', en: 'Keep it' },
+  'creditos.canceladaEm': { pt: 'Cancelada em', en: 'Cancelled on' },
+  'creditos.avisoCancelamento': {
+    pt: 'Você continua com o plano até o fim do período já pago.',
+    en: 'You keep the plan until the end of the period you already paid for.',
+  },
   'creditos.porMes': { pt: '/mês', en: '/month' },
   'creditos.validade': { pt: 'Válidos por 12 meses', en: 'Valid for 12 months' },
 
@@ -166,6 +179,35 @@ const T: Dicionario = {
   'geral.erro': { pt: 'Algo deu errado.', en: 'Something went wrong.' },
   'geral.tentarDeNovo': { pt: 'Tentar de novo', en: 'Try again' },
   'geral.opcional': { pt: 'opcional', en: 'optional' },
+  'geral.enviando': { pt: 'Enviando...', en: 'Sending...' },
+  'geral.excluir': { pt: 'Excluir', en: 'Delete' },
+  'geral.criar': { pt: 'Criar', en: 'Create' },
+  'geral.voltar': { pt: 'Voltar', en: 'Back' },
+
+  // Curtir e comentar
+  'musica.curtir': { pt: 'Curtir', en: 'Like' },
+  'musica.descurtir': { pt: 'Descurtir', en: 'Unlike' },
+  'comentarios.titulo': { pt: 'Comentários', en: 'Comments' },
+  'comentarios.vazio': { pt: 'Nenhum comentário ainda.', en: 'No comments yet.' },
+  'comentarios.placeholder': { pt: 'Escreva um comentário', en: 'Write a comment' },
+  'comentarios.enviar': { pt: 'Comentar', en: 'Post' },
+  'comentarios.marcarInstante': { pt: 'Marcar o instante', en: 'Mark the timestamp' },
+  'comentarios.desativados': {
+    pt: 'O autor desativou os comentários nesta música.',
+    en: 'The author turned off comments on this song.',
+  },
+  'comentarios.paraComentar': { pt: 'para comentar.', en: 'to comment.' },
+
+  // Gerenciar a própria música
+  'gerenciar.titulo': { pt: 'Gerenciar', en: 'Manage' },
+  'gerenciar.nome': { pt: 'Nome da música', en: 'Song name' },
+  'gerenciar.permitirComentarios': { pt: 'Permitir comentários', en: 'Allow comments' },
+  'gerenciar.permitirRemixes': { pt: 'Permitir remixes', en: 'Allow remixes' },
+  'gerenciar.excluirMusica': { pt: 'Excluir esta música', en: 'Delete this song' },
+  'gerenciar.confirmarExclusao': {
+    pt: 'Tem certeza? Ela sai da sua biblioteca.',
+    en: 'Are you sure? It leaves your library.',
+  },
 };
 
 interface I18n {
