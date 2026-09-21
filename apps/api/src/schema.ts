@@ -60,16 +60,51 @@ async function main(): Promise<void> {
   }
 
   // ------------------------------------------------------ tabelas do domínio
+  //
+  // Conecta com `synchronize: false` de propósito. O synchronize do TypeORM não
+  // só cria: ele APAGA coluna que sumiu do código e reescreve tipo que mudou.
+  // Num banco vazio isso é inofensivo; num banco com músicas de usuário, é
+  // perda de dado silenciosa.
+  //
+  // Por isso o SQL pendente é impresso ANTES de rodar. Quem executa vê se são
+  // três CREATE TABLE ou um DROP COLUMN inesperado, e ainda dá tempo de parar.
   const dataSource = new DataSource({
     type: 'postgres',
     url: config.DATABASE_URL,
     entities: ENTITIES,
-    synchronize: true,
+    synchronize: false,
     logging: ['error'],
   });
 
   await dataSource.initialize();
-  console.log('Domínio: entidades sincronizadas.');
+
+  const pendente = await dataSource.driver.createSchemaBuilder().log();
+  const comandos = pendente.upQueries.map((q) => q.query);
+
+  if (comandos.length === 0) {
+    console.log('Domínio: nada a fazer, o schema já está em dia.');
+  } else {
+    const destrutivos = comandos.filter((q) => /DROP\s+(TABLE|COLUMN)/i.test(q));
+
+    console.log(`\nDomínio: ${comandos.length} comando(s) a executar:`);
+    for (const q of comandos) console.log(`  ${q.slice(0, 160)}`);
+
+    if (destrutivos.length > 0) {
+      console.error(
+        [
+          '',
+          `PAREI: ${destrutivos.length} comando(s) apagam tabela ou coluna.`,
+          'Isto some com dado de usuário. Se for mesmo o que você quer, rode o SQL à mão.',
+          '',
+        ].join('\n'),
+      );
+      await dataSource.destroy();
+      process.exit(1);
+    }
+
+    await dataSource.synchronize();
+    console.log('Domínio: sincronizado.');
+  }
 
   const tabelas = await dataSource.query<{ tablename: string }[]>(
     `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`,

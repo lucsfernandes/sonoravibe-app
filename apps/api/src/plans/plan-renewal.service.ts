@@ -1,9 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { CreditTransaction, CreditWallet, Plan as PlanRow } from '@sonora/db';
+import { CreditTransaction, CreditWallet } from '@sonora/db';
 import type { PlanCode } from '@sonora/shared';
 import { DataSource } from 'typeorm';
 import { DATA_SOURCE } from '../database/database.module';
 import { CreditsService } from '../credits/credits.service';
+import { PlansRepository } from './plans.repository';
 
 /**
  * Renova a cota do plano gratuito.
@@ -31,6 +32,7 @@ export class PlanRenewalService {
   constructor(
     @Inject(DATA_SOURCE) private readonly dataSource: DataSource,
     private readonly credits: CreditsService,
+    private readonly planos: PlansRepository,
   ) {}
 
   /**
@@ -39,9 +41,32 @@ export class PlanRenewalService {
    * Devolve quantos créditos entraram, ou 0 quando ainda não é hora.
    */
   async renovarSeVirouCiclo(userId: string, planCode: PlanCode): Promise<number> {
-    const plano = await this.dataSource.getRepository(PlanRow).findOneBy({ code: planCode });
-    const creditos = plano?.cycleCredits ?? 0;
-    const dias = plano?.cycleDays ?? 0;
+    try {
+      return await this.conceder(userId, planCode);
+    } catch (err) {
+      // Nada aqui pode derrubar a leitura de saldo.
+      //
+      // Isto quebrou em produção: a versão anterior consultava a tabela
+      // `plans` direto, e como o cluster sobe com `DB_SYNCHRONIZE=false` a
+      // tabela ainda não existia. O erro subia e `GET /credits` devolvia 500 —
+      // a rota que a interface chama em TODO carregamento de página, então o
+      // aplicativo inteiro parecia quebrado por causa de um crédito não
+      // concedido.
+      //
+      // Renovação é benefício, não requisito: falhar aqui custa ao usuário
+      // esperar o próximo ciclo. Falhar o saldo custa o produto.
+      this.logger.error(`Não renovei a cota de ${userId}: ${(err as Error).message}`);
+      return 0;
+    }
+  }
+
+  private async conceder(userId: string, planCode: PlanCode): Promise<number> {
+    // Pelo repositório, e não pela tabela: ele já cai nos planos do código
+    // quando o banco não responde. Duas portas para o mesmo dado significam
+    // duas chances de divergir.
+    const plano = await this.planos.porCodigo(planCode);
+    const creditos = plano.cycleCredits ?? 0;
+    const dias = plano.cycleDays ?? 0;
 
     // Plano pago não renova por aqui: os créditos dele entram na cobrança,
     // quando o gateway confirma o pagamento.
