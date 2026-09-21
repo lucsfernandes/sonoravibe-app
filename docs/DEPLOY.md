@@ -87,28 +87,49 @@ Better Auth nem as tabelas do domínio nascem — mas a API sobe **verde**. O
 `/health` só faz `SELECT 1` e um `ping` no Redis, e os dois passam num banco
 vazio. Todas as rotas reais respondem 500 até o schema existir.
 
-A criação roda com a imagem da API, que só passa a existir depois do primeiro
-build. Por isso este passo vem **depois** do deploy — veja a ordem na seção 3.
+A criação usa a imagem da API, que só passa a existir depois do primeiro build.
+Por isso este passo vem **depois** do Deploy API — veja a ordem na seção 3.
 
 ```bash
-# Usa exatamente a imagem que está rodando, sem precisar descobrir o SHA
-IMG=$(kubectl get deploy sonora-api -n sonora   -o jsonpath='{.spec.template.spec.containers[0].image}')
-
-kubectl run sonora-schema --rm -it --restart=Never -n sonora   --image="$IMG"   --env=DATABASE_URL="$(kubectl get secret sonora-api-secret -n sonora       -o jsonpath='{.data.DATABASE_URL}' | base64 -d)"   --env=REDIS_URL="redis://sonora-redis.sonora.svc.cluster.local:6379"   --env=DB_SYNCHRONIZE=true --env=NODE_ENV=development   --env=BETTER_AUTH_SECRET=apenas-para-criar-o-schema-32-chars   --env=R2_ACCOUNT_ID=x --env=R2_ACCESS_KEY_ID=x   --env=R2_SECRET_ACCESS_KEY=x --env=R2_BUCKET=x   --env=MUSIC_PROVIDER=mock --env=PAYMENT_PROVIDER=fake   --command -- node -r @swc-node/register src/main.ts
+bash scripts/criar-schema.sh
 ```
 
-`NODE_ENV=development` é obrigatório aqui: em produção a validação recusa
-`DB_SYNCHRONIZE=true` e `PAYMENT_PROVIDER=fake`, que é justamente a proteção
-que queremos manter. As variáveis com valor `x` só existem para passar na
-validação — este pod não sobe áudio nem cobra ninguém.
+O script descobre a imagem que está rodando, aplica `k8s/api/job-schema.yaml`,
+acompanha os logs e confirma o resultado. Saída esperada:
 
-Espere aparecer `API no ar em :3001` nos logs, confirme as tabelas e encerre com
-`Ctrl+C`. Conferência:
-
-```bash
-kubectl run psql --rm -it --restart=Never -n sonora --image=postgres:16-alpine --   psql "$DATABASE_URL" -c '\dt'
-# Devem aparecer ~22 tabelas: as 18 do domínio + user, session, account, verification
 ```
+Banco: postgresql://sonora_user_admin:***@postgres-rw.databases.svc.cluster.local:5432/sonora_vibe
+Better Auth: criando user, session, account, verification
+Domínio: entidades sincronizadas.
+
+21 tabelas no schema public:
+  account
+  credit_transactions
+  ...
+Pronto.
+```
+
+Não é preciso conferir com `psql` depois: o próprio script lista as tabelas. E a
+senha sai mascarada, porque essa saída vai para o log do cluster.
+
+#### Por que um Job, e não `kubectl run`
+
+Duas razões, as duas descobertas na prática:
+
+- O namespace tem **PSA `restricted`**. Um `kubectl run` pelado é rejeitado
+  antes de o pod existir: *"violates PodSecurity restricted:latest"*. O
+  manifesto declara os quatro campos exigidos (`runAsNonRoot`,
+  `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`,
+  `seccompProfile`).
+- Subir a **API inteira** com `DB_SYNCHRONIZE=true` deixa um processo escutando
+  para sempre — como Job ele nunca completaria, e à mão exigiria apertar
+  `Ctrl+C` sem saber se o schema já terminou. O `src/schema.ts` faz só o
+  necessário e encerra (medido: 14 s num banco vazio, código de saída 0).
+
+O Job sobrescreve três variáveis da configuração da API, cada uma com motivo:
+`DB_SYNCHRONIZE=true` (é o que cria as tabelas), `NODE_ENV=development` (em
+produção a validação recusa o synchronize — proteção que queremos manter no
+Deployment) e `MUSIC_PROVIDER=mock` (criar tabela não precisa de motor de música).
 
 ### 2.3 GitHub Secrets
 
@@ -231,8 +252,8 @@ bash scripts/pre-deploy.sh
    coisa. Ao final, os pods sobem e `/health` responde — **mas as rotas ainda
    dão 500**, porque o banco está vazio.
 
-3. **Schema** (seção 2.2). Só agora é possível: a imagem da API acabou de ser
-   construída.
+3. **Schema** (seção 2.2): `bash scripts/criar-schema.sh`. Só agora é possível —
+   a imagem da API acabou de ser construída.
 
 4. **Deploy Worker**. O build passa de 10 minutos na primeira vez — a imagem
    leva PyTorch e os pesos do Demucs (~2 GB).
