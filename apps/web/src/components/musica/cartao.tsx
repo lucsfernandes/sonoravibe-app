@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { formatarContagem, formatarDuracao, useI18n } from '@/lib/i18n';
 import { paraFaixa, usePlayer, type FaixaTocando } from '@/lib/player';
+import { ROTULOS_STATUS, useProgresso } from '@/lib/progresso';
 import { BotaoCurtir } from './curtir';
 import type { ItemExplore, Musica } from '@/lib/api';
+import type { ModoVisualizacao } from './visualizacao';
 
 /**
  * Cartão de uma música.
@@ -20,6 +22,7 @@ export function CartaoMusica({
   href,
   selecionada,
   aoSelecionar,
+  modo = 'media',
 }: {
   musica: Musica | ItemExplore;
   fila?: (Musica | ItemExplore)[];
@@ -28,9 +31,17 @@ export function CartaoMusica({
   /** Presente só onde há seleção em lote (a biblioteca). */
   selecionada?: boolean;
   aoSelecionar?: (id: string) => void;
+  /** Como desenhar. 'media' é o cartão quadrado de sempre. */
+  modo?: ModoVisualizacao;
 }) {
   const { t, locale } = useI18n();
   const { tocar, faixa, tocando, alternar } = usePlayer();
+  const { progressoDaMusica } = useProgresso();
+
+  // Enquanto gera, o card mostra em que etapa está e quanto falta. Antes
+  // mostrava só "Carregando...", que não distingue "na fila há 1 segundo" de
+  // "travado há 5 minutos".
+  const progresso = progressoDaMusica(musica.id);
 
   const estaTocando = faixa?.id === musica.id && tocando;
   const pronta = musica.status === 'complete' && Boolean(musica.audioUrl);
@@ -50,6 +61,26 @@ export function CartaoMusica({
   };
 
   const selecionavel = aoSelecionar !== undefined && pronta;
+
+  // Lista e detalhes são linhas, não cartões: cabem três vezes mais faixas na
+  // tela, que é o ponto de quem está procurando uma pelo nome.
+  if (modo === 'lista' || modo === 'detalhes') {
+    return (
+      <Linha
+        musica={musica}
+        autor={autor}
+        href={href}
+        modo={modo}
+        pronta={pronta}
+        estaTocando={estaTocando}
+        progresso={progresso}
+        locale={locale}
+        aoClicar={aoClicar}
+        selecionada={selecionada}
+        aoSelecionar={selecionavel ? aoSelecionar : undefined}
+      />
+    );
+  }
 
   return (
     <article
@@ -90,10 +121,22 @@ export function CartaoMusica({
             </span>
           </button>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <span className="rounded-full bg-superficie-alta px-3 py-1 text-xs text-texto-suave pulsando">
-              {t('geral.carregando')}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 px-3">
+            <span className="text-center text-[11px] leading-tight text-texto-suave">
+              {progresso
+                ? (ROTULOS_STATUS[progresso.status]?.[locale] ?? progresso.status)
+                : t('geral.carregando')}
             </span>
+            <div className="h-1 w-full max-w-24 overflow-hidden rounded-full bg-borda">
+              <div
+                className={`h-full gradiente-acento transition-all duration-500 ${
+                  progresso ? '' : 'pulsando'
+                }`}
+                // Sem evento ainda: uma barra curta que pulsa diz "começou"
+                // sem fingir um número que não temos.
+                style={{ width: `${progresso?.progress ?? 15}%` }}
+              />
+            </div>
           </div>
         )}
 
@@ -199,5 +242,119 @@ function CoracaoIcone() {
     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 21s-7.5-4.7-9.3-9A5.2 5.2 0 0 1 12 6.8 5.2 5.2 0 0 1 21.3 12c-1.8 4.3-9.3 9-9.3 9z" />
     </svg>
+  );
+}
+
+/**
+ * Uma faixa em linha, para os modos `lista` e `detalhes`.
+ *
+ * A diferença entre os dois é só quanta informação vai à direita: `lista` leva
+ * o essencial e `detalhes` acrescenta as colunas de duração, reproduções e
+ * data, alinhadas para poder comparar de cima a baixo. É a leitura que nenhum
+ * grid de cartão entrega.
+ *
+ * As colunas extras somem no celular. Espremidas em 390px elas viram números
+ * de 8px empilhados, ilegíveis e ocupando o lugar do título.
+ */
+function Linha({
+  musica,
+  autor,
+  href,
+  modo,
+  pronta,
+  estaTocando,
+  progresso,
+  locale,
+  aoClicar,
+  selecionada,
+  aoSelecionar,
+}: {
+  musica: Musica | ItemExplore;
+  autor?: { handle: string; displayName: string };
+  href?: string;
+  modo: 'lista' | 'detalhes';
+  pronta: boolean;
+  estaTocando: boolean;
+  progresso?: { status: string; progress: number };
+  locale: 'pt' | 'en';
+  aoClicar: () => void;
+  selecionada?: boolean;
+  aoSelecionar?: (id: string) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <article
+      className={`flex items-center gap-3 border-b border-borda px-2 py-2 transition-colors hover:bg-superficie ${
+        selecionada ? 'bg-acento-suave' : ''
+      }`}
+    >
+      {aoSelecionar && (
+        <input
+          type="checkbox"
+          checked={selecionada ?? false}
+          onChange={() => aoSelecionar(musica.id)}
+          aria-label={`${selecionada ? 'Desmarcar' : 'Selecionar'} ${musica.title}`}
+          className="size-4 shrink-0 accent-acento"
+        />
+      )}
+
+      <button
+        type="button"
+        onClick={aoClicar}
+        disabled={!pronta}
+        aria-label={`${estaTocando ? 'Pausar' : 'Tocar'} ${musica.title}`}
+        className="relative size-10 shrink-0 overflow-hidden rounded-md"
+      >
+        <Capa url={musica.coverUrl} titulo={musica.title} />
+        {pronta ? (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
+            {estaTocando ? <PausaIcone /> : <PlayIcone />}
+          </span>
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[9px] tabular-nums text-texto-suave">
+            {progresso ? `${progresso.progress}%` : ''}
+          </span>
+        )}
+      </button>
+
+      <div className="min-w-0 flex-1">
+        {href ? (
+          <Link href={href} className="line-clamp-1 text-sm font-medium hover:underline">
+            {musica.title}
+          </Link>
+        ) : (
+          <p className="line-clamp-1 text-sm font-medium">{musica.title}</p>
+        )}
+        {autor && (
+          <Link
+            href={`/u/${autor.handle}`}
+            className="block truncate text-xs text-texto-suave hover:text-texto"
+          >
+            {autor.displayName}
+          </Link>
+        )}
+      </div>
+
+      {modo === 'detalhes' && (
+        <div className="hidden shrink-0 items-center gap-6 text-xs tabular-nums text-texto-fraco sm:flex">
+          <span className="w-14 text-right">{formatarContagem(musica.playCount, locale)}</span>
+          <span className="w-14 text-right">{formatarContagem(musica.likeCount, locale)}</span>
+          <span className="w-24 text-right">
+            {new Date(musica.createdAt).toLocaleDateString(locale === 'pt' ? 'pt-BR' : 'en-US')}
+          </span>
+        </div>
+      )}
+
+      <span className="w-12 shrink-0 text-right text-xs tabular-nums text-texto-fraco">
+        {musica.durationMs > 0 ? formatarDuracao(musica.durationMs) : ''}
+      </span>
+
+      {!musica.isPublic && (
+        <span className="shrink-0 rounded bg-superficie-alta px-1.5 py-0.5 text-[10px] text-texto-fraco">
+          {t('musica.privada')}
+        </span>
+      )}
+    </article>
   );
 }

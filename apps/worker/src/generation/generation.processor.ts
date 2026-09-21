@@ -185,6 +185,13 @@ export class GenerationProcessor {
         `Geração ${generationId} concluída por ${result.servedBy}: ` +
           `${Math.round(durationMs / 1000)}s de áudio${viaReserva}`,
       );
+
+      // A capa vem DEPOIS de a música ser publicada, de propósito. Ela é
+      // enfeite: quem pediu uma música quer ouvir, e esperar mais 10 segundos
+      // por uma imagem atrasaria o que importa. Como o evento de conclusão já
+      // saiu, o usuário toca a faixa enquanto a capa é desenhada, e um segundo
+      // evento a coloca no lugar quando ficar pronta.
+      await this.gerarCapa(song, request.prompt);
     } catch (err) {
       await this.fail(job, err);
       throw err; // devolve ao BullMQ para ele decidir sobre o retry
@@ -351,6 +358,51 @@ export class GenerationProcessor {
    * O áudio ou já está no R2 (o motor de GPU subiu direto) ou veio em memória
    * e precisa ser gravado aqui.
    */
+  /**
+   * Desenha a capa a partir do mesmo prompt que gerou a música.
+   *
+   * Não cobra crédito: é parte do mesmo pedido. Cobrar duas vezes por um
+   * clique é o tipo de surpresa que faz o usuário desconfiar da fatura.
+   *
+   * Nada aqui pode derrubar a geração. A música já está gravada, commitada e
+   * publicada quando isto roda; uma falha no modelo de imagem custa uma capa,
+   * e o card cai no gradiente com a inicial do título, que é o que já acontece
+   * hoje em toda música. Por isso o try/catch engole tudo e só registra.
+   */
+  private async gerarCapa(song: Song, prompt: string): Promise<void> {
+    if (!this.deps.coverArt.available) return;
+
+    try {
+      const resultado = await this.deps.coverArt.generate(prompt);
+      if (!resultado) return;
+
+      const key = storageKeys.cover(song.id);
+      await this.deps.storage.putObject(key, resultado.data, resultado.mimeType);
+      await this.deps.dataSource.getRepository(Song).update({ id: song.id }, { coverKey: key });
+
+      // Segundo evento de conclusão, agora com a capa. A interface recarrega a
+      // música e a imagem entra no lugar do gradiente.
+      await this.publish({
+        userId: song.userId,
+        generationId: song.id,
+        songId: song.id,
+        status: 'complete',
+        progress: STATUS_PROGRESS.complete,
+        song: {
+          id: song.id,
+          title: song.title,
+          durationMs: song.durationMs,
+          audioUrl: '',
+          coverUrl: await this.deps.storage.presignGet(key),
+        },
+      });
+
+      this.logger.log(`Capa de ${song.id} pronta.`);
+    } catch (err) {
+      this.logger.warn(`Não desenhei a capa de ${song.id}: ${(err as Error).message}`);
+    }
+  }
+
   /**
    * Duração real da música, em milissegundos.
    *

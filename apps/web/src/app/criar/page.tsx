@@ -63,7 +63,13 @@ function Conteudo() {
     <div className="flex flex-col gap-6 px-4 py-6 lg:h-[calc(100vh-7rem)] lg:flex-row lg:px-6">
       <div className="w-full shrink-0 lg:max-w-sm">
         <h1 className="mb-4 text-xl font-bold">{t('criar.titulo')}</h1>
-        <PainelCriar chavePrompt={parametros.get('prompt') ?? undefined} />
+        <PainelCriar
+          chavePrompt={parametros.get('prompt') ?? undefined}
+          // Recarrega ao ENFILEIRAR, não só ao concluir. A API já gravou a
+          // música com status 'queued' antes de responder, então ela aparece
+          // na hora, com a barra de progresso rodando no próprio card.
+          aoEnfileirar={carregarRecentes}
+        />
       </div>
 
       <div className="min-w-0 flex-1 lg:overflow-y-auto">
