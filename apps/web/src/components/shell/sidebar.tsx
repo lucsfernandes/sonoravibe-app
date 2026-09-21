@@ -15,11 +15,16 @@ import { useSessao } from '@/lib/sessao';
  */
 
 const ITENS = [
-  { href: '/', chave: 'nav.inicio', icone: CasaIcone },
-  { href: '/explorar', chave: 'nav.explorar', icone: BussolaIcone },
-  { href: '/criar', chave: 'nav.criar', icone: NotaIcone },
-  { href: '/biblioteca', chave: 'nav.biblioteca', icone: BibliotecaIcone },
-  { href: '/creditos', chave: 'nav.creditos', icone: MoedaIcone },
+  { href: '/', chave: 'nav.inicio', icone: CasaIcone, soDesktop: false },
+  { href: '/explorar', chave: 'nav.explorar', icone: BussolaIcone, soDesktop: false },
+  { href: '/criar', chave: 'nav.criar', icone: NotaIcone, soDesktop: false },
+  { href: '/biblioteca', chave: 'nav.biblioteca', icone: BibliotecaIcone, soDesktop: false },
+  // A barra inferior do celular já carrega cinco alvos mais o botão de conta.
+  // Um sétimo deixaria cada um com menos de 50px numa tela de 390 — abaixo do
+  // mínimo confortável para o dedo. No celular, as playlists se alcançam pela
+  // biblioteca.
+  { href: '/playlists', chave: 'nav.playlists', icone: ListaIcone, soDesktop: true },
+  { href: '/creditos', chave: 'nav.creditos', icone: MoedaIcone, soDesktop: false },
 ] as const;
 
 export function Sidebar() {
@@ -99,7 +104,7 @@ export function Sidebar() {
 
       {/* Celular: barra inferior, acima do player */}
       <nav className="fixed inset-x-0 bottom-20 z-30 flex items-center justify-around border-t border-borda bg-fundo/95 px-2 py-2 backdrop-blur md:hidden">
-        {ITENS.map(({ href, chave, icone: Icone }) => (
+        {ITENS.filter((i) => !i.soDesktop).map(({ href, chave, icone: Icone }) => (
           <Link
             key={href}
             href={href}
@@ -228,6 +233,25 @@ function PessoaIcone() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
       <circle cx="12" cy="8" r="3.5" />
       <path d="M5 20a7 7 0 0 1 14 0" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ListaIcone() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <path d="M4 6h11M4 12h11M4 18h7" />
+      <circle cx="18" cy="17" r="3" />
+      <path d="M21 17V8l-3 1" />
     </svg>
   );
 }

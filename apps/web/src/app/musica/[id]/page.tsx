@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useCallback, useEffect, useState } from 'react';
+import { AdicionarAPlaylist } from '@/components/musica/adicionar-playlist';
 import { Comentarios } from '@/components/musica/comentarios';
 import { BotaoCurtir } from '@/components/musica/curtir';
 import { GerenciarMusica } from '@/components/musica/gerenciar';
@@ -46,6 +47,7 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
   // Publicar, Estender e Separar stems aparecerem na música dos outros.
   const minha = musica.isMine;
   const posso = minha && musica.status === 'complete';
+  const pronta = musica.status === 'complete';
   const estaTocando = faixa?.id === musica.id && tocando;
 
   /**
@@ -143,6 +145,10 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
               contagemInicial={musica.likeCount}
               tamanho="grande"
             />
+
+            {/* Playlist é do ouvinte, não do autor: dá para organizar a música
+                de outra pessoa na sua própria lista. */}
+            {usuario && pronta && <AdicionarAPlaylist songId={musica.id} />}
 
             {posso && (
               <>
