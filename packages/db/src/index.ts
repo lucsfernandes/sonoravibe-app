@@ -31,6 +31,7 @@ export * from './entities/stem.entity';
 export * from './entities/subscription.entity';
 export * from './entities/user.entity';
 export * from './entities/workspace.entity';
+export * from './services/credits-ledger';
 
 /**
  * Registro central das entidades.

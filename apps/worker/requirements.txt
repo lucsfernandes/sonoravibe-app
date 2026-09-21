@@ -1,0 +1,20 @@
+# Demucs para separação de stems, fixado na build de CPU do PyTorch.
+#
+# O pin `+cpu` não é preciosismo: instalar `demucs` puro faz o pip resolver o
+# torch do PyPI, que traz o runtime CUDA inteiro — cerca de 3 GB de pacotes
+# nvidia-* que nunca serão usados, porque a GPU de verdade é a da RunPod, fora
+# do cluster. Com a versão exata `+cpu` (que só existe no índice do PyTorch),
+# a resolução do demucs é satisfeita sem puxar CUDA.
+#
+# Verificado: instala com zero pacotes nvidia e `torch.cuda.is_available()`
+# devolve False.
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch==2.14.0+cpu
+torchaudio==2.11.0+cpu
+demucs==4.1.0
+
+# O demucs usa NumPy no processamento de áudio. Sem ele o torch ainda importa,
+# mas avisa "Failed to initialize NumPy" e a separação quebra na primeira faixa.
+numpy==2.3.4

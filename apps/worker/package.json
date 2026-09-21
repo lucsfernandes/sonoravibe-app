@@ -6,12 +6,24 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "echo 'no lint'"
+    "lint": "echo 'no lint'",
+    "dev": "node --watch -r @swc-node/register src/main.ts",
+    "start": "node -r @swc-node/register src/main.ts"
   },
   "dependencies": {
-    "@sonora/shared": "workspace:*"
+    "@sonora/db": "workspace:*",
+    "@sonora/shared": "workspace:*",
+    "@sonora/storage": "workspace:*",
+    "bullmq": "^6.3.8",
+    "ioredis": "^6.0.0",
+    "pg": "^8.23.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^1.1.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@swc-node/register": "^1.12.1",
+    "@swc/core": "^1.16.2",
     "@types/node": "^24.13.5",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",

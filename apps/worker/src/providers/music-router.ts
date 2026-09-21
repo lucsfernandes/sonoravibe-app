@@ -14,9 +14,10 @@ import {
  * Regras:
  *  - Só tenta um provider que suporta o tipo de geração e a duração pedida.
  *    Uma música de 6 min não tem reserva: o Lyria para em ~3 min.
- *  - Cai na reserva apenas em erro RETENTÁVEL (fila sem GPU, timeout, 5xx,
- *    worker caiu). Erro não retentável é problema do pedido ou da configuração
- *    — trocar de motor esconderia um bug e pagaria 10x mais por isso.
+ *  - Cai na reserva apenas em MusicProviderError marcado como retentável (fila
+ *    sem GPU, timeout, 5xx, worker caiu). Erro não retentável — ou qualquer
+ *    erro que não seja MusicProviderError — é problema do pedido ou da nossa
+ *    configuração: trocar de motor esconderia o bug e pagaria 10x por isso.
  *  - Toda queda para a reserva é reportada via `onFallback`: o custo por música
  *    sobe ~10x, e a arquitetura prevê alerta quando a taxa passar de 10%.
  */
@@ -71,7 +72,11 @@ export class MusicRouter {
         };
       } catch (err) {
         lastError = err;
-        const retryable = err instanceof MusicProviderError ? err.retryable : true;
+        // Erro desconhecido NÃO cai para a reserva. "Desconhecido" quase sempre
+        // é bug nosso (configuração errada, null deref), e escalar um bug para
+        // o motor pago multiplica o custo por 10 sem consertar nada. Só um
+        // MusicProviderError marcado como retentável justifica a troca.
+        const retryable = err instanceof MusicProviderError && err.retryable;
         const next = candidates[index + 1];
         if (!retryable || !next) throw err;
         this.onFallback({ from: provider.id, to: next.id, reason: describe(err), kind: req.kind });

@@ -1,0 +1,163 @@
+'use client';
+
+import Link from 'next/link';
+import { formatarContagem, formatarDuracao, useI18n } from '@/lib/i18n';
+import { paraFaixa, usePlayer, type FaixaTocando } from '@/lib/player';
+import type { ItemExplore, Musica } from '@/lib/api';
+
+/**
+ * Cartão de uma música.
+ *
+ * O botão de tocar cobre a capa inteira em vez de ser um alvo pequeno no canto:
+ * tocar é a ação que 90% das pessoas querem, e alvo grande é alvo fácil —
+ * sobretudo no celular.
+ */
+export function CartaoMusica({
+  musica,
+  fila,
+  autor,
+  href,
+}: {
+  musica: Musica | ItemExplore;
+  fila?: (Musica | ItemExplore)[];
+  autor?: { handle: string; displayName: string };
+  href?: string;
+}) {
+  const { t, locale } = useI18n();
+  const { tocar, faixa, tocando, alternar } = usePlayer();
+
+  const estaTocando = faixa?.id === musica.id && tocando;
+  const pronta = musica.status === 'complete' && Boolean(musica.audioUrl);
+
+  const aoClicar = () => {
+    if (!pronta) return;
+    if (faixa?.id === musica.id) {
+      alternar();
+      return;
+    }
+    const nova = paraFaixa(musica, autor?.displayName);
+    if (!nova) return;
+    const novaFila = (fila ?? [musica])
+      .map((m) => paraFaixa(m))
+      .filter((f): f is FaixaTocando => f !== null);
+    tocar(nova, novaFila);
+  };
+
+  return (
+    <article className="group card overflow-hidden transition-colors hover:border-texto-fraco/40">
+      <div className="relative aspect-square">
+        <Capa url={musica.coverUrl} titulo={musica.title} />
+
+        {pronta ? (
+          <button
+            type="button"
+            onClick={aoClicar}
+            aria-label={`${estaTocando ? 'Pausar' : 'Tocar'} ${musica.title}`}
+            className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/40 focus-visible:bg-black/40"
+          >
+            <span
+              className={`flex size-12 items-center justify-center rounded-full bg-texto text-fundo transition-opacity ${
+                estaTocando ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              {estaTocando ? <PausaIcone /> : <PlayIcone />}
+            </span>
+          </button>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <span className="rounded-full bg-superficie-alta px-3 py-1 text-xs text-texto-suave pulsando">
+              {t('geral.carregando')}
+            </span>
+          </div>
+        )}
+
+        {musica.durationMs > 0 && (
+          <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px] tabular-nums text-white">
+            {formatarDuracao(musica.durationMs)}
+          </span>
+        )}
+      </div>
+
+      <div className="p-3">
+        {href ? (
+          <Link href={href} className="line-clamp-1 text-sm font-medium hover:underline">
+            {musica.title}
+          </Link>
+        ) : (
+          <p className="line-clamp-1 text-sm font-medium">{musica.title}</p>
+        )}
+
+        {autor ? (
+          <Link
+            href={`/u/${autor.handle}`}
+            className="mt-0.5 block truncate text-xs text-texto-suave hover:text-texto"
+          >
+            {autor.displayName}
+          </Link>
+        ) : (
+          musica.stylePrompt && (
+            <p className="mt-0.5 line-clamp-1 text-xs text-texto-suave">{musica.stylePrompt}</p>
+          )
+        )}
+
+        <div className="mt-2 flex items-center gap-3 text-[11px] text-texto-fraco">
+          <span className="flex items-center gap-1">
+            <PlayPequenoIcone /> {formatarContagem(musica.playCount, locale)}
+          </span>
+          <span className="flex items-center gap-1">
+            <CoracaoIcone /> {formatarContagem(musica.likeCount, locale)}
+          </span>
+          {!musica.isPublic && (
+            <span className="ml-auto rounded bg-superficie-alta px-1.5 py-0.5">
+              {t('lib.privadas')}
+            </span>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function Capa({ url, titulo }: { url: string | null; titulo: string }) {
+  if (url) {
+    // eslint-disable-next-line @next/next/no-img-element -- URL assinada do R2, expira: nada a otimizar em cache.
+    return <img src={url} alt="" className="size-full object-cover" />;
+  }
+  return (
+    <div className="flex size-full items-center justify-center gradiente-acento" aria-hidden>
+      <span className="text-4xl font-black text-white/90">{titulo.slice(0, 1).toUpperCase()}</span>
+    </div>
+  );
+}
+
+function PlayIcone() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M8 5.5v13l11-6.5z" />
+    </svg>
+  );
+}
+
+function PausaIcone() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />
+    </svg>
+  );
+}
+
+function PlayPequenoIcone() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M8 5.5v13l11-6.5z" />
+    </svg>
+  );
+}
+
+function CoracaoIcone() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 21s-7.5-4.7-9.3-9A5.2 5.2 0 0 1 12 6.8 5.2 5.2 0 0 1 21.3 12c-1.8 4.3-9.3 9-9.3 9z" />
+    </svg>
+  );
+}

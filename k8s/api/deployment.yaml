@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonora-api
+  namespace: sonora
+  labels:
+    app.kubernetes.io/name: sonora-api
+    app.kubernetes.io/component: app
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0 # o pod antigo só sai depois que o novo passar nos probes
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sonora-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sonora-api
+        app.kubernetes.io/component: app
+        app.kubernetes.io/part-of: arcobatrox
+    spec:
+      # 60s: o SSE mantém conexões abertas por minutos. O prazo padrão de 30s
+      # cortaria o stream de quem está acompanhando uma geração em andamento
+      # bem no meio de um deploy.
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001 # deve ser o mesmo UID criado no Dockerfile
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          # REPLACE_IMAGE é trocado pelo workflow (sed) por <dockerhub-user>/<app>:<git-sha>
+          image: REPLACE_IMAGE
+          imagePullPolicy: IfNotPresent # seguro porque a tag é o SHA (imutável)
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: sonora-api-config
+            - secretRef:
+                name: sonora-api-secret
+          resources:
+            # Mais memória que o padrão da skill: o Nest carrega 18 entidades do
+            # TypeORM e mantém um pool do Postgres, três filas do BullMQ e uma
+            # assinatura de pub/sub no Redis. Com 256Mi de limite o pod é morto
+            # por OOM durante a inicialização.
+            requests:
+              cpu: "100m"
+              memory: "192Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          # readOnlyRootFilesystem=true: qualquer caminho que o app escreva precisa de volume.
+          # Next.js também precisa de /app/.next/cache (ver references/manifests-notes.md).
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 3
+            timeoutSeconds: 3
+            failureThreshold: 30
+      volumes:
+        - name: tmp
+          emptyDir: {}

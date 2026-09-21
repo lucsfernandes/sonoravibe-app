@@ -1,0 +1,79 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sonora-api
+  namespace: sonora
+  labels:
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sonora-api
+  # Ingress + Egress listados => tudo que não estiver abaixo é BLOQUEADO.
+  # O sintoma de uma regra faltando é timeout, não "conexão recusada".
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Traefik roda no namespace "traefik". A porta é a do CONTAINER (3001), não
+    # a 80 do Service: a política é avaliada depois do DNAT do kube-proxy.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 3001
+          protocol: TCP
+    # O frontend chama a API no SSR (a home busca o Explore no servidor).
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sonora-web
+      ports:
+        - port: 3001
+          protocol: TCP
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Postgres compartilhado, no namespace "databases".
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: databases
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    # Redis do próprio projeto: filas do BullMQ e o pub/sub que alimenta o SSE.
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sonora-redis
+      ports:
+        - port: 6379
+          protocol: TCP
+    # Internet pública em 443: Cloudflare R2, OpenRouter, RunPod e Asaas.
+    # Sem a porta 5432 aqui: o Postgres é o do cluster, e deixar a 5432 aberta
+    # para a internet inteira seria caminho de saída de dados sem necessidade.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP

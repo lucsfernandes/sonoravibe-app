@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sonora-redis
+  namespace: sonora
+  labels:
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sonora-redis
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Só a API e o worker falam com o Redis. Ele não tem senha (está numa rede
+    # interna), então essa restrição é a única coisa que impede outro pod do
+    # cluster de ler as filas.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sonora-api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sonora-worker
+      ports:
+        - port: 6379
+          protocol: TCP
+  egress:
+    # Só DNS: o Redis não precisa iniciar conexão com mais nada.
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP

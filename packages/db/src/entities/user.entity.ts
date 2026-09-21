@@ -16,11 +16,13 @@ import type { Subscription } from './subscription.entity';
 /**
  * Tabela gerenciada pelo Better Auth.
  *
- * O schema (nome da tabela, colunas e tipos) é criado pelo CLI do Better Auth —
- * esta entidade existe para que o TypeORM consiga montar as relações do domínio.
- * NÃO altere colunas aqui sem alterar a config do Better Auth junto.
+ * O schema (nome da tabela, colunas e tipos) é criado pelas migrations do
+ * Better Auth — esta entidade existe só para o TypeORM montar as relações do
+ * domínio. `synchronize: false` impede que o TypeORM tente criar ou alterar a
+ * tabela: dois donos para o mesmo schema acabam em ALTER de ida e volta a cada
+ * subida. NÃO altere colunas aqui sem alterar a config do Better Auth junto.
  */
-@Entity({ name: 'user' })
+@Entity({ name: 'user', synchronize: false })
 export class User {
   /** Better Auth gera IDs como string, não UUID. */
   @PrimaryColumn({ type: 'text' })

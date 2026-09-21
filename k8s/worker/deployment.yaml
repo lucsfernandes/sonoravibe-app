@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonora-worker
+  namespace: sonora
+  labels:
+    app.kubernetes.io/name: sonora-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    # Recreate, e não RollingUpdate: durante um rolling os dois pods consomem a
+    # mesma fila, e o worker antigo pode pegar um job que o novo já iniciou.
+    # Como o worker não atende HTTP, não existe downtime visível para ninguém —
+    # os jobs só esperam alguns segundos a mais na fila.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sonora-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sonora-worker
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: arcobatrox
+    spec:
+      # 15 minutos: o desligamento espera os jobs ativos terminarem. Uma geração
+      # interrompida voltaria para a fila e o usuário pagaria a música duas vezes.
+      terminationGracePeriodSeconds: 900
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: REPLACE_IMAGE
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          # Sem `ports`: este processo não escuta em porta nenhuma.
+          envFrom:
+            - configMapRef:
+                name: sonora-worker-config
+            - secretRef:
+                name: sonora-worker-secret
+          resources:
+            # FFmpeg e Demucs são o gargalo. O Demucs sozinho pede mais de 1Gi
+            # para uma faixa de alguns minutos; com menos, o pod morre por OOM
+            # no meio da separação e o job volta para a fila num laço.
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          volumeMounts:
+            # O FFmpeg e o Demucs trabalham em arquivos temporários; com root FS
+            # somente leitura, este volume é o único lugar onde podem escrever.
+            # sizeLimit evita que uma faixa longa encha o disco do nó.
+            - name: tmp
+              mountPath: /tmp
+          # Probes por `exec`, não por HTTP: um probe HTTP num processo sem porta
+          # falharia sempre e reiniciaria o pod em laço. O worker toca o arquivo
+          # de heartbeat a cada ciclo; se parar de tocar, está travado.
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test $(( $(date +%s) - $(stat -c %Y /tmp/heartbeat 2>/dev/null || echo 0) )) -lt 180
+            initialDelaySeconds: 45
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 4Gi

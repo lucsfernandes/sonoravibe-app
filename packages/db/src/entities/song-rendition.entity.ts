@@ -18,7 +18,10 @@ import { Song } from './song.entity';
  * guardar todos de antemão multiplicaria o storage por ~5 sem necessidade.
  */
 @Entity({ name: 'song_renditions' })
-@Index(['songId', 'format'], { unique: true })
+// O bitrate entra na chave porque o MP3 existe em duas qualidades: 128 kbps
+// no Free e 320 nos pagos. Formatos de versão única usam 0 — e não null,
+// porque o Postgres considera NULLs distintos e o índice não barraria duplicata.
+@Index(['songId', 'format', 'bitrate'], { unique: true })
 @Index(['expiresAt'])
 export class SongRendition {
   @PrimaryGeneratedColumn('uuid')
@@ -34,8 +37,8 @@ export class SongRendition {
   @Column({ type: 'varchar', length: 8 })
   format: AudioFormat;
 
-  @Column({ type: 'integer', nullable: true })
-  bitrate: number | null;
+  @Column({ type: 'integer', default: 0 })
+  bitrate: number;
 
   @Column({ type: 'text', name: 'storage_key' })
   storageKey: string;

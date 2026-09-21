@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonora-api
+  namespace: sonora
+  labels:
+    app.kubernetes.io/name: sonora-api
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: sonora-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: http # porta nomeada no container; ingress aponta para a porta 80 do Service
+      name: http

@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sonora-redis
+  namespace: sonora
+  labels:
+    app.kubernetes.io/name: sonora-redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  serviceName: sonora-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sonora-redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sonora-redis
+        app.kubernetes.io/component: cache
+        app.kubernetes.io/part-of: arcobatrox
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        # A imagem oficial do Redis roda como UID 999. O PSA "restricted" exige
+        # UID numérico e não-root; 999 atende, e o fsGroup faz o volume nascer
+        # com o dono certo — sem ele o Redis não consegue gravar o dump.
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          imagePullPolicy: IfNotPresent
+          args:
+            # appendonly: as filas do BullMQ não podem sumir num restart do pod
+            # — um job perdido é uma música que o usuário pagou e não recebeu.
+            - --appendonly
+            - "yes"
+            - --appendfsync
+            - everysec
+            # Teto de memória com despejo das chaves voláteis: as únicas com TTL
+            # são as de deduplicação de reprodução, que podem sumir sem prejuízo.
+            # Os jobs do BullMQ não têm TTL e por isso nunca são despejados.
+            - --maxmemory
+            - 192mb
+            - --maxmemory-policy
+            - volatile-lru
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: dados
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 30
+  volumeClaimTemplates:
+    - metadata:
+        name: dados
+        labels:
+          app.kubernetes.io/name: sonora-redis
+          app.kubernetes.io/part-of: arcobatrox
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            # 5Gi é folgado para filas: o que ocupa espaço são os jobs
+            # concluídos, e o DEFAULT_JOB_OPTIONS já os remove depois de 24h.
+            storage: 5Gi

@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sonora-worker-config
+  namespace: sonora
+  labels:
+    app.kubernetes.io/name: sonora-worker
+    app.kubernetes.io/part-of: arcobatrox
+data:
+  NODE_ENV: "production"
+  TZ: "America/Sao_Paulo"
+
+  # Uma geração de cada vez por réplica: cada job pode chamar o FFmpeg, e três
+  # em paralelo competem pela mesma CPU da VPS sem ganho de vazão real.
+  WORKER_CONCURRENCY: "1"
+
+  # TEMPORÁRIO — trocar de volta para "acestep" quando o endpoint da RunPod
+  # existir. O ACE-Step custa cerca de US$ 0,008 por música e entrega até 8 min;
+  # o Lyria custa ~US$ 0,08 (dez vezes mais) e para em ~3 min. A troca está aqui
+  # porque a API se recusa a subir com "acestep" sem RUNPOD_ENDPOINT_ID, e o
+  # endpoint ainda não foi criado.
+  #
+  # Com "lyria", os secrets RUNPOD_API_KEY e RUNPOD_ENDPOINT_ID podem nem
+  # existir: eles só são exigidos pelo motor ACE-Step.
+  MUSIC_PROVIDER: "lyria"
+  FFMPEG_PATH: "ffmpeg"
+  DEMUCS_PATH: "demucs"
+
+  OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
+  OPENROUTER_IMAGE_MODEL: "google/gemini-2.5-flash-image"
+  OPENROUTER_MUSIC_MODEL: "google/lyria-3-pro-preview"
+  OPENROUTER_CLIP_MODEL: "google/lyria-3-clip-preview"
+  OPENROUTER_APP_NAME: "Sonora"
+  OPENROUTER_SITE_URL: "https://sonoravibe.com"
+
+  R2_PUBLIC_URL: "https://cdn.sonoravibe.com"

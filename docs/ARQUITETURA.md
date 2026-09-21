@@ -213,6 +213,12 @@ pesa ~32 MB contra ~4 MB do master — pré-gerar tudo multiplicaria o storage p
 **Download em lote:** endpoint que monta um ZIP em *streaming* (`archiver`), sem carregar
 tudo em memória, transcodificando o que faltar antes de empacotar.
 
+**O R2 não valida o `Content-Type` da URL assinada** (medido em 2026-09-19 contra o bucket
+real: um PUT com tipo divergente voltou HTTP 200 e o objeto ficou gravado com o tipo
+errado). Como o worker GPU roda fora do nosso cluster, quem finaliza a geração confere o
+objeto com `statObject` antes de marcar a música como pronta — tamanho e tipo. Confiar na
+assinatura serviria um arquivo com tipo inválido ao player.
+
 ### 2.5 Better Auth
 
 Roda no nosso Postgres, sem custo por usuário. Entrega e-mail/senha, OAuth (Google),
@@ -248,8 +254,22 @@ sonora/
 └── docs/
 ```
 
-Gerenciador: **pnpm workspaces + Turborepo**. ORM: **TypeORM** (entidades com decorators,
+Gerenciador: **pnpm workspaces + Turborepo**. ORM: **TypeORM 1.x** (entidades com decorators,
 alinhado ao padrão NestJS).
+
+### 3.1 Por que SWC, e não tsx/esbuild, na API e no worker
+
+O `.swcrc` fica na **raiz** do monorepo de propósito. Dois motivos, os dois medidos:
+
+1. **O esbuild não implementa `emitDecoratorMetadata`**, de que NestJS (injeção por tipo)
+   e TypeORM (inferência de coluna) dependem.
+2. **O `tsx` aplica o `tsconfig` só aos arquivos dentro da pasta dele.** Rodando a API a
+   partir de `apps/api`, os arquivos de `packages/db` caíam no padrão do esbuild e os
+   decorators viravam TC39: o TypeORM quebrava em `Reflect.getMetadata` com `TypeError`.
+   O swc resolve o `.swcrc` subindo a partir de cada arquivo, então um único arquivo na
+   raiz vale para todos os pacotes.
+
+O `.swcrc` é JSON estrito: não aceita comentários nem chaves desconhecidas.
 
 ---
 
@@ -378,26 +398,42 @@ Limite de duração por plano: Free 2 min · Pro 4 min · Premier 8 min (Max Mod
 ## 7. Infraestrutura (k3s + Traefik)
 
 ```
-Internet → Traefik Ingress (TLS via cert-manager)
-   ├── sonora.app          → web       (Next.js, 2 réplicas)
-   ├── api.sonora.app      → api       (NestJS, 2 réplicas)
-   └── (interno)           → worker    (1–3 réplicas, HPA por tamanho da fila)
-                           → postgres  (StatefulSet + PVC 20Gi)
-                           → redis     (StatefulSet + PVC 5Gi)
-CronJobs: backup-postgres (diário), cleanup-renditions (diário), expire-credits (diário)
-Secrets: runpod, openrouter, r2, asaas, better-auth, postgres
+Internet → Traefik Ingress (TLS via cert-manager, ClusterIssuer letsencrypt-prod)
+   ├── sonoravibe.com / www   → sonora-web     (Next.js, 1 réplica, HPA 1–2)
+   ├── api.sonoravibe.com     → sonora-api     (NestJS, 1 réplica, HPA 1–2)
+   └── (sem ingress)          → sonora-worker  (filas; Recreate, sem HPA)
+                              → sonora-redis   (StatefulSet + PVC 5Gi)
 
-Fora do cluster (GPU):
+Fora do namespace:
+   postgres (namespace `databases`, compartilhado com os outros projetos)
+
+Fora do cluster:
    RunPod Serverless ── worker ACE-Step (L4/A5000/3090, escala a zero)
-                        pesos dentro da imagem · modelos carregados no init
-                        sobe o master direto no R2 via URL pré-assinada
+   Cloudflare R2 ────── áudio, capas e stems (egress gratuito)
 ```
 
-CI/CD: GitHub Actions faz build das 4 imagens (web, api, worker e o worker GPU), publica no GHCR e aplica os manifests com
-`kubectl apply` usando kubeconfig em secret. A variante GitOps com ArgoCD está diagramada
-como alternativa (§ diagramas).
+Namespace `sonora`, com PSA `restricted`: todo pod roda como UID 1001 não-root,
+com root FS somente leitura e `drop: [ALL]`.
 
----
+CI/CD: `git push` na `main` → GitHub Actions → build → **Docker Hub** (tag = SHA
+do commit) → `kubectl apply -k`. Um workflow por aplicação, com filtro de
+caminho — mexer no CSS não pode reiniciar o worker no meio de uma geração.
+
+Passo a passo, pré-requisitos e diagnóstico em [DEPLOY.md](DEPLOY.md).
+
+### 7.1 Decisões de operação que vieram da prática
+
+| Decisão | Por quê |
+|---|---|
+| Worker com `Recreate`, não rolling | Num rolling os dois pods consomem a mesma fila e o antigo pode pegar um job que o novo já iniciou. |
+| Worker com grace period de 15 min | O desligamento espera os jobs ativos; cortar antes devolveria o job à fila e o usuário pagaria a música duas vezes. |
+| Worker com probe `exec` sobre `/tmp/heartbeat` | Ele não escuta em porta nenhuma; probe HTTP falharia sempre e reiniciaria o pod em laço. |
+| Worker sem HPA | Escalar por CPU subiria réplica justamente quando o FFmpeg ocupa a CPU, e a VPS não tem essa folga. |
+| API com 512Mi de limite | Com 256Mi o pod morre por OOM na subida: 18 entidades do TypeORM, pool do Postgres, três filas e o pub/sub do SSE. |
+| API com grace period de 60s | O SSE mantém conexão aberta por minutos; 30s cortaria o stream de quem acompanha uma geração. |
+| Redis com `appendonly yes` | Fila perdida num restart é música paga e não entregue. |
+| `allowBuilds` no pnpm-workspace.yaml | Sem aprovar o script do `@swc/core`, o binário nativo não é instalado: no terminal é um aviso, no build do Docker é erro fatal. |
+| Sem a porta 5432 no egress público | O Postgres é o do cluster; abrir a 5432 para a internet seria caminho de saída de dados à toa. |
 
 ## 8. Riscos abertos
 

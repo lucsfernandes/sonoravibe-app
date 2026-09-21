@@ -1,0 +1,75 @@
+# Emissor de certificados por desafio DNS-01 na Cloudflare.
+#
+# POR QUE NÃO USAR O `letsencrypt-prod` QUE JÁ EXISTE NO CLUSTER
+#
+# Aquele emissor usa o desafio HTTP-01: o Let's Encrypt acessa
+# http://<dominio>/.well-known/acme-challenge/<token> e espera a resposta do
+# seu servidor. Com o proxy da Cloudflare ligado (nuvem laranja), quem responde
+# nesse endereço é a Cloudflare, não a sua VPS — e o desafio entra num impasse:
+#
+#   - Com "Always Use HTTPS" ligado, a Cloudflare redireciona o desafio para
+#     HTTPS, e o Let's Encrypt só conclui se a origem já tiver um certificado
+#     válido. Que é exatamente o que estamos tentando emitir.
+#   - Com o modo SSL em "Full (strict)", a Cloudflare recusa a origem sem
+#     certificado válido e devolve erro 526 antes de o desafio chegar.
+#
+# O DNS-01 não depende de porta nenhuma: o cert-manager cria um registro TXT na
+# própria Cloudflare, o Let's Encrypt consulta esse TXT e emite o certificado.
+# Funciona com o proxy ligado, funciona antes de a aplicação estar no ar e
+# funciona para curinga (*.sonoravibe.com), se um dia for preciso.
+#
+# Este arquivo NÃO altera o `letsencrypt-prod`: é um emissor novo, ao lado.
+# Seus outros projetos do cluster continuam emitindo como sempre.
+#
+# ANTES DE APLICAR
+#
+# 1. Crie um token de API na Cloudflare (My Profile → API Tokens → Create):
+#      Permissões:  Zone → DNS  → Edit
+#                   Zone → Zone → Read
+#      Recursos:    Include → Specific zone → sonoravibe.com
+#
+#    Use um token com escopo de zona, não a Global API Key: a chave global dá
+#    acesso a toda a sua conta Cloudflare, inclusive ao R2 e ao faturamento.
+#
+#    Se o desafio falhar dizendo que o token não tem permissão para listar
+#    zonas, troque os recursos para "All zones" mantendo as mesmas permissões:
+#    o cert-manager consulta a listagem de zonas para descobrir o ID da zona.
+#
+# 2. Guarde o token no cluster, no namespace do cert-manager:
+#
+#      kubectl create secret generic cloudflare-api-token \
+#        --namespace cert-manager \
+#        --from-literal=api-token='<o token>'
+#
+#    O secret precisa estar em `cert-manager` (e não em `sonora`) porque um
+#    ClusterIssuer é um objeto global: ele lê segredos do namespace onde o
+#    cert-manager roda.
+#
+# 3. kubectl apply -f k8s/cert-manager/clusterissuer-cloudflare.yaml
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-cloudflare
+  labels:
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Para onde o Let's Encrypt avisa que um certificado está por vencer sem
+    # ter sido renovado. Troque pelo seu e-mail antes de aplicar.
+    email: lucas.fernandes@familiapires.com.br
+    privateKeySecretRef:
+      name: letsencrypt-cloudflare-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+        selector:
+          # Restringe este emissor aos domínios do Sonora. Sem o seletor, ele
+          # tentaria resolver o DNS-01 de qualquer domínio do cluster na
+          # Cloudflare — e falharia para os que não estão nessa zona.
+          dnsZones:
+            - sonoravibe.com

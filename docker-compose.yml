@@ -12,7 +12,8 @@ services:
       POSTGRES_PASSWORD: sonora
       POSTGRES_DB: sonora
     ports:
-      - '5432:5432'
+      # 5432 e 6379 ja sao usadas por outros projetos nesta maquina.
+      - '55432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -27,7 +28,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - '6379:6379'
+      - '56379:6379'
     volumes:
       - redis-data:/data
     healthcheck:
@@ -38,7 +39,8 @@ services:
 
   # Emula o R2 localmente (API compatível com S3), para não gastar o bucket real em dev.
   minio:
-    image: minio/minio:latest
+    # O Docker Hub passou a exigir login para minio/minio; o espelho no quay.io segue publico.
+    image: quay.io/minio/minio:latest
     container_name: sonora-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -58,7 +60,7 @@ services:
 
   # Cria o bucket na primeira subida e libera leitura pública.
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     depends_on:
       minio:
         condition: service_healthy

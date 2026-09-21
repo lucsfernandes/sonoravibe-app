@@ -1,0 +1,36 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sonora-web-hpa
+  namespace: sonora
+  labels:
+    app.kubernetes.io/name: sonora-web
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sonora-web
+  minReplicas: 1
+  maxReplicas: 2 # VPS pequena: não suba sem checar CPU/RAM livres do nó
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 60
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+    # Utilization é % do REQUEST. Com request de 64Mi, 80% = ~51Mi: um app Node pode
+    # passar disso só em repouso e o HPA ficaria em 2 réplicas o tempo todo.
+    # Ajuste o request de memória ao uso real (kubectl top pod) ou remova esta métrica.
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

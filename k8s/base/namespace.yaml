@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sonora
+  labels:
+    app.kubernetes.io/name: sonora
+    app.kubernetes.io/part-of: arcobatrox
+    app.kubernetes.io/managed-by: kustomize
+    # PSA "restricted": pods que não cumprem (root, sem seccomp, sem drop ALL) são rejeitados no apply
+    pod-security.kubernetes.io/enforce: restricted

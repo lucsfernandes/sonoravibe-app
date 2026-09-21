@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonora-redis
+  namespace: sonora
+  labels:
+    app.kubernetes.io/name: sonora-redis
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  # Headless (clusterIP: None): o StatefulSet tem uma réplica só e os clientes
+  # resolvem direto o pod. Também é o que dá ao pod um nome DNS estável.
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: sonora-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+      protocol: TCP

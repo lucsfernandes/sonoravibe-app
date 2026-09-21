@@ -1,0 +1,1496 @@
+{
+  "info": {
+    "_postman_id": "9a1f4a3e-5b6c-4d7e-8f90-s0n0ra00001",
+    "name": "Sonora — API",
+    "description": "Rotas da API do Sonora (geração de música com IA).\n\nHOJE só `GET /health` está implementado; todo o resto está marcado como \"(planejado)\" e serve como contrato do que está sendo construído.\n\nAutenticação: sessão em cookie do Better Auth. No Postman, faça login em \"Autenticação > Login por e-mail\" e o cookie passa a acompanhar as demais chamadas.\n\nGerado por `node scripts/build-postman.mjs` — edite o script, não este arquivo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "apiUrl",
+      "value": "http://localhost:3001"
+    }
+  ],
+  "item": [
+    {
+      "name": "Saúde",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/health",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nVerifica Postgres e Redis. Responde 503 quando uma dependência está fora, para o readiness probe do k3s tirar a réplica do balanceador.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Autenticação",
+      "item": [
+        {
+          "name": "Cadastro por e-mail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lucas Fernandes\",\n  \"email\": \"lucas@exemplo.com\",\n  \"password\": \"senha-forte-aqui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/api/auth/sign-up/email",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-up",
+                "email"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nBetter Auth. Cria usuário, perfil, workspace padrão e carteira de créditos.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Login por e-mail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lucas@exemplo.com\",\n  \"password\": \"senha-forte-aqui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/api/auth/sign-in/email",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-in",
+                "email"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Sessão atual",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/api/auth/get-session",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "get-session"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nResponde 200 com `null` quando não há sessão — é o contrato do Better Auth, e é o que permite à interface decidir entre mostrar \"entrar\" ou o avatar.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Sair",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/api/auth/sign-out",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-out"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nIdempotente: sair sem estar logado responde 200 em vez de erro.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Geração",
+      "item": [
+        {
+          "name": "Criar música — aba Simple",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"simple\",\n  \"prompt\": \"pop rock brasileiro, violão e bateria ao vivo, clima de estrada\",\n  \"instrumental\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/generate",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "generate"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nReserva os créditos, cria a música com status queued e enfileira o job. Responde 402 quando falta saldo e 403 quando a duração passa do limite do plano."
+          }
+        },
+        {
+          "name": "Criar música — aba Advanced",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"advanced\",\n  \"lyrics\": \"[Verse]\\\\nAcordei com o sol batendo na janela\\\\n\\\\n[Chorus]\\\\nVou seguir a estrada até o mar\",\n  \"title\": \"Estrada até o mar\",\n  \"instrumental\": false,\n  \"controls\": {\n    \"styles\": \"pop rock brasileiro, violão, bateria ao vivo\",\n    \"excludeStyles\": \"distorção, autotune\",\n    \"vocalGender\": \"male\",\n    \"bpm\": 104,\n    \"key\": \"G\",\n    \"weirdness\": 50,\n    \"styleInfluence\": 50,\n    \"variety\": \"high\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/generate",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "generate"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nSem durationSeconds a duração é automática (decidida pelo tamanho da letra), que foi o que soou mais natural nos testes. Exclusões de voz viram instrumental nativo."
+          }
+        },
+        {
+          "name": "Criar som curto — aba Sounds",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"sounds\",\n  \"prompt\": \"stab de synth analógico quente\",\n  \"soundType\": \"one-shot\",\n  \"bpm\": 120,\n  \"key\": \"Cm\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/generate",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "generate"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Progresso ao vivo (SSE)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/generations/stream",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "generations",
+                "stream"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nServer-Sent Events. Emite queued, compiling_prompt, writing_lyrics, generating_audio, uploading, generating_cover e complete. O Postman mostra o stream; no navegador use EventSource."
+          }
+        },
+        {
+          "name": "Status de uma geração",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/generations/{{generationId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "generations",
+                "{{generationId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Cancelar geração",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/generations/{{generationId}}/cancel",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "generations",
+                "{{generationId}}",
+                "cancel"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nCancela o job na fila e estorna os créditos reservados."
+          }
+        },
+        {
+          "name": "Escrever letra com IA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brief\": \"uma viagem de carro até o litoral, saudade e recomeço\",\n  \"language\": \"pt-BR\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/lyrics/generate",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "lyrics",
+                "generate"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Sugerir estilo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seed\": \"synthwave melancólico\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/styles/suggest",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "styles",
+                "suggest"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nO botão de dado da interface. Não consome crédito.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Músicas",
+      "item": [
+        {
+          "name": "Listar minhas músicas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs?workspaceId={{workspaceId}}&cursor=&limit=20&filter=all",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs"
+              ],
+              "query": [
+                {
+                  "key": "workspaceId",
+                  "value": "{{workspaceId}}"
+                },
+                {
+                  "key": "cursor",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "filter",
+                  "value": "all"
+                }
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Detalhe da música",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nMúsica publicada abre sem login. Música privada de outra pessoa responde 404, e não 403: confirmar que o id existe já seria informação demais.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Atualizar música",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Novo título\",\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"allowRemixes\": true,\n  \"allowComments\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Mover para a lixeira",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nExclusão lógica: some da biblioteca e o arquivo é apagado depois de 30 dias."
+          }
+        },
+        {
+          "name": "Publicar no Explore",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isPublic\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/publish",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "publish"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Baixar num formato",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/download?format=mp3",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "download"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "mp3"
+                }
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nResponde 302 para uma URL assinada do R2. Formatos: mp3, wav, flac, opus, m4a. O que ainda não existe é transcodificado sob demanda e fica 7 dias em cache. Free só baixa MP3; o limite vem do plano."
+          }
+        },
+        {
+          "name": "Baixar várias de uma vez (ZIP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"songIds\": [\n    \"{{songId}}\"\n  ],\n  \"format\": \"wav\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/download-batch",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "download-batch"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nZIP montado em streaming. Exclusivo de planos pagos."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Edição",
+      "item": [
+        {
+          "name": "Estender a música",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addSeconds\": 60\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/extend",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "extend"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nConsome crédito: é uma nova chamada ao motor."
+          }
+        },
+        {
+          "name": "Remix com outro estilo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"styles\": \"versão acústica, violão e voz\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/remix",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "remix"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Substituir um trecho",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startMs\": 30000,\n  \"endMs\": 45000,\n  \"styles\": \"solo de guitarra\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/replace-section",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "replace-section"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Edições sem IA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operation\": \"crop\",\n  \"startMs\": 5000,\n  \"endMs\": 95000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/edit",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "edit"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\ncrop, trim, fade-in, fade-out, speed, reverse e normalize. Roda em FFmpeg no nosso worker: não consome crédito nenhum."
+          }
+        },
+        {
+          "name": "Separar stems",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kinds\": [\n    \"vocals\",\n    \"drums\",\n    \"bass\",\n    \"other\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/stems",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "stems"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nDemucs no worker dedicado. Sem crédito, mas pesado: fila própria e só para planos pagos."
+          }
+        },
+        {
+          "name": "Gerar capa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"estrada ao entardecer, estética retrô\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/cover-art",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "cover-art"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Biblioteca",
+      "item": [
+        {
+          "name": "Listar workspaces",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/workspaces",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "workspaces"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Criar workspace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nocturne.sh\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/workspaces",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "workspaces"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Renomear workspace",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Novo nome\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/workspaces/{{workspaceId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "workspaces",
+                "{{workspaceId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Listar playlists",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/playlists",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Criar playlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Madrugada\",\n  \"isPublic\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/playlists",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Adicionar música à playlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"songId\": \"{{songId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}/songs",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}",
+                "songs"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Estilos salvos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/styles",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "styles"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Salvar estilo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Meu lo-fi\",\n  \"prompt\": \"lofi hip hop, piano, chuva\",\n  \"excludeStyles\": \"distorção\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/styles",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "styles"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Excluir estilo",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/styles/{{styleId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "styles",
+                "{{styleId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Excluir workspace",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/workspaces/{{workspaceId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "workspaces",
+                "{{workspaceId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Detalhe da playlist",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Excluir playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Reordenar playlist",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"songIds\": [\n    \"{{songId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}/order",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}",
+                "order"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nReescreve a ordem inteira — é o formato que o arrastar-e-soltar produz."
+          }
+        },
+        {
+          "name": "Remover música da playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/playlists/{{playlistId}}/songs/{{songId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "playlists",
+                "{{playlistId}}",
+                "songs",
+                "{{songId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Social",
+      "item": [
+        {
+          "name": "Explore",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/explore?tab=trending",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "explore"
+              ],
+              "query": [
+                {
+                  "key": "tab",
+                  "value": "trending"
+                }
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Perfil público",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/users/{{handle}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{handle}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Curtir",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/like",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "like"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Comentários",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/comments",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "comments"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Apagar comentário",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/comments/{{commentId}}",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "comments",
+                "{{commentId}}"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nApaga quem escreveu — ou o dono da música, que modera o próprio espaço."
+          }
+        },
+        {
+          "name": "Comentar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Muito boa!\",\n  \"timestampMs\": 42000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/comments",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "comments"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Seguir criador",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/users/{{handle}}/follow",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{handle}}",
+                "follow"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Registrar reprodução",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listenedMs\": 45000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/songs/{{songId}}/play",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "songs",
+                "{{songId}}",
+                "play"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nAlimenta o ranking do Explore. Deduplicado por janela de 30s.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Créditos e cobrança",
+      "item": [
+        {
+          "name": "Saldo e extrato",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/credits",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "credits"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nSaldo do plano, saldo avulso, reservado e o extrato do ledger."
+          }
+        },
+        {
+          "name": "Planos e pacotes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/plans",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "plans"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Assinar um plano",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planCode\": \"pro\",\n  \"method\": \"pix\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/billing/subscribe",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "billing",
+                "subscribe"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Comprar pacote avulso",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"pix\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/billing/packs/pack_1500/purchase",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "billing",
+                "packs",
+                "pack_1500",
+                "purchase"
+              ]
+            },
+            "description": "Status: implementado e respondendo."
+          }
+        },
+        {
+          "name": "Cancelar assinatura",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{apiUrl}}/billing/cancel",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "billing",
+                "cancel"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nO acesso vale até o fim do período já pago: cancelar não é estornar."
+          }
+        },
+        {
+          "name": "Webhook do Asaas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "asaas-access-token",
+                "value": "{{asaasWebhookToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"PAYMENT_CONFIRMED\",\n  \"payment\": {\n    \"id\": \"pay_000001\",\n    \"status\": \"CONFIRMED\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiUrl}}/webhooks/asaas",
+              "host": [
+                "{{apiUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                "asaas"
+              ]
+            },
+            "description": "Status: implementado e respondendo.\n\nConcede os créditos ao confirmar o pagamento. Idempotente pelo provider_ref, porque o Asaas reenvia o evento quando não recebe 200.\n\nNão exige sessão.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

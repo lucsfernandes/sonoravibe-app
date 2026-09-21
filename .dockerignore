@@ -1,0 +1,23 @@
+# Nada que não seja necessário para o build entra na imagem — e sobretudo nada
+# que seja segredo. Um .env copiado para dentro da imagem vaza para qualquer um
+# que consiga baixá-la do registro.
+.env
+.env.*
+!.env.example
+
+.git
+.github
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/*.tsbuildinfo
+
+docs
+references
+scripts/probe-*.mjs
+scripts/runpod-bench.mjs
+.playwright-mcp
+*.png
+*.md
+!apps/*/README.md

@@ -278,7 +278,13 @@ def _to_flac_24(wav_path: str, flac_path: Path) -> dict:
 
 
 def _upload(path: Path, url: str) -> None:
-    """PUT na URL pré-assinada. O Content-Type precisa bater com o assinado."""
+    """
+    PUT na URL pré-assinada.
+
+    O Content-Type enviado aqui é o que fica gravado no objeto: medido contra o
+    R2, a URL assinada NÃO valida esse cabeçalho, então mandar o tipo errado
+    grava o tipo errado em vez de dar erro. Quem finaliza a geração confere.
+    """
     last_error: Exception | None = None
     for attempt in range(1, UPLOAD_ATTEMPTS + 1):
         try:
