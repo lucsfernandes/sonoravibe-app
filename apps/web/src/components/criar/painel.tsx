@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ApiError, api, type Workspace } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { EstilosSalvos } from './estilos-salvos';
 import { useProgresso } from '@/lib/progresso';
 import { useSessao } from '@/lib/sessao';
 import { Campo, Deslizante, Secao, Seletor, Interruptor } from './controles';
@@ -255,6 +256,17 @@ export function PainelCriar({
                 valor={excluir}
                 onChange={setExcluir}
                 placeholder={t('criar.excluirPlaceholder')}
+              />
+              {/* Estilos e exclusões são salvos e aplicados juntos: foram
+                  escritos como par, e aplicar só metade deixaria a exclusão de
+                  outro preset valendo em silêncio. */}
+              <EstilosSalvos
+                estilosAtuais={estilos}
+                excluirAtuais={excluir}
+                aoAplicar={(novoEstilo, novaExclusao) => {
+                  setEstilos(novoEstilo);
+                  setExcluir(novaExclusao);
+                }}
               />
             </Secao>
 

@@ -3,9 +3,12 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import { AdicionarAPlaylist } from '@/components/musica/adicionar-playlist';
 import { Comentarios } from '@/components/musica/comentarios';
+import { Derivar } from '@/components/musica/derivar';
+import { EditarAudio } from '@/components/musica/editar-audio';
 import { BotaoCurtir } from '@/components/musica/curtir';
 import { GerenciarMusica } from '@/components/musica/gerenciar';
 import { ApiError, api, type MusicaDetalhe } from '@/lib/api';
+import { CREDIT_COSTS } from '@sonora/shared';
 import { formatarDuracao, useI18n } from '@/lib/i18n';
 import { paraFaixa, usePlayer } from '@/lib/player';
 import { useSessao } from '@/lib/sessao';
@@ -248,6 +251,20 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
       {/* Comentários só depois do conteúdo: quem abre a página quer ouvir a
           música, não ler a conversa sobre ela. */}
       <Comentarios songId={musica.id} />
+
+      {/* Só o dono edita. A ordem segue o custo: primeiro o que é de graça
+          (FFmpeg aqui), depois o que chama o motor e cobra crédito. */}
+      {posso && (
+        <>
+          <EditarAudio songId={musica.id} duracaoMs={musica.durationMs} aoAplicar={carregar} />
+          <Derivar
+            songId={musica.id}
+            duracaoMs={musica.durationMs}
+            custoRemix={CREDIT_COSTS.remix}
+            aoEnfileirar={carregar}
+          />
+        </>
+      )}
 
       {minha && <GerenciarMusica musica={musica} aoAtualizar={carregar} />}
 

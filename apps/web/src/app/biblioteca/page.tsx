@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { BarraSelecao } from '@/components/biblioteca/barra-selecao';
+import { Workspaces } from '@/components/biblioteca/workspaces';
 import { CartaoMusica } from '@/components/musica/cartao';
 import { api, type Musica, type Pagina } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -18,6 +19,7 @@ export default function Biblioteca() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [selecionadas, setSelecionadas] = useState<string[]>([]);
+  const [workspace, setWorkspace] = useState<string | null>(null);
 
   const buscar = useCallback(
     async (proximo?: string) => {
@@ -25,6 +27,7 @@ export default function Biblioteca() {
       setBuscando(true);
       try {
         const busca = new URLSearchParams({ limit: '24', filter: filtro });
+        if (workspace) busca.set('workspaceId', workspace);
         if (proximo) busca.set('cursor', proximo);
         const pagina = await api.get<Pagina<Musica>>(`/songs?${busca}`);
         // Sem cursor é primeira página (troca de filtro): substitui em vez de
@@ -37,7 +40,7 @@ export default function Biblioteca() {
         setBuscando(false);
       }
     },
-    [usuario, filtro],
+    [usuario, filtro, workspace],
   );
 
   useEffect(() => {
@@ -72,6 +75,14 @@ export default function Biblioteca() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold">{t('lib.titulo')}</h1>
+
+      <Workspaces
+        selecionado={workspace}
+        aoSelecionar={(id) => {
+          setWorkspace(id);
+          setSelecionadas([]);
+        }}
+      />
 
       <div className="mt-5 flex flex-wrap gap-2">
         {filtros.map((f) => (
