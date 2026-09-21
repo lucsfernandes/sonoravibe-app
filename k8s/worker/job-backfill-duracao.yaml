@@ -1,0 +1,84 @@
+# Preenche a duração das músicas que nasceram com 0. Roda UMA vez, à mão.
+#
+# O Lyria não informa duração e, até a correção em generation.processor, esse
+# zero ia direto para o banco: a música aparecia como "0:00" e todo formato de
+# download era estimado em "~0 MB". Gerações novas já medem, e o
+# transcode.processor preenche o que passar por ele — mas uma música cujos
+# formatos já foram convertidos nunca mais passa por lá.
+#
+# É idempotente: só toca no que está zerado, e repetir não faz mal.
+#
+# NÃO entra no kustomization: é operação pontual, não parte do deploy contínuo.
+#
+# O securityContext não é enfeite — o namespace tem PSA `restricted` e sem esses
+# quatro campos o pod é rejeitado antes de existir.
+#
+# Uso:
+#   bash scripts/backfill-duracao.sh
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sonora-backfill-duracao
+  namespace: sonora
+  labels:
+    app.kubernetes.io/name: sonora-backfill-duracao
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  backoffLimit: 1
+  # Some sozinho 10 minutos depois de terminar, sem deixar Job órfão no
+  # namespace para alguém se perguntar o que é daqui a três meses.
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sonora-backfill-duracao
+        app.kubernetes.io/part-of: arcobatrox
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backfill
+          image: REPLACE_IMAGE
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          # Reaproveita a configuração real do worker: mesma DATABASE_URL e as
+          # mesmas credenciais do R2. Copiar valores à mão aqui seria a forma
+          # mais fácil de mexer no banco errado — foi o que quase aconteceu
+          # rodando o script pela máquina local, cujo .env aponta para um
+          # Postgres de desenvolvimento.
+          envFrom:
+            - configMapRef:
+                name: sonora-worker-config
+            - secretRef:
+                name: sonora-worker-secret
+          command:
+            - node
+            - -r
+            - "@swc-node/register"
+            - src/backfill-duracao.ts
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

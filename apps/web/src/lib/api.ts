@@ -36,10 +36,18 @@ export class ApiError extends Error {
 }
 
 async function request<T>(caminho: string, init: RequestInit = {}): Promise<T> {
-  const resposta = await fetch(`${API_URL}${caminho}`, {
+  const resposta = await buscar(`${API_URL}${caminho}`, {
     ...init,
     credentials: 'include',
     headers: {
+      // Sem isto o download quebra. `GET /songs/:id/download` faz negociação de
+      // conteúdo: com `Accept: application/json` devolve `{ url }`, e sem ele
+      // responde 302 para o R2. O padrão do navegador é `*/*`, que não casa —
+      // então a API redirecionava, o fetch seguia o redirect para outra origem
+      // e o R2, que não manda cabeçalho de CORS, derrubava tudo num
+      // "Failed to fetch" sem status nenhum. O usuário via "convertendo..." e
+      // depois um erro genérico, para um arquivo que já estava pronto.
+      Accept: 'application/json',
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
       ...init.headers,
     },
@@ -59,6 +67,30 @@ async function request<T>(caminho: string, init: RequestInit = {}): Promise<T> {
   }
 
   return corpo as T;
+}
+
+/**
+ * `fetch` que falha com erro legível.
+ *
+ * O `fetch` cru rejeita com um `TypeError: Failed to fetch` sem status e sem
+ * corpo quando a rede cai, o CORS barra ou o DNS falha. Como todo chamador faz
+ * `err instanceof ApiError ? err.message : 'Algo deu errado'`, essas falhas
+ * viravam a mesma mensagem genérica — foi o que escondeu por semanas o bug do
+ * download, em que a resposta era um redirect para o R2 e não um erro de rede.
+ *
+ * O status 0 é o convencional para "a requisição não chegou a ter resposta".
+ */
+async function buscar(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    throw new ApiError(
+      `Não consegui falar com o servidor (${new URL(url).pathname}). ` +
+        'Pode ser conexão, CORS ou a API fora do ar.',
+      0,
+      { cause: err instanceof Error ? err.message : String(err) },
+    );
+  }
 }
 
 function seguroJson(texto: string): unknown {
@@ -87,7 +119,7 @@ export async function baixarLote(
   songIds: string[],
   format: string,
 ): Promise<{ baixou: true } | { baixou: false; mensagem: string; pendentes: number }> {
-  const resposta = await fetch(`${API_URL}/songs/download-batch`, {
+  const resposta = await buscar(`${API_URL}/songs/download-batch`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
