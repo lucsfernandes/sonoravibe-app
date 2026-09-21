@@ -26,6 +26,7 @@ const T: Dicionario = {
   'nav.criar': { pt: 'Criar', en: 'Create' },
   'nav.biblioteca': { pt: 'Biblioteca', en: 'Library' },
   'nav.creditos': { pt: 'Créditos', en: 'Credits' },
+  'nav.playlists': { pt: 'Playlists', en: 'Playlists' },
   'nav.entrar': { pt: 'Entrar', en: 'Sign in' },
   'nav.sair': { pt: 'Sair', en: 'Sign out' },
   'nav.upgrade': { pt: 'Assinar o Premier', en: 'Upgrade to Premier' },
@@ -95,6 +96,27 @@ const T: Dicionario = {
   'lib.curtidas': { pt: 'Curtidas', en: 'Liked' },
   'lib.carregarMais': { pt: 'Carregar mais', en: 'Load more' },
   'lib.selecionadas': { pt: 'selecionadas', en: 'selected' },
+
+  // Playlists
+  'playlists.titulo': { pt: 'Playlists', en: 'Playlists' },
+  'playlists.nome': { pt: 'Nome da playlist', en: 'Playlist name' },
+  'playlists.vazia': {
+    pt: 'Você ainda não tem playlists. Crie a primeira acima.',
+    en: "You don't have any playlists yet. Create your first one above.",
+  },
+  'playlists.semMusicas': {
+    pt: 'Nenhuma música aqui ainda. Adicione pela página de uma música.',
+    en: 'No songs here yet. Add them from a song page.',
+  },
+  'playlists.musica': { pt: 'música', en: 'song' },
+  'playlists.musicas': { pt: 'músicas', en: 'songs' },
+  'playlists.tocarTudo': { pt: 'Tocar tudo', en: 'Play all' },
+  'playlists.adicionar': { pt: 'Adicionar à playlist', en: 'Add to playlist' },
+  'playlists.criarCom': { pt: 'Criar playlist nova', en: 'Create new playlist' },
+  'playlists.remover': { pt: 'Remover da playlist', en: 'Remove from playlist' },
+  'playlists.subir': { pt: 'Mover para cima', en: 'Move up' },
+  'playlists.descer': { pt: 'Mover para baixo', en: 'Move down' },
+  'musica.tocar': { pt: 'Tocar', en: 'Play' },
   'lib.baixarSelecionadas': { pt: 'Baixar em lote', en: 'Download as ZIP' },
   'lib.formato': { pt: 'Formato', en: 'Format' },
 

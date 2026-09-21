@@ -77,6 +77,24 @@ export class TranscodeProcessor {
       ['songId', 'format', 'bitrate'],
     );
 
+    // Conserta a duração de músicas antigas, de graça.
+    //
+    // O Lyria não informa duração e, até a correção, esse zero era gravado no
+    // banco: a música aparecia como "0:00" e todo download estimado em "~0 MB".
+    // A geração nova já mede, mas as músicas que nasceram antes continuariam
+    // erradas para sempre.
+    //
+    // Aqui o valor já foi medido pelo ffprobe para fazer a conversão — gravá-lo
+    // não custa nada além de um UPDATE. A condição `durationMs: 0` é o que
+    // impede que uma medição ruim sobrescreva um valor bom: só preenche o que
+    // está vazio.
+    if (song.durationMs === 0 && durationMs > 0) {
+      await this.deps.dataSource
+        .getRepository(Song)
+        .update({ id: job.songId, durationMs: 0 }, { durationMs });
+      this.logger.log(`Duração de ${job.songId} preenchida: ${durationMs}ms`);
+    }
+
     this.logger.log(
       `${job.songId} -> ${job.format}${job.bitrate ? ` ${job.bitrate}k` : ''}: ` +
         `${(data.byteLength / 1024 / 1024).toFixed(1)} MB, ${durationMs}ms de áudio, ` +

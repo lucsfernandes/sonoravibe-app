@@ -186,7 +186,7 @@ export class SongsController {
     const result = await this.downloads.download(user.id, id, format as AudioFormat);
 
     if (result.ready) {
-      if (res.req.headers.accept?.includes('application/json')) {
+      if (querJson(res.req.headers.accept)) {
         res.status(HttpStatus.OK).json({ status: 'ready', url: result.url, filename: result.filename });
         return;
       }
@@ -198,6 +198,28 @@ export class SongsController {
       .set('Retry-After', String(result.retryAfterSeconds))
       .json({ status: 'processing', message: result.message });
   }
+}
+
+/**
+ * O cliente quer JSON, ou aceita o redirect?
+ *
+ * Isto decide entre devolver `{ url }` e responder 302 para o R2, e a escolha
+ * errada quebra o download de um jeito difícil de ler: o navegador segue o
+ * redirect para outra origem, o R2 não manda cabeçalho de CORS, e o `fetch`
+ * rejeita com um "Failed to fetch" sem status nem corpo. Foi o que aconteceu em
+ * produção — a interface não mandava `Accept` nenhum, o padrão do navegador é o
+ * coringa, que não casa, e o usuário via "convertendo..." seguido de erro
+ * genérico para um arquivo que já estava pronto.
+ *
+ * É uma função com nome, e não uma condição embutida no handler, para poder ser
+ * testada: a regra é curta, mas errá-la custa a funcionalidade inteira.
+ *
+ * O coringa NÃO conta como pedido de JSON, de propósito: é o que um `<a href>`
+ * comum manda, e para ele o redirect é o comportamento certo. Quem quer JSON
+ * pede JSON.
+ */
+export function querJson(accept: string | undefined): boolean {
+  return accept?.toLowerCase().includes('application/json') ?? false;
 }
 
 function sufixar(filename: string, n: number): string {
