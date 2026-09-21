@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { toNodeHandler } from 'better-auth/node';
 import express from 'express';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AUTH, type SonoraAuth } from './auth/auth.config';
 import { CONFIG, type AppConfig } from './config/env';
@@ -32,12 +33,31 @@ async function bootstrap(): Promise<void> {
 
   app.enableCors({ origin: config.corsOrigins, credentials: true });
 
+  // Um salto de proxy (o Traefik): `req.ip` passa a ser quem conectou nele,
+  // e não o IP interno do ingress. O limite por IP depende disto.
+  app.set('trust proxy', 1);
+
+  // Cabeçalhos de segurança (HSTS, nosniff, sem X-Powered-By...). A CSP é
+  // fechada porque a API só devolve JSON: nada aqui deve carregar script nem
+  // ser embutido em iframe. CORP 'same-site' e não 'same-origin': o app em
+  // sonoravibe.com consome esta API a partir de outro subdomínio.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
+      },
+      crossOriginResourcePolicy: { policy: 'same-site' },
+    }),
+  );
+
   // Ordem obrigatória: auth primeiro, parser depois.
   // No Express 5 o coringa de rota é `{*path}` — `/api/auth/*` do Express 4
   // dispara "Missing parameter name".
   app.use('/api/auth/{*path}', toNodeHandler(auth));
+  // Só JSON. Aceitar formulário (urlencoded) deixaria um <form> em outro site
+  // disparar uma ação aqui com o cookie de sessão da vítima; JSON cross-site
+  // exige preflight de CORS, que a lista de origens recusa.
   app.use(express.json({ limit: '1mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   app.enableShutdownHooks();
 

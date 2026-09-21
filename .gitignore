@@ -48,3 +48,6 @@ apps/web/CLAUDE.md
 .playwright-mcp/
 *.png
 !references/*.png
+
+# Relatórios da revisão de segurança: ficam só na máquina, nunca no repositório
+.claude/seguranca/

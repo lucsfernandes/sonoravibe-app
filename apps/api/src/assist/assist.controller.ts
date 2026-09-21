@@ -1,4 +1,5 @@
 import { Body, Controller, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { CurrentUser, Public, type SessionUser } from '../auth/session.guard';
 import { parseOrThrow } from '../common/parse';
@@ -9,6 +10,7 @@ export class AssistController {
   constructor(private readonly assist: AssistService) {}
 
   @Post('lyrics/generate')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   lyrics(@CurrentUser() user: SessionUser, @Body() body: unknown): Promise<LyricsResult> {
     const data = parseOrThrow(
       z.object({
@@ -22,15 +24,20 @@ export class AssistController {
     return this.assist.writeLyrics(user.id, data.brief, data.language, data.styles);
   }
 
-  /** O botão de dado. Público e grátis: é o primeiro contato de quem ainda nem criou conta. */
+  /**
+   * O botão de dado. Público e grátis: é o primeiro contato de quem ainda nem
+   * criou conta. Sem sessão a sugestão sai do catálogo local; o LLM, que é
+   * pago, só atende quem está logado.
+   */
   @Public()
   @Post('styles/suggest')
-  suggest(@Body() body: unknown) {
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  suggest(@CurrentUser() user: SessionUser | undefined, @Body() body: unknown) {
     const { seed } = parseOrThrow(
       z.object({ seed: z.string().trim().max(200).optional() }),
       body ?? {},
       'sugestão de estilo',
     );
-    return this.assist.suggestStyle(seed);
+    return this.assist.suggestStyle(seed, { viaLlm: Boolean(user) });
   }
 }

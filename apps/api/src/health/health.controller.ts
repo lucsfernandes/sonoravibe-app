@@ -1,4 +1,5 @@
 import { Controller, Get, HttpStatus, Inject, Res } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import type { Redis } from 'ioredis';
 import { DataSource } from 'typeorm';
@@ -19,6 +20,9 @@ export class HealthController {
     @Inject(REDIS) private readonly redis: Redis,
   ) {}
 
+  // Fora do limite por IP: as sondas do Kubernetes chegam sempre do mesmo nó,
+  // e um 429 aqui tiraria a réplica do ar sem ela ter nada de errado.
+  @SkipThrottle()
   @Public()
   @Get()
   async check(@Res() res: Response): Promise<void> {

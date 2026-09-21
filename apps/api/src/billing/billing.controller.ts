@@ -9,6 +9,7 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { PLAN_CODES } from '@sonora/shared';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -51,6 +52,7 @@ export class BillingController {
   }
 
   @Post('billing/subscribe')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   subscribe(@CurrentUser() user: SessionUser, @Body() body: unknown): Promise<CheckoutView> {
     const data = parseOrThrow(
       checkoutSchema.extend({ planCode: z.enum(PLAN_CODES) }),
@@ -67,6 +69,7 @@ export class BillingController {
   }
 
   @Post('billing/packs/:code/purchase')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   buyPack(
     @CurrentUser() user: SessionUser,
     @Param('code') code: string,

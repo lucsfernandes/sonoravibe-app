@@ -74,9 +74,16 @@ export class AssistService {
    *
    * Sem chave do OpenRouter, sorteia do catálogo local em vez de falhar: o
    * botão continua útil e ninguém fica travado por causa de configuração.
+   *
+   * Sem `viaLlm` também vai pro catálogo. A rota é pública e o modelo é pago:
+   * se o anônimo chegasse ao LLM, qualquer um na internet queimaria o saldo da
+   * OpenRouter em loop, sem nem criar conta.
    */
-  async suggestStyle(seed?: string): Promise<{ styles: string; source: 'llm' | 'catalogue' }> {
-    if (!this.config.OPENROUTER_API_KEY) {
+  async suggestStyle(
+    seed?: string,
+    { viaLlm = false }: { viaLlm?: boolean } = {},
+  ): Promise<{ styles: string; source: 'llm' | 'catalogue' }> {
+    if (!viaLlm || !this.config.OPENROUTER_API_KEY) {
       return { styles: sortearDoCatalogo(), source: 'catalogue' };
     }
 
