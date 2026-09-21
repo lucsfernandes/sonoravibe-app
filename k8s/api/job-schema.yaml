@@ -1,0 +1,101 @@
+# Cria o schema do banco. Roda UMA vez, à mão, depois do primeiro deploy.
+#
+# NÃO entra no kustomization: é uma operação pontual, não parte do deploy
+# contínuo. Um Job que rodasse a cada `kubectl apply` reexecutaria DDL toda
+# vez que o workflow subisse uma versão nova.
+#
+# O securityContext não é enfeite: o namespace `sonora` tem PSA `restricted`,
+# e sem esses quatro campos o pod é rejeitado antes de existir —
+# "violates PodSecurity restricted:latest".
+#
+# Uso (o script preenche a imagem a partir do Deployment que está no ar):
+#   bash scripts/criar-schema.sh
+#
+# Ou à mão:
+#   IMG=$(kubectl get deploy sonora-api -n sonora \
+#     -o jsonpath='{.spec.template.spec.containers[0].image}')
+#   sed "s|REPLACE_IMAGE|$IMG|" k8s/api/job-schema.yaml | kubectl apply -f -
+#   kubectl logs -n sonora job/sonora-schema -f
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sonora-schema
+  namespace: sonora
+  labels:
+    app.kubernetes.io/name: sonora-schema
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/part-of: arcobatrox
+spec:
+  backoffLimit: 1
+  # Some sozinho 10 minutos depois de terminar, sem deixar Job órfão no
+  # namespace para alguém se perguntar o que é daqui a três meses.
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sonora-schema
+        app.kubernetes.io/part-of: arcobatrox
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: schema
+          image: REPLACE_IMAGE
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          # Reaproveita a configuração real da API: mesma DATABASE_URL, mesmas
+          # credenciais. Copiar valores à mão aqui seria a forma mais fácil de
+          # criar o schema no banco errado.
+          envFrom:
+            - configMapRef:
+                name: sonora-api-config
+            - secretRef:
+                name: sonora-api-secret
+          env:
+            # Os três únicos overrides, e cada um por um motivo:
+            #
+            # DB_SYNCHRONIZE=true é o que faz o TypeORM criar as tabelas. No
+            # ConfigMap ele é "false" de propósito — synchronize apaga coluna
+            # que sumiu do código, e num deploy normal isso significaria perder
+            # música de usuário.
+            - name: DB_SYNCHRONIZE
+              value: "true"
+            # A validação de configuração recusa DB_SYNCHRONIZE=true quando
+            # NODE_ENV=production. É exatamente a proteção que queremos manter
+            # no Deployment; aqui ela é contornada de forma explícita e pontual.
+            - name: NODE_ENV
+              value: "development"
+            # Sem isto o script tentaria alcançar a RunPod ou o Asaas só para
+            # passar na validação. Criar tabela não precisa de motor de música.
+            - name: MUSIC_PROVIDER
+              value: "mock"
+          command:
+            - node
+            - -r
+            - "@swc-node/register"
+            - src/schema.ts
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
