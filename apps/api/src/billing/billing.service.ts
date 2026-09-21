@@ -120,6 +120,10 @@ export class BillingService {
     const planos = await this.planos.listar();
 
     return {
+      // 'banco' ou 'codigo'. Sem isto não dá para saber, de fora, se um UPDATE
+      // na tabela `plans` vai surtir efeito: os dois caminhos servem os mesmos
+      // valores, porque um é semente do outro.
+      source: await this.planos.origemAtual(),
       // A duração sai daqui já limitada ao que o motor ligado entrega. Publicar
       // o número cru do plano faria a página de preços prometer 8 min enquanto
       // a API recusa qualquer coisa acima do que o provedor aguenta.
