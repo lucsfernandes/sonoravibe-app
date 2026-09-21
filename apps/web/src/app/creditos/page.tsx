@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ApiError, api, type Saldo } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useSessao } from '@/lib/sessao';
+import { CancelarAssinatura } from '@/components/creditos/cancelar-assinatura';
 
 interface Catalogo {
   plans: {
@@ -86,8 +87,14 @@ export default function Creditos() {
               {saldo.balance.pack} {t('creditos.avulsos')}
             </p>
           </div>
-          <div className="ml-auto rounded-full border border-acento/40 px-4 py-1.5 text-sm text-acento">
-            {t('creditos.planoAtual')}: {saldo.planCode}
+          <div className="ml-auto flex flex-col items-end gap-1.5">
+            <div className="rounded-full border border-acento/40 px-4 py-1.5 text-sm text-acento">
+              {t('creditos.planoAtual')}: {saldo.planCode}
+            </div>
+            {/* Quem assina tem que conseguir cancelar sem abrir um chamado.
+                O acesso continua valendo até o fim do período já pago —
+                cancelar não é estornar. */}
+            {saldo.planCode !== 'free' && <CancelarAssinatura aoCancelar={recarregarSaldo} />}
           </div>
         </div>
       )}
@@ -124,7 +131,10 @@ export default function Creditos() {
                         ? `${numero(p.monthlyCredits)} ${t('criar.custo')}`
                         : `${p.dailyCredits} ${t('criar.custo')}/dia`}
                     </li>
-                    <li>{Math.round(p.features.maxDurationSeconds / 60)} min por música</li>
+                    <li>
+                      {Math.round(p.features.maxDurationSeconds / 60)}{' '}
+                      {t('creditos.minPorMusica')}
+                    </li>
                     {p.features.stems && <li>{t('musica.stems')}</li>}
                     {p.features.batchDownload && <li>{t('musica.baixar')} (lote)</li>}
                     {p.features.maxMode && <li>Max Mode</li>}

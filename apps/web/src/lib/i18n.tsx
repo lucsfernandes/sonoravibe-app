@@ -94,6 +94,9 @@ const T: Dicionario = {
   'lib.privadas': { pt: 'Privadas', en: 'Private' },
   'lib.curtidas': { pt: 'Curtidas', en: 'Liked' },
   'lib.carregarMais': { pt: 'Carregar mais', en: 'Load more' },
+  'lib.selecionadas': { pt: 'selecionadas', en: 'selected' },
+  'lib.baixarSelecionadas': { pt: 'Baixar em lote', en: 'Download as ZIP' },
+  'lib.formato': { pt: 'Formato', en: 'Format' },
 
   // Música
   'musica.baixar': { pt: 'Baixar', en: 'Download' },
@@ -141,6 +144,15 @@ const T: Dicionario = {
   'creditos.assinar': { pt: 'Assinar', en: 'Subscribe' },
   'creditos.comprar': { pt: 'Comprar', en: 'Buy' },
   'creditos.planoAtual': { pt: 'Seu plano', en: 'Your plan' },
+  'creditos.minPorMusica': { pt: 'min por música', en: 'min per song' },
+  'creditos.cancelarAssinatura': { pt: 'Cancelar assinatura', en: 'Cancel subscription' },
+  'creditos.confirmarCancelamento': { pt: 'Sim, cancelar', en: 'Yes, cancel' },
+  'creditos.manterPlano': { pt: 'Manter', en: 'Keep it' },
+  'creditos.canceladaEm': { pt: 'Cancelada em', en: 'Cancelled on' },
+  'creditos.avisoCancelamento': {
+    pt: 'Você continua com o plano até o fim do período já pago.',
+    en: 'You keep the plan until the end of the period you already paid for.',
+  },
   'creditos.porMes': { pt: '/mês', en: '/month' },
   'creditos.validade': { pt: 'Válidos por 12 meses', en: 'Valid for 12 months' },
 

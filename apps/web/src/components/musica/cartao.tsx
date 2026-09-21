@@ -18,11 +18,16 @@ export function CartaoMusica({
   fila,
   autor,
   href,
+  selecionada,
+  aoSelecionar,
 }: {
   musica: Musica | ItemExplore;
   fila?: (Musica | ItemExplore)[];
   autor?: { handle: string; displayName: string };
   href?: string;
+  /** Presente só onde há seleção em lote (a biblioteca). */
+  selecionada?: boolean;
+  aoSelecionar?: (id: string) => void;
 }) {
   const { t, locale } = useI18n();
   const { tocar, faixa, tocando, alternar } = usePlayer();
@@ -44,10 +49,30 @@ export function CartaoMusica({
     tocar(nova, novaFila);
   };
 
+  const selecionavel = aoSelecionar !== undefined && pronta;
+
   return (
-    <article className="group card overflow-hidden transition-colors hover:border-texto-fraco/40">
+    <article
+      className={`group card overflow-hidden transition-colors ${
+        selecionada ? 'border-acento' : 'hover:border-texto-fraco/40'
+      }`}
+    >
       <div className="relative aspect-square">
         <Capa url={musica.coverUrl} titulo={musica.title} />
+
+        {selecionavel && (
+          // Acima do botão de tocar, que cobre a capa inteira: sem o z-index a
+          // caixa ficaria embaixo e o clique viraria "tocar".
+          <label className="absolute left-2 top-2 z-10 flex size-7 cursor-pointer items-center justify-center rounded-md bg-black/60 backdrop-blur">
+            <input
+              type="checkbox"
+              checked={selecionada ?? false}
+              onChange={() => aoSelecionar(musica.id)}
+              aria-label={`${selecionada ? 'Desmarcar' : 'Selecionar'} ${musica.title}`}
+              className="size-4 accent-acento"
+            />
+          </label>
+        )}
 
         {pronta ? (
           <button

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { BarraSelecao } from '@/components/biblioteca/barra-selecao';
 import { CartaoMusica } from '@/components/musica/cartao';
 import { api, type Musica, type Pagina } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -16,6 +17,7 @@ export default function Biblioteca() {
   const [itens, setItens] = useState<Musica[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
+  const [selecionadas, setSelecionadas] = useState<string[]>([]);
 
   const buscar = useCallback(
     async (proximo?: string) => {
@@ -77,7 +79,12 @@ export default function Biblioteca() {
             key={f.valor}
             type="button"
             aria-pressed={filtro === f.valor}
-            onClick={() => setFiltro(f.valor)}
+            onClick={() => {
+              setFiltro(f.valor);
+              // Sem isto, o lote levaria músicas que sumiram da tela ao trocar
+              // de filtro — o usuário baixaria o que não consegue mais ver.
+              setSelecionadas([]);
+            }}
             className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
               filtro === f.valor
                 ? 'border-acento bg-acento-suave text-acento'
@@ -103,7 +110,18 @@ export default function Biblioteca() {
         <>
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {itens.map((m) => (
-              <CartaoMusica key={m.id} musica={m} fila={itens} href={`/musica/${m.id}`} />
+              <CartaoMusica
+                key={m.id}
+                musica={m}
+                fila={itens}
+                href={`/musica/${m.id}`}
+                selecionada={selecionadas.includes(m.id)}
+                aoSelecionar={(id) =>
+                  setSelecionadas((atual) =>
+                    atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id],
+                  )
+                }
+              />
             ))}
           </div>
 
@@ -121,6 +139,8 @@ export default function Biblioteca() {
           )}
         </>
       )}
+
+      <BarraSelecao selecionadas={selecionadas} aoLimpar={() => setSelecionadas([])} />
     </div>
   );
 }
