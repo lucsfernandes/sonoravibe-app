@@ -12,6 +12,28 @@ SaaS de geração de música com IA. Monorepo pnpm com quatro aplicações:
 Documentação: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) e [`docs/API.md`](docs/API.md).
 Coleção do Postman em [`docs/postman/`](docs/postman/).
 
+## O que o produto faz
+
+Gerar música por descrição (aba Simples), por letra e controles finos (Avançado) ou efeitos
+curtos (Sons); acompanhar a geração ao vivo por SSE; ouvir num player que sobrevive à troca de
+página; publicar, explorar, curtir, comentar num instante da faixa e seguir gente; organizar em
+workspaces e playlists; editar o áudio (cortar, fades, velocidade, reverter, normalizar,
+separar stems); derivar novas faixas (estender, remix, substituir trecho, gerar capa); baixar
+em cinco formatos, um a um ou em lote; e pagar por plano ou pacote avulso.
+
+Créditos são um livro-razão append-only: reserva antes de enfileirar, confirma no sucesso,
+estorna na falha — com `SELECT ... FOR UPDATE` para cinco gerações simultâneas não gastarem o
+mesmo saldo.
+
+## O que falta
+
+| Pendência | Por quê importa |
+|---|---|
+| Endpoint ACE-Step na RunPod | O Lyria entrega ~3 min. Enquanto não existir, `ENGINE_MAX_DURATION_SECONDS` segura o que os planos anunciam, e Pro/Premier não entregam os 4 e 8 min do plano |
+| Migrations versionadas do TypeORM | Hoje o schema nasce de um `synchronize` manual (`scripts/criar-schema.sh`). Funciona uma vez; não serve para evoluir o schema com dados dentro |
+| Onde publicar `site-sonora/` | A raiz `sonoravibe.com` é o app. O site institucional precisa de subdomínio — ou o app muda para `app.` |
+| Testes na `apps/web` | Não há vitest configurado ali. API e worker têm 74 testes; a interface é coberta só por teste manual no navegador |
+
 ## Desenvolvimento
 
 ```bash

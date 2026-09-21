@@ -4,16 +4,23 @@ Este documento responde três coisas: **onde cada aplicação roda**, **qual URL
 **como chamar cada rota**. A coleção Postman equivalente está em [`docs/postman/`](postman/)
 e é gerada por `node scripts/build-postman.mjs`.
 
-> **Estado atual:** o backend está completo — as 54 rotas deste documento existem e respondem.
-> Verificado chamando cada uma contra a API no ar, não só por leitura de código.
+> **Estado atual:** backend e interface completos. As 54 rotas deste documento existem,
+> respondem, e todas têm consumidor em `apps/web` — conferido comparando os decorators dos
+> controllers com os caminhos citados na interface, não por leitura casual.
 >
-> O que falta para o produto: a interface (`apps/web`), o site institucional e a página de
-> vendas. Duas ressalvas honestas sobre o que roda hoje:
+> As três rotas sem consumidor no front são assim de propósito: `GET /health` (probes do
+> Kubernetes), `POST /webhooks/asaas` (quem chama é o gateway) e `GET /generations/:id`,
+> que o SSE substituiu.
 >
-> - A separação de **stems** exige o `demucs` na imagem do worker. Sem ele a rota aceita o
->   pedido e o job falha com mensagem explícita — falta empacotar o binário.
-> - O motor de música em desenvolvimento é o `mock` (FFmpeg, custo zero). O **ACE-Step** na
->   RunPod ainda não tem endpoint criado; o código do provider e a imagem GPU estão prontos.
+> Uma ressalva sobre o que roda hoje:
+>
+> - O motor em produção é o **Lyria 3** (OpenRouter), que entrega até ~3 min e não aceita
+>   duração como parâmetro — ela vai como sugestão de texto no prompt. Por isso
+>   `ENGINE_MAX_DURATION_SECONDS` limita o que os planos anunciam: sem ele, Pro e Premier
+>   venderiam 4 e 8 min que o motor não entrega. O **ACE-Step** chega aos 480 s, mas depende
+>   de um endpoint na RunPod que ainda não foi criado; o provider e a imagem GPU estão
+>   prontos. Quando existir, basta subir aquela constante para 480.
+> - Em desenvolvimento o motor é o `mock` (FFmpeg, custo zero).
 
 ---
 
