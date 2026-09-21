@@ -5,15 +5,15 @@ import { LOCALE_COOKIE, type Locale } from '@/lib/i18n';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Sonora — crie músicas com IA',
+  title: 'Sonora Vibe — crie músicas com IA',
   description:
     'Descreva o que você quer ouvir e receba uma música completa, com ou sem letra. '
     + 'Baixe em MP3, WAV ou FLAC.',
-  applicationName: 'Sonora',
+  applicationName: 'Sonora Vibe',
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0a0a0a',
+  themeColor: '#0D0C0F',
   width: 'device-width',
   initialScale: 1,
 };

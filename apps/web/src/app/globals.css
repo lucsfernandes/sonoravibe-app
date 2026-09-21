@@ -1,11 +1,19 @@
 @import 'tailwindcss';
 
 /**
- * Sonora — tema escuro.
+ * Sonora Vibe — tema escuro.
  *
  * O escuro é o padrão, e não uma opção: quem cria música passa horas na tela,
- * muitas vezes à noite, e é a convenção das ferramentas de áudio (Suno, Ableton,
- * Logic). O acento laranja→magenta é o que separa a marca do preto genérico.
+ * muitas vezes à noite, e é a convenção das ferramentas de áudio (Ableton,
+ * Logic, Pro Tools).
+ *
+ * O acento é violeta, numa família só — do violeta ao violeta-magenta. Vem de
+ * luz de palco e de gel de refletor, que é o que aproxima da música e da arte
+ * sem cair no literal (nota musical, vinil).
+ *
+ * Duas cores estão fora de propósito: laranja é a Suno e verde é o Spotify. Num
+ * mercado onde o produto faz a mesma coisa, a cor é metade do que distingue a
+ * marca — herdá-la de um concorrente é entregar essa metade de graça.
  */
 
 @theme {
@@ -18,9 +26,16 @@
   --color-texto-suave: oklch(0.72 0.008 285);
   --color-texto-fraco: oklch(0.55 0.01 285);
 
-  --color-acento: oklch(0.7 0.19 42);
-  --color-acento-forte: oklch(0.62 0.24 12);
-  --color-acento-suave: oklch(0.7 0.19 42 / 0.12);
+  /* #7B54F7 violeta → #B235EC violeta-magenta.
+     Em oklch, e não em hex, para o gradiente interpolar sem passar por um cinza
+     no meio — o que acontece quando se mistura duas cores saturadas em sRGB.
+     A luminosidade (0.58 e 0.60) não é estética: é o ponto em que o branco por
+     cima alcança 4.7:1 e 4.6:1, acima do 4.5:1 que a WCAG exige para texto
+     pequeno. O botão principal é `text-sm` branco sobre este gradiente; um tom
+     mais claro ficaria bonito e ilegível. */
+  --color-acento: oklch(0.58 0.23 288);
+  --color-acento-forte: oklch(0.6 0.26 312);
+  --color-acento-suave: oklch(0.58 0.23 288 / 0.14);
 
   --color-sucesso: oklch(0.72 0.17 152);
   --color-perigo: oklch(0.63 0.22 25);

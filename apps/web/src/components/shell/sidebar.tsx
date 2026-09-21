@@ -42,8 +42,12 @@ export function Sidebar() {
         {/* O logo leva ao site institucional, não ao feed: é a saída de quem
             quer reler a proposta, ver preços ou achar o contato. O caminho de
             volta ao aplicativo é o "Início" logo abaixo. */}
-        <Link href="/" className="mb-7 px-3 text-2xl font-black tracking-tight">
-          SONORA
+        <Link
+          href="/"
+          className="mb-7 flex items-center gap-2 px-3 text-xl font-black tracking-tight"
+        >
+          <MarcaIcone />
+          SONORA VIBE
         </Link>
 
         <nav className="flex flex-col gap-1">
@@ -254,6 +258,27 @@ function ListaIcone() {
       <path d="M4 6h11M4 12h11M4 18h7" />
       <circle cx="18" cy="17" r="3" />
       <path d="M21 17V8l-3 1" />
+    </svg>
+  );
+}
+
+/** A marca, igual ao favicon e ao site: quatro barras desiguais. */
+function MarcaIcone() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden>
+      <defs>
+        <linearGradient id="marca-sidebar" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#7B54F7" />
+          <stop offset="1" stopColor="#B235EC" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="9" fill="url(#marca-sidebar)" />
+      <g fill="#fff">
+        <rect x="7" y="11.5" width="3" height="9" rx="1.5" />
+        <rect x="12" y="7.5" width="3" height="17" rx="1.5" />
+        <rect x="17" y="9.5" width="3" height="13" rx="1.5" />
+        <rect x="22" y="12.5" width="3" height="7" rx="1.5" />
+      </g>
     </svg>
   );
 }

@@ -16,9 +16,13 @@
   --ink-2:     #A49CA8;
   --ink-3:     #6F6875;
 
-  --acento:    #FF8A3D;
-  --acento-2:  #E8306B;
-  --acento-suave: rgba(255, 138, 61, 0.12);
+  /* Violeta, numa família só: vem de luz de palco, não de nota musical.
+     Laranja e verde estão fora de propósito — são a Suno e o Spotify, e num
+     mercado onde o produto faz a mesma coisa a cor é metade do que distingue
+     a marca. Os tons batem com os do aplicativo (globals.css). */
+  --acento:    #7B54F7;
+  --acento-2:  #B235EC;
+  --acento-suave: rgba(123, 84, 247, 0.14);
 
   /* Escala de tipo fluida. Corpo em 18px: abaixo de 16 é tell de amador. */
   --t-0:   clamp(1.05rem, 1rem + .2vw, 1.14rem);
@@ -207,8 +211,8 @@ a { color: inherit; }
 .hero__brilho {
   position: absolute; inset: -30% -10% auto -10%; height: 130%;
   background:
-    radial-gradient(42% 46% at 22% 18%, rgba(255,138,61,.20) 0%, transparent 70%),
-    radial-gradient(38% 42% at 78% 32%, rgba(232,48,107,.16) 0%, transparent 72%);
+    radial-gradient(42% 46% at 22% 18%, rgba(123,84,247,.22) 0%, transparent 70%),
+    radial-gradient(38% 42% at 78% 32%, rgba(178,53,236,.18) 0%, transparent 72%);
   pointer-events: none;
 }
 
@@ -231,7 +235,7 @@ a { color: inherit; }
   border-radius: var(--raio-g);
   padding: var(--e-3);
   display: grid; gap: .7rem;
-  box-shadow: 0 30px 70px -30px rgba(0,0,0,.85), 0 0 0 1px rgba(255,138,61,.06);
+  box-shadow: 0 30px 70px -30px rgba(0,0,0,.85), 0 0 0 1px rgba(123,84,247,.06);
 }
 .painel__abas {
   display: flex; gap: .25rem;
@@ -363,7 +367,7 @@ a { color: inherit; }
   justify-content: center;
   transition: border-color .2s ease, transform .2s ease;
 }
-.cartao:hover { border-color: rgba(255,138,61,.35); transform: translateY(-3px); }
+.cartao:hover { border-color: rgba(123,84,247,.35); transform: translateY(-3px); }
 .cartao h3 { font-size: var(--t-2); }
 .cartao p { font-size: var(--t--1); color: var(--ink-2); }
 
@@ -379,8 +383,8 @@ a { color: inherit; }
      grade lê como erro, não como respiro. */
   grid-column: 1 / -1;
   flex-direction: row; align-items: center; gap: var(--e-4);
-  background: linear-gradient(140deg, rgba(255,138,61,.14), rgba(232,48,107,.10));
-  border-color: rgba(255,138,61,.28);
+  background: linear-gradient(140deg, rgba(123,84,247,.14), rgba(178,53,236,.10));
+  border-color: rgba(123,84,247,.28);
 }
 .cartao--acento h3 { flex: 0 0 auto; }
 .cartao--acento p { max-width: 64ch; }
@@ -389,7 +393,7 @@ a { color: inherit; }
   width: 42px; height: 42px; border-radius: 11px;
   display: grid; place-items: center;
   background: var(--acento-suave); color: var(--acento);
-  border: 1px solid rgba(255,138,61,.22);
+  border: 1px solid rgba(123,84,247,.22);
 }
 
 /* ------------------------------- tabela ------------------------------- */
@@ -410,7 +414,7 @@ a { color: inherit; }
   padding: .2rem .6rem; border-radius: 999px;
   border: 1px solid var(--linha); color: var(--ink-2);
 }
-.etiqueta--ok { border-color: rgba(255,138,61,.4); color: var(--acento); background: var(--acento-suave); }
+.etiqueta--ok { border-color: rgba(123,84,247,.4); color: var(--acento); background: var(--acento-suave); }
 
 /* ------------------------------- planos ------------------------------- */
 .planos { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--e-3); align-items: start; }
@@ -423,8 +427,8 @@ a { color: inherit; }
 }
 .plano--destaque {
   position: relative;
-  border-color: rgba(255,138,61,.42);
-  box-shadow: 0 0 0 1px rgba(255,138,61,.14), 0 24px 60px -30px rgba(232,48,107,.4);
+  border-color: rgba(123,84,247,.42);
+  box-shadow: 0 0 0 1px rgba(123,84,247,.14), 0 24px 60px -30px rgba(178,53,236,.4);
 }
 /* O selo sai do fluxo e senta na borda de cima. No fluxo, ele empurrava só o
    card do Pro para baixo: os três preços ficavam em linhas de base diferentes,
@@ -434,7 +438,7 @@ a { color: inherit; }
   font-family: var(--fonte-mono); font-size: .72rem;
   letter-spacing: .1em; text-transform: uppercase;
   color: var(--acento); background: var(--superficie-2);
-  border: 1px solid rgba(255,138,61,.42);
+  border: 1px solid rgba(123,84,247,.42);
   border-radius: 999px; padding: .22rem .7rem;
 }
 .plano__nome { font-size: var(--t-2); }
@@ -499,7 +503,7 @@ a { color: inherit; }
 }
 .cta__brilho {
   position: absolute; inset: auto -10% -60% -10%; height: 160%;
-  background: radial-gradient(45% 50% at 50% 70%, rgba(232,48,107,.20) 0%, transparent 70%);
+  background: radial-gradient(45% 50% at 50% 70%, rgba(178,53,236,.20) 0%, transparent 70%);
   pointer-events: none;
 }
 .cta__conteudo { position: relative; display: grid; justify-items: center; gap: var(--e-3); }

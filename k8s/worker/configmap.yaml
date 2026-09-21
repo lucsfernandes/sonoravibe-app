@@ -22,7 +22,7 @@ data:
   #
   # Com "lyria", os secrets RUNPOD_API_KEY e RUNPOD_ENDPOINT_ID podem nem
   # existir: eles só são exigidos pelo motor ACE-Step.
-  MUSIC_PROVIDER: "lyria"
+  MUSIC_PROVIDER: "acestep"
   FFMPEG_PATH: "ffmpeg"
   DEMUCS_PATH: "demucs"
 

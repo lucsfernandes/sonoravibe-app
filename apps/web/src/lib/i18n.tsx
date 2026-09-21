@@ -324,6 +324,27 @@ const T: Dicionario = {
     pt: 'MP3, WAV, FLAC, Opus e AAC. Separe os stems quando precisar.',
     en: 'MP3, WAV, FLAC, Opus and AAC. Split the stems when you need to.',
   },
+  // Checkout de assinatura
+  'assinar.plano': { pt: 'Plano escolhido', en: 'Chosen plan' },
+  'assinar.passoConta': { pt: 'Sua conta', en: 'Your account' },
+  'assinar.passoPagamento': { pt: 'Pagamento', en: 'Payment' },
+  'assinar.continuar': { pt: 'Continuar para o pagamento', en: 'Continue to payment' },
+  'assinar.metodo': { pt: 'Como quer pagar', en: 'How you want to pay' },
+  'assinar.cartao': { pt: 'Cartão', en: 'Card' },
+  'assinar.cpf': { pt: 'CPF ou CNPJ', en: 'Tax ID (CPF/CNPJ)' },
+  'assinar.cpfDica': {
+    pt: 'Exigido pelo processador de pagamento para emitir a cobrança.',
+    en: 'Required by the payment processor to issue the charge.',
+  },
+  'assinar.pagar': { pt: 'Assinar', en: 'Subscribe' },
+  'assinar.confirmado': { pt: 'Assinatura confirmada.', en: 'Subscription confirmed.' },
+  'assinar.comecar': { pt: 'Começar a criar', en: 'Start creating' },
+  'assinar.verOutros': { pt: 'Ver todos os planos', en: 'See all plans' },
+  'assinar.cancelarQuando': {
+    pt: 'Você pode cancelar quando quiser. O acesso vale até o fim do período pago.',
+    en: 'Cancel whenever you want. Access lasts until the end of the paid period.',
+  },
+
   'auth.rodape': {
     pt: 'Feito no Brasil. Preços em real.',
     en: 'Made in Brazil. Prices in BRL.',
