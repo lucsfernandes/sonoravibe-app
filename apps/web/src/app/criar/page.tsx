@@ -6,7 +6,6 @@ import type { Referencia } from '@/components/criar/adicionar-audio';
 import { BibliotecaCriar } from '@/components/criar/biblioteca/biblioteca-criar';
 import { PainelCriar } from '@/components/criar/painel';
 import { useI18n } from '@/lib/i18n';
-import { usePlayer } from '@/lib/player';
 import { useSessao } from '@/lib/sessao';
 
 export default function PaginaCriar() {
@@ -30,7 +29,6 @@ export default function PaginaCriar() {
 function Conteudo() {
   const { t } = useI18n();
   const { usuario, carregando } = useSessao();
-  const { faixa } = usePlayer();
   const parametros = useSearchParams();
   const [versao, setVersao] = useState(0);
   const [referencia, setReferencia] = useState<Referencia | null>(null);
@@ -53,14 +51,10 @@ function Conteudo() {
   }
 
   return (
-    // A casca reserva 7rem no rodapé para o player fixo. Sem faixa tocando o
-    // player não existe, e a reserva viraria uma faixa morta embaixo do
-    // estúdio: a margem negativa a cancela, e a página ocupa a tela inteira.
-    <div
-      className={`flex flex-col lg:flex-row ${
-        faixa ? 'lg:h-[calc(100vh-7rem)]' : 'lg:-mb-28 lg:h-screen'
-      }`}
-    >
+    // A altura desconta o player fixo (zero quando nada toca), que é o mesmo
+    // espaço que a casca reserva embaixo: o estúdio ocupa a tela inteira e
+    // nunca fica escondido atrás do player.
+    <div className="flex flex-col lg:h-[calc(100vh-var(--altura-player))] lg:flex-row">
       <h1 className="sr-only">{t('criar.titulo')}</h1>
       <aside className="w-full shrink-0 border-b border-borda lg:h-full lg:w-[440px] lg:border-b-0 lg:border-r">
         <PainelCriar

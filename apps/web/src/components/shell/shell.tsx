@@ -40,9 +40,13 @@ export function Shell({ children, locale }: { children: ReactNode; locale: Local
             ) : (
               <div className="flex min-h-screen">
                 <Sidebar />
-                {/* pb-28 abre espaço para o player fixo: sem isso o último item
-                    de qualquer lista fica escondido atrás dele. */}
-                <main className="min-w-0 flex-1 pb-28">{children}</main>
+                {/* O espaço embaixo é a altura real do player (zero sem faixa
+                    tocando), mais a barra de navegação inferior no celular.
+                    Sem isso o último item de qualquer lista fica escondido
+                    atrás do player. */}
+                <main className="min-w-0 flex-1 pb-[calc(var(--altura-player)+4rem)] md:pb-[var(--altura-player)]">
+                  {children}
+                </main>
               </div>
             )}
             {/* O player some junto: ele toca música do catálogo, e quem está

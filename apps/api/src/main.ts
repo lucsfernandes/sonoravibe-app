@@ -9,6 +9,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AUTH, type SonoraAuth } from './auth/auth.config';
 import { CONFIG, type AppConfig } from './config/env';
+import { MAX_AVATAR_BYTES } from './social/me.service';
 import { MAX_UPLOAD_BYTES } from './songs/uploads.service';
 
 // Em desenvolvimento a configuração vem do .env da raiz; em produção, dos
@@ -59,6 +60,8 @@ async function bootstrap(): Promise<void> {
   // é qualquer um: a validação do formato é do serviço, que responde 400 com
   // a lista do que aceita. O teto é o mesmo de UploadsService.
   app.use('/uploads', express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES }));
+  // A foto de perfil segue o mesmo caminho, só que com imagem e teto menor.
+  app.use('/me/avatar', express.raw({ type: 'image/*', limit: MAX_AVATAR_BYTES }));
   // Só JSON. Aceitar formulário (urlencoded) deixaria um <form> em outro site
   // disparar uma ação aqui com o cookie de sessão da vítima; JSON cross-site
   // exige preflight de CORS, que a lista de origens recusa.

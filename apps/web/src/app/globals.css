@@ -49,6 +49,14 @@
   border-color: var(--color-borda);
 }
 
+/* Altura do player fixo do rodapé. O próprio player escreve o valor real
+   quando aparece (ver components/shell/player.tsx); zero significa "sem
+   faixa tocando". A casca, a barra lateral e a aba Criar leem daqui para
+   abrir espaço embaixo. */
+:root {
+  --altura-player: 0px;
+}
+
 html,
 body {
   background: var(--color-fundo);

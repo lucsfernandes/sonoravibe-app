@@ -271,7 +271,11 @@ export function PainelCriar({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      {/* `relative` é obrigatório na área que rola: os rótulos `sr-only` lá
+          dentro são `position: absolute`, e sem um ancestral posicionado o
+          bloco contenedor deles é a janela inteira. Eles escapavam do recorte
+          do overflow e esticavam a rolagem da página até o último rótulo. */}
+      <div className="relative min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {aba !== 'sons' && (
           <div className="flex rounded-2xl bg-superficie p-1.5">
             <BotaoReferencia

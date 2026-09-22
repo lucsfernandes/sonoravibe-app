@@ -32,6 +32,23 @@ const T: Dicionario = {
   'nav.entrar': { pt: 'Entrar', en: 'Sign in' },
   'nav.sair': { pt: 'Sair', en: 'Sign out' },
   'nav.upgrade': { pt: 'Assinar o Premier', en: 'Upgrade to Premier' },
+  'nav.menuUsuario': { pt: 'Opções da conta', en: 'Account options' },
+  'nav.idioma': { pt: 'Idioma', en: 'Language' },
+
+  // Menu do usuário e edição do perfil
+  'perfil.ver': { pt: 'Ver perfil', en: 'View profile' },
+  'perfil.editar': { pt: 'Editar perfil', en: 'Edit profile' },
+  'perfil.nome': { pt: 'Nome', en: 'Name' },
+  'perfil.bio': { pt: 'Bio', en: 'Bio' },
+  'perfil.bioPlaceholder': {
+    pt: 'Uma linha sobre você e o que você cria',
+    en: 'A line about you and what you make',
+  },
+  'perfil.foto': { pt: 'Foto de perfil', en: 'Profile photo' },
+  'perfil.trocarFoto': { pt: 'Trocar foto', en: 'Change photo' },
+  'perfil.removerFoto': { pt: 'Remover foto', en: 'Remove photo' },
+  'perfil.fotoDica': { pt: 'JPEG, PNG ou WebP. A imagem é reduzida antes de subir.', en: 'JPEG, PNG or WebP. The image is scaled down before upload.' },
+  'perfil.salvo': { pt: 'Perfil salvo.', en: 'Profile saved.' },
 
   // Home
   'home.titulo': { pt: 'Ouça sua ideia como nunca antes', en: 'Hear your vision like never before' },

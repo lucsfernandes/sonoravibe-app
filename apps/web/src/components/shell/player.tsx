@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useI18n, formatarDuracao } from '@/lib/i18n';
 import { usePlayer } from '@/lib/player';
 
@@ -8,11 +9,34 @@ import { usePlayer } from '@/lib/player';
  *
  * Só aparece quando há faixa carregada — uma barra vazia ocupando 80px do
  * rodapé desde o primeiro acesso é ruído.
+ *
+ * A altura real do player vai para a variável CSS `--altura-player` na raiz
+ * do documento. É ela que a casca, a barra lateral e a aba Criar usam para
+ * abrir espaço embaixo: um valor fixo em cada lugar foi o que deixou o box
+ * do usuário escondido atrás do player quando uma faixa tocava.
  */
 export function Player() {
   const { faixa, tocando, posicaoMs, duracaoMs, volume, alternar, proxima, anterior, buscar, setVolume } =
     usePlayer();
   const { t } = useI18n();
+  const caixa = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const el = caixa.current;
+    if (!faixa || !el) {
+      raiz.style.setProperty('--altura-player', '0px');
+      return;
+    }
+    const aplicar = () => raiz.style.setProperty('--altura-player', `${el.offsetHeight}px`);
+    aplicar();
+    const observador = new ResizeObserver(aplicar);
+    observador.observe(el);
+    return () => {
+      observador.disconnect();
+      raiz.style.setProperty('--altura-player', '0px');
+    };
+  }, [faixa]);
 
   if (!faixa) return null;
 
@@ -23,7 +47,7 @@ export function Player() {
   const progresso = Math.min(100, (posicaoMs / total) * 100);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-borda bg-fundo/95 backdrop-blur">
+    <div ref={caixa} className="fixed inset-x-0 bottom-0 z-40 border-t border-borda bg-fundo/95 backdrop-blur">
       {/* Barra de progresso clicável, colada no topo do player */}
       <label className="sr-only" htmlFor="posicao-faixa">
         {faixa.title}
