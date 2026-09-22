@@ -107,6 +107,65 @@ body {
   }
 }
 
+/**
+ * Slider do painel de criação: trilha com marcas e um cursor alto e estreito.
+ *
+ * As marcas são um gradiente repetido no fundo da trilha, e não elementos: um
+ * slider com doze <span> por cima quebraria o clique. O cursor é um pilar
+ * arredondado, e não uma bolinha, para ser fácil de agarrar numa trilha de
+ * 24px de altura sem esconder a marca que está embaixo dele.
+ */
+.deslizante-marcas {
+  appearance: none;
+  height: 24px;
+  width: 100%;
+  background: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(100% / 12 - 1px),
+    var(--color-borda) calc(100% / 12 - 1px),
+    var(--color-borda) calc(100% / 12)
+  );
+  background-size: calc(100% - 10px) 14px;
+  background-position: 5px center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.deslizante-marcas::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--color-acento);
+  box-shadow: 0 0 0 3px var(--color-fundo);
+}
+.deslizante-marcas::-moz-range-thumb {
+  width: 10px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-acento);
+  box-shadow: 0 0 0 3px var(--color-fundo);
+}
+.deslizante-marcas::-moz-range-track {
+  background: transparent;
+}
+.deslizante-marcas:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.deslizante-marcas:focus-visible {
+  outline-offset: 4px;
+}
+
+/* Esconde a barra de rolagem de fileiras horizontais (chips), sem tirar a rolagem. */
+.sem-barra {
+  scrollbar-width: none;
+}
+.sem-barra::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes pulsar-suave {
   0%,
   100% {

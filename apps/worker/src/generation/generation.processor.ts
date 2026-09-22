@@ -2,6 +2,7 @@ import {
   AUDIO_FORMAT_SPECS,
   DEFAULT_JOB_OPTIONS,
   EAGER_FORMATS,
+  JOB_NAMES,
   PROGRESS_CHANNEL,
   STATUS_PROGRESS,
   ffmpegArgsFor,
@@ -16,6 +17,8 @@ import {
   type MasterFormat,
   type MusicGenerationRequest,
   type AdvancedControls,
+  type PlaylistInspiration,
+  type WaveformJob,
 } from '@sonora/shared';
 import { CreditsLedger, Generation, Song } from '@sonora/db';
 import { StorageService, storageKeys } from '@sonora/storage';
@@ -190,6 +193,7 @@ export class GenerationProcessor {
       await this.deps.credits.commit(userId, job.reservedCredits);
 
       await this.enqueueEagerFormats(songId, userId, master);
+      await this.enqueueWaveform(songId);
 
       await this.publish({
         userId,
@@ -264,6 +268,24 @@ export class GenerationProcessor {
           );
         });
     }
+  }
+
+  /**
+   * A forma de onda sai num job próprio, e não aqui, porque o master do
+   * ACE-Step nunca passa por este processo (sobe direto no R2) e baixá-lo
+   * agora atrasaria o evento de conclusão que o usuário está esperando.
+   */
+  private async enqueueWaveform(songId: string): Promise<void> {
+    const job: WaveformJob = { songId };
+    await this.deps.transcodeQueue
+      .add(JOB_NAMES.waveform, job, {
+        ...DEFAULT_JOB_OPTIONS,
+        jobId: jobId(songId, 'waveform'),
+        attempts: 1,
+      })
+      .catch((err: unknown) => {
+        this.logger.warn(`Não enfileirei a onda de ${songId}: ${(err as Error).message}`);
+      });
   }
 
   private async load(
@@ -350,7 +372,14 @@ export class GenerationProcessor {
       sectionStartMs?: number;
       sectionEndMs?: number;
       addSeconds?: number;
+      inspiration?: PlaylistInspiration;
     };
+
+    // A inspiração da playlist entra no fim do estilo, depois do que o
+    // usuário escreveu: o modelo pesa mais o começo, e o pedido explícito
+    // tem que vencer a referência.
+    const estiloBase = song.stylePrompt ?? song.title;
+    const styles = withInspiration(estiloBase, controls.inspiration);
 
     // Derivadas precisam ouvir a faixa original. A URL é assinada e curta: o
     // motor roda fora do cluster e não tem credencial do nosso bucket.
@@ -371,12 +400,12 @@ export class GenerationProcessor {
         ? { sectionStartMs: controls.sectionStartMs, sectionEndMs: controls.sectionEndMs }
         : {}),
       kind: song.kind,
-      prompt: song.stylePrompt ?? song.title,
+      prompt: styles,
       lyrics: song.instrumental ? null : song.lyrics,
       instrumental: song.instrumental,
       durationSeconds: controls.durationSeconds,
       controls: {
-        styles: song.stylePrompt ?? undefined,
+        styles,
         excludeStyles: song.excludeStyles ?? undefined,
         vocalGender: controls.vocalGender ?? 'any',
         maxMode: controls.maxMode ?? false,
@@ -580,4 +609,17 @@ export class GenerationProcessor {
   private async publish(message: GenerationProgressMessage): Promise<void> {
     await this.deps.redis.publish(PROGRESS_CHANNEL, JSON.stringify(message));
   }
+}
+
+/**
+ * Acrescenta os estilos da playlist de inspiração ao estilo pedido.
+ *
+ * Exportada para teste. Curta de propósito: o caption do ACE-Step tem 512
+ * caracteres, e o compilador corta pelo fim, então a inspiração é o que
+ * some primeiro se não couber, e nunca o que o usuário escreveu.
+ */
+export function withInspiration(styles: string, inspiration?: PlaylistInspiration): string {
+  const lista = inspiration?.styles?.filter(Boolean) ?? [];
+  if (lista.length === 0) return styles;
+  return `${styles.trim().replace(/[.\s]+$/, '')}, inspired by ${lista.join('; ')}`;
 }

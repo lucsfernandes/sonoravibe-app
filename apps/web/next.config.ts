@@ -57,7 +57,9 @@ const config: NextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // O microfone fica liberado só para a própria origem: é o "Gravar"
+          // do "+ Áudio" na aba Criar. Câmera e localização seguem fechadas.
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
           {
             key: 'Content-Security-Policy',
             value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",

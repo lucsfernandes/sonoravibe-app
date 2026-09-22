@@ -27,7 +27,11 @@ export function BotaoCurtir({
   songId: string;
   curtidoInicial: boolean;
   contagemInicial: number;
-  tamanho?: 'pequeno' | 'grande';
+  /**
+   * 'linha' é o botão redondo de polegar das fileiras da aba Criar: só o
+   * ícone, com a contagem ao lado quando há alguma.
+   */
+  tamanho?: 'pequeno' | 'grande' | 'linha';
   aoMudar?: (curtido: boolean, contagem: number) => void;
 }) {
   const { t, locale } = useI18n();
@@ -83,6 +87,24 @@ export function BotaoCurtir({
 
   const grande = tamanho === 'grande';
 
+  if (tamanho === 'linha') {
+    return (
+      <button
+        type="button"
+        onClick={alternar}
+        aria-pressed={curtido}
+        aria-label={curtido ? t('musica.descurtir') : t('musica.curtir')}
+        title={curtido ? t('musica.descurtir') : t('musica.curtir')}
+        className={`flex h-8 items-center gap-1.5 rounded-full bg-superficie-alta px-2.5 transition-colors hover:bg-borda ${
+          curtido ? 'text-acento' : 'text-texto-suave hover:text-texto'
+        } ${enviando ? 'opacity-70' : ''}`}
+      >
+        <PolegarIcone preenchido={curtido} />
+        {contagem > 0 && <span className="text-[11px] tabular-nums">{formatarContagem(contagem, locale)}</span>}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -100,6 +122,24 @@ export function BotaoCurtir({
       <CoracaoIcone preenchido={curtido} grande={grande} />
       <span className="tabular-nums">{formatarContagem(contagem, locale)}</span>
     </button>
+  );
+}
+
+function PolegarIcone({ preenchido }: { preenchido: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-3.5"
+      fill={preenchido ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z" />
+      <path d="M7 10l4.5-7a2 2 0 0 1 2 2v4h5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.3 20H7" />
+    </svg>
   );
 }
 

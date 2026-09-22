@@ -98,6 +98,14 @@ export class Song {
   @Column({ type: 'varchar', length: 40, name: 'provider_id', nullable: true })
   providerId: string | null;
 
+  /**
+   * Forma de onda: WAVEFORM_POINTS valores de 0 a 1, calculados pelo worker
+   * quando o master fica pronto. É o que o modo "onda" da biblioteca desenha.
+   * Null nas faixas de antes desta coluna; a interface pede o cálculo ao vê-las.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  waveform: number[] | null;
+
   // --- Publicação e social --------------------------------------------------
 
   @Column({ type: 'boolean', name: 'is_public', default: false })

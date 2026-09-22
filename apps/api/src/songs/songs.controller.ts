@@ -20,14 +20,30 @@ import { z } from 'zod';
 import { CurrentUser, Public, type SessionUser } from '../auth/session.guard';
 import { parseOrThrow as parse } from '../common/parse';
 import { DownloadsService } from './downloads.service';
-import { LibraryService, type Page, type SongDetail, type SongSummary } from './library.service';
+import {
+  LIST_FILTERS,
+  LIST_KINDS,
+  LIST_SORTS,
+  LIST_STATUSES,
+  LIST_VOCALS,
+  LibraryService,
+  type Page,
+  type SongDetail,
+  type SongSummary,
+} from './library.service';
 import { SongsService, type GenerateResult } from './songs.service';
 
 const listQuerySchema = z.object({
   workspaceId: z.string().uuid().optional(),
   cursor: z.string().optional(),
+  page: z.coerce.number().int().min(1).max(10_000).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
-  filter: z.enum(['all', 'public', 'private', 'liked']).default('all'),
+  filter: z.enum(LIST_FILTERS).default('all'),
+  q: z.string().trim().max(200).optional(),
+  sort: z.enum(LIST_SORTS).default('newest'),
+  kind: z.enum(LIST_KINDS).default('all'),
+  vocals: z.enum(LIST_VOCALS).default('all'),
+  status: z.enum(LIST_STATUSES).default('all'),
 });
 
 const updateSchema = z.object({
@@ -149,6 +165,16 @@ export class SongsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     await this.library.remove(user.id, id);
+  }
+
+  /** Pede a forma de onda de uma faixa antiga. Idempotente: já ter é `queued: false`. */
+  @Post(':id/waveform')
+  @HttpCode(HttpStatus.ACCEPTED)
+  waveform(
+    @CurrentUser() user: SessionUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ queued: boolean }> {
+    return this.library.requestWaveform(user.id, id);
   }
 
   @Post(':id/publish')

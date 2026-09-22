@@ -5,8 +5,9 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
-import { Generation, Song, Workspace } from '@sonora/db';
+import { Generation, Playlist, PlaylistSong, Song, Workspace } from '@sonora/db';
 import {
   CREDIT_COSTS,
   DEFAULT_JOB_OPTIONS,
@@ -14,11 +15,13 @@ import {
   maxDurationFor,
   type AdvancedControls,
   type GenerationJob,
+  type GenerationKind,
   type GenerationRequest,
   type PlanCode,
+  type PlaylistInspiration,
 } from '@sonora/shared';
 import { Queue } from 'bullmq';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { CreditsService, InsufficientCreditsError } from '../credits/credits.service';
 import { CONFIG, type AppConfig } from '../config/env';
 import { DATA_SOURCE } from '../database/database.module';
@@ -59,8 +62,22 @@ export class SongsService {
 
   async generate(user: SessionUser, request: GenerationRequest): Promise<GenerateResult> {
     const plan = await this.plans.planOf(user.id);
-    const kind = request.mode === 'sounds' ? 'clip' : 'song';
-    const cost = request.mode === 'sounds' ? CREDIT_COSTS.clip : CREDIT_COSTS.song;
+
+    // "+ Áudio": a faixa de referência transforma o pedido num remix, que é o
+    // tipo que os motores tratam como áudio-para-áudio. Custa o mesmo que uma
+    // música; só muda o caminho no worker.
+    const source =
+      request.mode !== 'sounds' && request.sourceSongId
+        ? await this.resolveSource(user.id, request.sourceSongId)
+        : null;
+    const inspiration =
+      request.mode !== 'sounds' && request.inspirationPlaylistId
+        ? await this.resolveInspiration(user.id, request.inspirationPlaylistId)
+        : null;
+
+    const kind: GenerationKind = request.mode === 'sounds' ? 'clip' : source ? 'remix' : 'song';
+    const cost =
+      kind === 'clip' ? CREDIT_COSTS.clip : kind === 'remix' ? CREDIT_COSTS.remix : CREDIT_COSTS.song;
 
     const controls = request.mode === 'advanced' ? request.controls : undefined;
     this.assertPlanAllows(plan.code, plan.features, controls);
@@ -72,6 +89,7 @@ export class SongsService {
         em.getRepository(Song).create({
           userId: user.id,
           workspaceId,
+          parentSongId: source?.id ?? null,
           title: this.provisionalTitle(request),
           stylePrompt: this.stylePromptOf(request),
           excludeStyles: controls?.excludeStyles ?? null,
@@ -79,7 +97,7 @@ export class SongsService {
           instrumental: request.mode === 'sounds' ? true : request.instrumental,
           status: 'queued',
           kind,
-          params: this.paramsOf(request),
+          params: this.paramsOf(request, inspiration),
         }),
       );
 
@@ -113,6 +131,7 @@ export class SongsService {
       userId: user.id,
       kind,
       reservedCredits: cost,
+      ...(source ? { sourceSongId: source.id } : {}),
       // Quem nomeou a música não quer que o modelo a renomeie no fim.
       titleFromUser: request.mode === 'advanced' && Boolean(request.title),
     };
@@ -187,6 +206,66 @@ export class SongsService {
     return fallback?.id ?? null;
   }
 
+  /**
+   * A faixa de referência do "+ Áudio".
+   *
+   * Vale a própria música ou uma pública cujo autor liberou remixes: é a mesma
+   * regra do botão Remix na página da música, e é ela que impede alguém de
+   * usar como base uma faixa que o autor quis manter fechada. Responde 404
+   * (e não 403) para não confirmar que o id existe.
+   */
+  private async resolveSource(userId: string, songId: string): Promise<Song> {
+    const song = await this.dataSource.getRepository(Song).findOneBy({ id: songId });
+    const permitida = song && (song.userId === userId || (song.isPublic && song.allowRemixes));
+    if (!song || !permitida) throw new NotFoundException('Faixa de referência não encontrada.');
+    if (song.status !== 'complete' || !song.masterKey) {
+      throw new ForbiddenException('A faixa de referência ainda não terminou de processar.');
+    }
+    return song;
+  }
+
+  /**
+   * A inspiração do "+ Inspiração": os estilos das faixas de uma playlist.
+   *
+   * Resolvida agora, e não no worker, porque a playlist pode mudar entre o
+   * clique e a fila. Poucos estilos, encurtados: o caption do ACE-Step tem
+   * 512 caracteres, e a inspiração não pode engolir o que o usuário escreveu.
+   */
+  private async resolveInspiration(
+    userId: string,
+    playlistId: string,
+  ): Promise<PlaylistInspiration> {
+    const playlist = await this.dataSource
+      .getRepository(Playlist)
+      .findOneBy({ id: playlistId, userId });
+    if (!playlist) throw new NotFoundException('Playlist de inspiração não encontrada.');
+
+    const entradas = await this.dataSource.getRepository(PlaylistSong).find({
+      where: { playlistId },
+      order: { position: 'ASC' },
+      take: 30,
+    });
+    const songs = entradas.length
+      ? await this.dataSource
+          .getRepository(Song)
+          .find({ where: { id: In(entradas.map((e) => e.songId)) }, select: { id: true, stylePrompt: true } })
+      : [];
+
+    const vistos = new Set<string>();
+    const styles: string[] = [];
+    for (const song of songs) {
+      const estilo = song.stylePrompt?.split('\n')[0]?.trim().slice(0, 60);
+      if (!estilo) continue;
+      const chave = estilo.toLowerCase();
+      if (vistos.has(chave)) continue;
+      vistos.add(chave);
+      styles.push(estilo);
+      if (styles.length >= 5) break;
+    }
+
+    return { playlistId: playlist.id, name: playlist.name, styles };
+  }
+
   private async markFailed(songId: string, generationId: string, err: unknown): Promise<void> {
     const message = err instanceof Error ? err.message : String(err);
     await this.dataSource.transaction(async (em) => {
@@ -217,12 +296,21 @@ export class SongsService {
     return request.prompt;
   }
 
-  private paramsOf(request: GenerationRequest): Partial<AdvancedControls> | null {
-    if (request.mode === 'advanced') return request.controls;
+  /**
+   * O que fica gravado em `params`. Além dos controles, leva a inspiração da
+   * playlist: o worker lê daqui para montar o prompt. O tipo da coluna é
+   * `Partial<AdvancedControls>`, e a inspiração entra como campo extra.
+   */
+  private paramsOf(
+    request: GenerationRequest,
+    inspiration: PlaylistInspiration | null,
+  ): Partial<AdvancedControls> | null {
+    const extra = inspiration ? { inspiration } : {};
+    if (request.mode === 'advanced') return { ...request.controls, ...extra };
     if (request.mode === 'sounds') {
       return { bpm: request.bpm, key: request.key };
     }
-    return null;
+    return inspiration ? (extra as Partial<AdvancedControls>) : null;
   }
 }
 

@@ -113,6 +113,40 @@ export class AssistService {
     }
   }
 
+  /**
+   * Aprimora o prompt de estilo escrito pelo usuário.
+   *
+   * O modelo recebe o texto e devolve uma linha só, mais específica: gênero,
+   * instrumentação, clima, andamento e produção. Não inventa um estilo novo:
+   * o pedido é expandir o que já está lá, na língua em que foi escrito. Sem
+   * chave configurada, responde 503 em vez de fingir um resultado.
+   */
+  async enhanceStyle(
+    userId: string,
+    styles: string,
+    language: string,
+  ): Promise<{ styles: string; source: 'llm' }> {
+    const idioma = language.startsWith('pt') ? 'português do Brasil' : 'inglês';
+    const resposta = await this.complete(
+      [
+        {
+          role: 'system',
+          content:
+            `Você aprimora descrições de estilo para geração de música por IA, em ${idioma}. ` +
+            'Receba a descrição do usuário e devolva UMA linha só, de 8 a 16 descritores ' +
+            'separados por vírgula, mantendo tudo o que ele pediu e acrescentando o que ' +
+            'falta: gênero, subgênero, instrumentos principais, clima, andamento aproximado, ' +
+            'tipo de voz (se houver) e detalhes de produção. Sem explicação, sem aspas, sem ' +
+            'ponto final.',
+        },
+        { role: 'user', content: styles },
+      ],
+      200,
+    );
+    this.logger.log(`Estilo aprimorado para ${userId}`);
+    return { styles: resposta.split('\n')[0].trim().slice(0, 1000), source: 'llm' };
+  }
+
   private async complete(
     messages: { role: string; content: string }[],
     maxTokens: number,

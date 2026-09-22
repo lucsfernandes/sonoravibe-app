@@ -70,12 +70,28 @@ export const advancedControlsSchema = z.object({
 });
 export type AdvancedControls = z.infer<typeof advancedControlsSchema>;
 
+/**
+ * Referências que valem para Simple e Advanced.
+ *
+ *  - `sourceSongId`: uma faixa da biblioteca (própria, ou pública com remix
+ *    liberado) que o motor ouve antes de gerar. É o "+ Áudio" da interface e
+ *    vira uma geração do tipo `remix`: o ACE-Step recebe o áudio de origem no
+ *    `task_type: cover`, que mantém a estrutura e aplica o estilo novo.
+ *  - `inspirationPlaylistId`: uma playlist do usuário cujos estilos entram no
+ *    prompt como inspiração. É o "+ Inspiração".
+ */
+const referenceFields = {
+  sourceSongId: z.string().uuid().optional(),
+  inspirationPlaylistId: z.string().uuid().optional(),
+};
+
 /** Aba Simple: só a descrição em linguagem natural. */
 export const simpleGenerationSchema = z.object({
   mode: z.literal('simple'),
   prompt: z.string().trim().min(3).max(2000),
   instrumental: z.boolean().default(false),
   workspaceId: z.string().uuid().optional(),
+  ...referenceFields,
 });
 
 /** Aba Advanced: letra própria ou gerada, estilos e controles finos. */
@@ -92,6 +108,7 @@ export const advancedGenerationSchema = z.object({
   title: z.string().trim().max(120).optional(),
   workspaceId: z.string().uuid().optional(),
   controls: advancedControlsSchema.default({}),
+  ...referenceFields,
 });
 
 /** Aba Sounds: efeitos, loops e one-shots curtos. */
@@ -127,8 +144,32 @@ export const GENERATION_KINDS = [
    * FFmpeg, e por isso não custa crédito.
    */
   'edit',
+  /**
+   * Áudio que o usuário enviou (arquivo ou gravação do microfone). Não passa
+   * por motor nenhum: o worker só converte para o master e mede a duração.
+   * Existe para servir de referência no "+ Áudio" e para aparecer na
+   * biblioteca com as demais faixas.
+   */
+  'upload',
 ] as const;
 export type GenerationKind = (typeof GENERATION_KINDS)[number];
+
+/**
+ * Inspiração vinda de uma playlist, gravada em `Song.params.inspiration`.
+ *
+ * Só os estilos viajam, e não os ids das faixas: o worker precisa de texto
+ * para o prompt, e resolver a playlist de novo na hora de gerar quebraria se
+ * ela mudasse entre o clique e a fila.
+ */
+export interface PlaylistInspiration {
+  playlistId: string;
+  name: string;
+  /** Estilos distintos das faixas da playlist, já encurtados. */
+  styles: string[];
+}
+
+/** Quantos pontos tem a forma de onda guardada por faixa. */
+export const WAVEFORM_POINTS = 120;
 
 export const GENERATION_STATUSES = [
   'queued',

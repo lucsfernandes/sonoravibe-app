@@ -183,19 +183,13 @@ export function CartaoMusica({
           <span className="flex items-center gap-1">
             <PlayPequenoIcone /> {formatarContagem(musica.playCount, locale)}
           </span>
-          {/* `likedByMe` só existe no item do Explore. Na biblioteca a lista
-              não carrega os likes, e aí o coração fica como contador. */}
-          {'likedByMe' in musica ? (
-            <BotaoCurtir
-              songId={musica.id}
-              curtidoInicial={musica.likedByMe}
-              contagemInicial={musica.likeCount}
-            />
-          ) : (
-            <span className="flex items-center gap-1">
-              <CoracaoIcone /> {formatarContagem(musica.likeCount, locale)}
-            </span>
-          )}
+          {/* A biblioteca e o Explore dizem se a pessoa já curtiu, então o
+              coração é sempre um botão, e não só um contador. */}
+          <BotaoCurtir
+            songId={musica.id}
+            curtidoInicial={musica.likedByMe}
+            contagemInicial={musica.likeCount}
+          />
           {!musica.isPublic && (
             <span className="ml-auto rounded bg-superficie-alta px-1.5 py-0.5">
               {t('musica.privada')}
@@ -239,14 +233,6 @@ function PlayPequenoIcone() {
   return (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M8 5.5v13l11-6.5z" />
-    </svg>
-  );
-}
-
-function CoracaoIcone() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 21s-7.5-4.7-9.3-9A5.2 5.2 0 0 1 12 6.8 5.2 5.2 0 0 1 21.3 12c-1.8 4.3-9.3 9-9.3 9z" />
     </svg>
   );
 }

@@ -3,11 +3,14 @@ import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { CreditsLedger, ENTITIES } from '@sonora/db';
 import {
+  JOB_NAMES,
   QUEUES,
   type EditJob,
   type GenerationJob,
+  type ImportJob,
   type StemsJob,
   type TranscodeJob,
+  type WaveformJob,
 } from '@sonora/shared';
 import { StorageService } from '@sonora/storage';
 import { Queue, Worker, type Job } from 'bullmq';
@@ -18,8 +21,10 @@ import { CoverArtGenerator } from './generation/cover-art';
 import { GenerationProcessor } from './generation/generation.processor';
 import { buildMusicRouter } from './providers/factory';
 import { EditProcessor } from './edit/edit.processor';
+import { ImportProcessor } from './import/import.processor';
 import { StemsProcessor } from './stems/stems.processor';
 import { TranscodeProcessor } from './transcode/transcode.processor';
+import { WaveformProcessor } from './waveform/waveform.processor';
 
 try {
   process.loadEnvFile(resolve(__dirname, '../../../.env'));
@@ -93,6 +98,19 @@ async function bootstrap(): Promise<void> {
     ffmpegPath: config.FFMPEG_PATH,
   });
 
+  const importer = new ImportProcessor({
+    dataSource,
+    storage,
+    redis: connection,
+    ffmpegPath: config.FFMPEG_PATH,
+  });
+
+  const waveformer = new WaveformProcessor({
+    dataSource,
+    storage,
+    ffmpegPath: config.FFMPEG_PATH,
+  });
+
   const stemmer = new StemsProcessor({
     dataSource,
     storage,
@@ -114,15 +132,24 @@ async function bootstrap(): Promise<void> {
 
   // Fila separada da geração: converter não pode ficar atrás de uma música de
   // 8 minutos na fila, e a concorrência é maior porque o trabalho é curto.
-  const transcodeWorker = new Worker<TranscodeJob>(
+  // A forma de onda divide esta fila: é o mesmo tipo de trabalho (baixar o
+  // master, rodar o FFmpeg), distinguido pelo nome do job.
+  const transcodeWorker = new Worker<TranscodeJob | WaveformJob>(
     QUEUES.transcode,
-    async (job: Job<TranscodeJob>) => transcoder.process(job.data),
+    async (job: Job<TranscodeJob | WaveformJob>) =>
+      job.name === JOB_NAMES.waveform
+        ? waveformer.process(job.data as WaveformJob)
+        : transcoder.process(job.data as TranscodeJob),
     { connection, concurrency: config.WORKER_CONCURRENCY * 2, lockDuration: 5 * 60_000 },
   );
 
-  const editWorker = new Worker<EditJob>(
+  // A importação de uploads também é FFmpeg sem motor, e mora na fila de edição.
+  const editWorker = new Worker<EditJob | ImportJob>(
     QUEUES.edit,
-    async (job: Job<EditJob>) => editor.process(job.data),
+    async (job: Job<EditJob | ImportJob>) =>
+      job.name === JOB_NAMES.import
+        ? importer.process(job.data as ImportJob)
+        : editor.process(job.data as EditJob),
     { connection, concurrency: config.WORKER_CONCURRENCY, lockDuration: 5 * 60_000 },
   );
 
