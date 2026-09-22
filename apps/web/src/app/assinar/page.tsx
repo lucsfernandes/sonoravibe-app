@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { Apresentacao } from '@/components/auth/apresentacao';
 import { CampoAuth } from '@/components/auth/campo';
-import { ApiError, api } from '@/lib/api';
+import { Checkout } from '@/components/creditos/checkout';
+import { api } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useSessao } from '@/lib/sessao';
 
@@ -230,107 +231,26 @@ function CriarConta({
 /** Passo 2: a cobrança em si. */
 function Pagamento({ plano, aoPagar }: { plano: Plano; aoPagar: () => Promise<void> }) {
   const { t } = useI18n();
-  const [metodo, setMetodo] = useState<'pix' | 'credit_card' | 'boleto'>('pix');
-  const [cpf, setCpf] = useState('');
-  const [erro, setErro] = useState<string | null>(null);
-  const [enviando, setEnviando] = useState(false);
-  const [pronto, setPronto] = useState(false);
-
-  async function pagar(e: React.FormEvent) {
-    e.preventDefault();
-    setEnviando(true);
-    setErro(null);
-    try {
-      const r = await api.post<{ paymentUrl?: string; creditsGranted?: number }>(
-        '/billing/subscribe',
-        { planCode: plano, method: metodo, taxId: cpf.replace(/\D/g, '') || undefined },
-      );
-      await aoPagar();
-      // Gateway real manda para o checkout dele; o provider fake confirma na
-      // hora e não tem para onde mandar.
-      if (r.paymentUrl) window.location.href = r.paymentUrl;
-      else setPronto(true);
-    } catch (err) {
-      setErro(err instanceof ApiError ? err.message : t('geral.erro'));
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  if (pronto) {
-    return (
-      <div className="mt-7 rounded-xl border border-sucesso/40 bg-sucesso/10 px-4 py-5 text-center">
-        <p className="text-sm font-medium text-sucesso">{t('assinar.confirmado')}</p>
-        <Link
-          href="/criar"
-          className="mt-4 inline-block rounded-xl gradiente-acento px-6 py-2.5 text-sm font-semibold text-white"
-        >
-          {t('assinar.comecar')}
-        </Link>
-      </div>
-    );
-  }
-
-  const metodos = [
-    { valor: 'pix', rotulo: 'Pix' },
-    { valor: 'credit_card', rotulo: t('assinar.cartao') },
-    { valor: 'boleto', rotulo: 'Boleto' },
-  ] as const;
 
   return (
-    <form onSubmit={pagar} className="mt-7 space-y-4">
-      <fieldset>
-        <legend className="mb-1.5 text-xs font-medium text-texto-suave">
-          {t('assinar.metodo')}
-        </legend>
-        <div className="flex gap-1.5">
-          {metodos.map((m) => (
-            <button
-              key={m.valor}
-              type="button"
-              aria-pressed={metodo === m.valor}
-              onClick={() => setMetodo(m.valor)}
-              className={`flex-1 rounded-xl border py-2.5 text-sm transition-colors ${
-                metodo === m.valor
-                  ? 'border-acento bg-acento-suave text-acento'
-                  : 'border-borda text-texto-suave hover:text-texto'
-              }`}
-            >
-              {m.rotulo}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-
-      <CampoAuth
-        rotulo={t('assinar.cpf')}
-        valor={cpf}
-        onChange={setCpf}
-        inputMode="numeric"
-        placeholder="000.000.000-00"
-        required
-        // O Asaas exige CPF ou CNPJ para emitir cobrança no Brasil. Dizer isso
-        // evita a pergunta "por que um site de música quer meu CPF?".
-        dica={t('assinar.cpfDica')}
+    <>
+      <Checkout
+        caminho="/billing/subscribe"
+        corpo={{ planCode: plano }}
+        botao={t('assinar.pagar')}
+        aoConfirmar={aoPagar}
+        sucesso={
+          <Link
+            href="/criar"
+            className="mt-4 inline-block rounded-xl gradiente-acento px-6 py-2.5 text-sm font-semibold text-white"
+          >
+            {t('assinar.comecar')}
+          </Link>
+        }
       />
-
-      {erro && (
-        <p role="alert" className="rounded-xl border border-perigo/40 bg-perigo/10 px-3.5 py-2.5 text-sm text-perigo">
-          {erro}
-        </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={enviando}
-        className="w-full rounded-xl gradiente-acento py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-      >
-        {enviando ? t('geral.carregando') : t('assinar.pagar')}
-      </button>
-
-      <p className="text-center text-xs leading-relaxed text-texto-fraco">
+      <p className="mt-4 text-center text-xs leading-relaxed text-texto-fraco">
         {t('assinar.cancelarQuando')}
       </p>
-    </form>
+    </>
   );
 }

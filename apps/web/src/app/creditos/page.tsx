@@ -2,10 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ApiError, api, type Saldo } from '@/lib/api';
+import { api, type Saldo } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useSessao } from '@/lib/sessao';
 import { CancelarAssinatura } from '@/components/creditos/cancelar-assinatura';
+import { Checkout } from '@/components/creditos/checkout';
 
 interface Catalogo {
   plans: {
@@ -13,7 +14,9 @@ interface Catalogo {
     name: string;
     priceBrl: number;
     monthlyCredits: number;
-    dailyCredits?: number;
+    /** Só no Free: a cota renovada por ciclo, e o tamanho do ciclo em dias. */
+    cycleCredits?: number | null;
+    cycleDays?: number | null;
     features: {
       maxDurationSeconds: number;
       stems: boolean;
@@ -31,8 +34,15 @@ export default function Creditos() {
   const router = useRouter();
   const [catalogo, setCatalogo] = useState<Catalogo | null>(null);
   const [extrato, setExtrato] = useState<Saldo['transactions']>([]);
-  const [ocupado, setOcupado] = useState<string | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
+  // O que está sendo comprado. Abre o formulário de pagamento por cima da
+  // página em vez de disparar a cobrança no clique: o gateway precisa de nome
+  // e CPF, e a pessoa escolhe como pagar.
+  const [pedido, setPedido] = useState<{
+    titulo: string;
+    caminho: string;
+    corpo: Record<string, unknown>;
+    botao: string;
+  } | null>(null);
 
   useEffect(() => {
     void api.get<Catalogo>('/plans').then(setCatalogo).catch(() => setCatalogo(null));
@@ -45,22 +55,6 @@ export default function Creditos() {
       .then((s) => setExtrato(s.transactions))
       .catch(() => setExtrato([]));
   }, [usuario, saldo?.balance.total]);
-
-  async function cobrar(caminho: string, corpo: unknown, chave: string) {
-    setOcupado(chave);
-    setErro(null);
-    try {
-      const r = await api.post<{ paymentUrl?: string }>(caminho, corpo);
-      // Com gateway real o usuário vai para o checkout; com o fake a confirmação
-      // é imediata e só resta atualizar o saldo na tela.
-      if (r.paymentUrl) window.location.href = r.paymentUrl;
-      else await recarregarSaldo();
-    } catch (err) {
-      setErro(err instanceof ApiError ? err.message : t('geral.erro'));
-    } finally {
-      setOcupado(null);
-    }
-  }
 
   // Visitante não tem saldo nem assinatura para gerenciar, e esta tela vive
   // dentro da casca do aplicativo: sem este desvio ele via o menu lateral
@@ -113,13 +107,34 @@ export default function Creditos() {
         </div>
       )}
 
-      {erro && (
-        <p
-          role="alert"
-          className="mt-4 rounded-lg border border-perigo/40 bg-perigo/10 px-3 py-2 text-sm text-perigo"
+      {pedido && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={pedido.titulo}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
         >
-          {erro}
-        </p>
+          <div className="card w-full max-w-sm p-6">
+            <p className="text-xs text-texto-suave">{t('creditos.titulo')}</p>
+            <p className="mt-0.5 text-lg font-bold">{pedido.titulo}</p>
+            <Checkout
+              caminho={pedido.caminho}
+              corpo={pedido.corpo}
+              botao={pedido.botao}
+              aoConfirmar={recarregarSaldo}
+              aoFechar={() => setPedido(null)}
+              sucesso={
+                <button
+                  type="button"
+                  onClick={() => setPedido(null)}
+                  className="mt-4 inline-block rounded-xl gradiente-acento px-6 py-2.5 text-sm font-semibold text-white"
+                >
+                  {t('checkout.fechar')}
+                </button>
+              }
+            />
+          </div>
+        </div>
       )}
 
       {catalogo && (
@@ -143,7 +158,9 @@ export default function Creditos() {
                     <li>
                       {p.monthlyCredits
                         ? `${numero(p.monthlyCredits)} ${t('criar.custo')}`
-                        : `${p.dailyCredits} ${t('criar.custo')}/dia`}
+                        : `${numero(p.cycleCredits ?? 0)} ${t('criar.custo')} ${
+                            p.cycleDays === 1 ? t('planos.porDia') : t('planos.porMes')
+                          }`}
                     </li>
                     <li>
                       {Math.round(p.features.maxDurationSeconds / 60)}{' '}
@@ -156,9 +173,14 @@ export default function Creditos() {
                   <button
                     type="button"
                     onClick={() =>
-                      void cobrar('/billing/subscribe', { planCode: p.code, method: 'pix' }, p.code)
+                      setPedido({
+                        titulo: `${p.name} · ${dinheiro(p.priceBrl)}${t('creditos.porMes')}`,
+                        caminho: '/billing/subscribe',
+                        corpo: { planCode: p.code },
+                        botao: t('assinar.pagar'),
+                      })
                     }
-                    disabled={atual || p.code === 'free' || ocupado !== null}
+                    disabled={atual || p.code === 'free' || pedido !== null}
                     className="mt-4 w-full rounded-xl gradiente-acento py-2.5 text-sm font-semibold text-white disabled:opacity-40"
                   >
                     {atual ? t('creditos.planoAtual') : t('creditos.assinar')}
@@ -182,9 +204,14 @@ export default function Creditos() {
                 <button
                   type="button"
                   onClick={() =>
-                    void cobrar(`/billing/packs/${p.code}/purchase`, { method: 'pix' }, p.code)
+                    setPedido({
+                      titulo: `${numero(p.credits)} ${t('criar.custo')} · ${dinheiro(p.priceBrl)}`,
+                      caminho: `/billing/packs/${p.code}/purchase`,
+                      corpo: {},
+                      botao: t('checkout.comprarPacote'),
+                    })
                   }
-                  disabled={ocupado !== null}
+                  disabled={pedido !== null}
                   className="rounded-lg border border-borda px-4 py-2 text-sm transition-colors hover:border-acento hover:text-acento disabled:opacity-40"
                 >
                   {t('creditos.comprar')}

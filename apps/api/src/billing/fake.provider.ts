@@ -21,6 +21,7 @@ import type {
  */
 export class FakePaymentProvider implements PaymentProvider {
   readonly id = 'fake';
+  readonly requiresTaxId = false;
   private readonly logger = new Logger(FakePaymentProvider.name);
 
   async ensureCustomer(input: CustomerInput): Promise<string> {

@@ -37,12 +37,21 @@ export interface ChargeInput {
 }
 
 export interface PaymentResult {
-  /** Id no gateway. */
+  /** Id no gateway: da assinatura, numa assinatura; da cobrança, num pacote. */
   ref: string;
+  /**
+   * Id da cobrança quando `ref` é de uma assinatura. É por ele que o webhook
+   * reencontra o pagamento; a assinatura em si nunca aparece num evento de
+   * pagamento.
+   */
+  paymentRef?: string;
   status: 'pending' | 'confirmed' | 'failed';
-  /** Para onde mandar o usuário pagar (checkout, QR do Pix, boleto). */
+  /** Página segura do gateway (cartão, boleto e também o Pix). */
   paymentUrl?: string;
+  /** Pix copia-e-cola. */
   pixQrCode?: string;
+  /** QR do Pix em PNG base64, sem o prefixo data:. */
+  pixImage?: string;
   dueDate?: string;
 }
 
@@ -53,13 +62,17 @@ export interface WebhookEvent {
   subscriptionRef?: string;
   externalReference?: string;
   amountBrl?: number;
+  /** Como a cobrança foi paga. Numa renovação é a única fonte: a linha ainda não existe. */
+  method?: PaymentMethod;
   raw: unknown;
 }
 
 export interface PaymentProvider {
   readonly id: string;
+  /** O gateway recusa cobrança sem CPF/CNPJ do cliente. */
+  readonly requiresTaxId: boolean;
 
-  /** Cria (ou reaproveita) o cliente no gateway. */
+  /** Cria (ou reaproveita) o cliente no gateway, atualizando o documento. */
   ensureCustomer(input: CustomerInput): Promise<string>;
 
   createSubscription(input: SubscriptionInput): Promise<PaymentResult>;
