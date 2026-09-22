@@ -415,8 +415,8 @@ pode acontecer duas vezes. A trava é a flag `credits_granted` do pagamento, lid
 transação com a linha travada — duas entregas simultâneas do mesmo evento não podem as duas ver
 `false`. Testado disparando o webhook duas vezes: o saldo não se moveu na segunda.
 
-Custo em créditos: música 10 · clipe 5 · estender/remix 10 · substituir trecho 10 · capa 2 ·
-letra 1 · stems, transcode e edição sem IA 0.
+Custo em créditos: música 10 · clipe 5 · estender/remix 10 · substituir trecho 10 · capa nova 2
+(a primeira capa sai junto com a música, sem custo) · letra 1 · stems, transcode e edição sem IA 0.
 
 ---
 

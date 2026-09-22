@@ -85,6 +85,7 @@ const T: Dicionario = {
   'criar.botao': { pt: 'Criar', en: 'Create' },
   'criar.criando': { pt: 'Criando...', en: 'Creating...' },
   'criar.custo': { pt: 'créditos', en: 'credits' },
+  'criar.custoUm': { pt: 'crédito', en: 'credit' },
   'criar.sortear': { pt: 'Sortear estilo', en: 'Random style' },
   'criar.cancelada': { pt: 'Cancelada', en: 'Cancelled' },
   'criar.tituloMusica': { pt: 'Título da música', en: 'Song title' },
@@ -191,8 +192,8 @@ const T: Dicionario = {
   },
   'derivar.capa': { pt: 'Gerar capa', en: 'Generate cover' },
   'derivar.capa.dica': {
-    pt: 'Cria uma imagem de capa. Sem descrição, ela sai do estilo da música.',
-    en: 'Creates cover art. With no description, it comes from the song style.',
+    pt: 'Desenha outra capa no lugar da atual. Sem descrição, ela sai do estilo da música.',
+    en: 'Draws a new cover to replace the current one. With no description, it comes from the song style.',
   },
   'derivar.capaEnfileirada': {
     pt: 'Capa na fila. Ela aparece aqui quando ficar pronta.',

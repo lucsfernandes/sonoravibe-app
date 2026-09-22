@@ -62,7 +62,14 @@ export function ProgressoProvider({ children }: { children: ReactNode }) {
       const dados = JSON.parse((evento as MessageEvent<string>).data) as ProgressoGeracao;
 
       setEmAndamento((atual) => {
-        const proximo = { ...atual, [dados.generationId]: dados };
+        const anterior = atual[dados.generationId];
+        // A capa pode chegar num evento do meio da geração, e o evento seguinte
+        // vir sem `song`: o que já se sabe da música fica, senão a capa piscaria
+        // no card e sumiria na etapa seguinte.
+        const song = dados.song
+          ? { ...dados.song, coverUrl: dados.song.coverUrl ?? anterior?.song?.coverUrl ?? null }
+          : anterior?.song;
+        const proximo = { ...atual, [dados.generationId]: { ...dados, ...(song ? { song } : {}) } };
         // Terminou: sai da lista depois de um instante, para a interface ter
         // tempo de mostrar 100% antes do item sumir.
         if (['complete', 'failed', 'canceled'].includes(dados.status)) {

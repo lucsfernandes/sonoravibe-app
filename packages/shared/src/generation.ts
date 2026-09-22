@@ -174,7 +174,10 @@ export interface GenerationProgressEvent {
   status: GenerationStatus;
   /** 0–100, estimado a partir do status */
   progress: number;
-  /** Preenchido quando status === 'complete' */
+  /**
+   * Preenchido quando status === 'complete' — e também no meio da geração,
+   * quando a capa fica pronta antes do áudio: aí só `coverUrl` interessa.
+   */
   song?: {
     id: string;
     title: string;

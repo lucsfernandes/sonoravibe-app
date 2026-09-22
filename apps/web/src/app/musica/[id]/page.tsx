@@ -11,6 +11,7 @@ import { ApiError, api, type MusicaDetalhe } from '@/lib/api';
 import { CREDIT_COSTS } from '@sonora/shared';
 import { formatarDuracao, useI18n } from '@/lib/i18n';
 import { paraFaixa, usePlayer } from '@/lib/player';
+import { useAoConcluirGeracao } from '@/lib/progresso';
 import { useSessao } from '@/lib/sessao';
 
 /**
@@ -42,6 +43,11 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  // Capa nova, remix ou trecho terminaram: recarrega sem a pessoa precisar
+  // atualizar a página. É o que o aviso "aparece aqui quando ficar pronta"
+  // promete.
+  useAoConcluirGeracao(() => void carregar());
 
   if (erro) return <p className="p-8 text-sm text-perigo">{erro}</p>;
   if (!musica) return <p className="p-8 text-sm text-texto-suave">{t('geral.carregando')}</p>;
@@ -265,6 +271,7 @@ export default function PaginaMusica({ params }: { params: Promise<{ id: string 
             songId={musica.id}
             duracaoMs={musica.durationMs}
             custoRemix={CREDIT_COSTS.remix}
+            custoCapa={CREDIT_COSTS.cover}
             aoEnfileirar={carregar}
           />
         </>

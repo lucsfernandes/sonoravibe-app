@@ -24,7 +24,7 @@ import type { Redis } from 'ioredis';
 import type { DataSource } from 'typeorm';
 import type { MusicRouter } from '../providers/music-router';
 import { durationOfBuffer } from '../audio/ffmpeg';
-import type { CoverArtGenerator } from './cover-art';
+import { coverPromptFor, type CoverArtGenerator } from './cover-art';
 
 /**
  * O que acontece com um job de geração, do início ao fim.
@@ -79,6 +79,13 @@ export interface ProcessorDeps {
 export class GenerationProcessor {
   private readonly logger: NonNullable<ProcessorDeps['logger']>;
 
+  /**
+   * Em que etapa cada geração deste processo está. A capa, que roda em
+   * paralelo, consulta aqui ao terminar: se a música ainda está gerando, o
+   * evento dela sai com o status atual; se já acabou, sai como conclusão.
+   */
+  private readonly andamento = new Map<string, GenerationStatus>();
+
   constructor(private readonly deps: ProcessorDeps) {
     this.logger = deps.logger ?? console;
   }
@@ -95,13 +102,31 @@ export class GenerationProcessor {
       return;
     }
 
-    // A capa é um job próprio e não passa pelo motor de música.
+    // O BullMQ devolve um job que considerou travado — um worker reiniciado
+    // enquanto a capa terminava, por exemplo. A música já existe e já foi
+    // cobrada; rodar de novo geraria outra e cobraria outra vez.
+    if (generation.status === 'complete') {
+      this.logger.log(`Geração ${generationId} já concluída; nada a fazer.`);
+      return;
+    }
+
+    // A capa pedida à parte é um job próprio e não passa pelo motor de música.
     if (job.kind === 'cover') {
       await this.processCover(job, song);
       return;
     }
 
     await this.transition(job, 'compiling_prompt');
+
+    // A capa parte junto com a música, não depois dela. É uma chamada ao
+    // modelo de imagem que costuma levar menos que o motor de áudio, então
+    // quase sempre está pronta quando a música termina e já entra no evento
+    // de conclusão; se demorar mais, publica o próprio evento ao sair. Não
+    // custa crédito (é o mesmo pedido) e nunca rejeita.
+    const capa = { key: null as string | null };
+    const capaTerminou = this.gerarCapa(job, song, coverPromptFor(song)).then((key) => {
+      capa.key = key;
+    });
 
     try {
       const request = await this.buildRequest(song, job);
@@ -159,6 +184,7 @@ export class GenerationProcessor {
           },
         );
       });
+      this.andamento.set(generationId, 'complete');
 
       // Só agora o crédito sai da reserva: até aqui, qualquer falha estornava.
       await this.deps.credits.commit(userId, job.reservedCredits);
@@ -176,7 +202,8 @@ export class GenerationProcessor {
           title: titulo ?? song.title,
           durationMs,
           audioUrl: await this.deps.storage.presignGet(masterKey),
-          coverUrl: null,
+          // Quase sempre já desenhada. Se não, o evento dela vem em seguida.
+          coverUrl: capa.key ? await this.deps.storage.presignGet(capa.key) : null,
         },
       });
 
@@ -185,16 +212,15 @@ export class GenerationProcessor {
         `Geração ${generationId} concluída por ${result.servedBy}: ` +
           `${Math.round(durationMs / 1000)}s de áudio${viaReserva}`,
       );
-
-      // A capa vem DEPOIS de a música ser publicada, de propósito. Ela é
-      // enfeite: quem pediu uma música quer ouvir, e esperar mais 10 segundos
-      // por uma imagem atrasaria o que importa. Como o evento de conclusão já
-      // saiu, o usuário toca a faixa enquanto a capa é desenhada, e um segundo
-      // evento a coloca no lugar quando ficar pronta.
-      await this.gerarCapa(song, request.prompt);
     } catch (err) {
       await this.fail(job, err);
       throw err; // devolve ao BullMQ para ele decidir sobre o retry
+    } finally {
+      // O job só é dado como terminado quando a capa também terminou (ou
+      // desistiu): uma chamada pendente num worker "ocioso" se perderia num
+      // desligamento. Nunca rejeita, então não muda o resultado acima.
+      await capaTerminou;
+      this.andamento.delete(generationId);
     }
   }
 
@@ -254,22 +280,33 @@ export class GenerationProcessor {
   }
 
   /**
-   * Gera só a capa e grava na própria música.
+   * Capa pedida à parte, para uma música já pronta. Custa crédito e grava na
+   * própria música — não nasce faixa nova.
    *
-   * Falhar aqui estorna o crédito da capa, mas não toca no áudio: a música
-   * continua pronta e tocável, só sem arte.
+   * Só a geração muda de status. A música continua `complete`, tocável e
+   * editável enquanto a capa é desenhada: foi gravar `generating_cover` nela
+   * que deixou faixas presas em "Carregando…" para sempre, porque nada
+   * devolvia o status depois. Pelo mesmo motivo, falhar aqui estorna o crédito
+   * da capa e não toca no áudio.
    */
   private async processCover(job: GenerationJob, song: Song): Promise<void> {
-    await this.transition(job, 'generating_cover');
+    await this.deps.dataSource
+      .getRepository(Generation)
+      .update({ id: job.generationId }, { status: 'generating_cover', startedAt: new Date() });
+    await this.publish({
+      userId: job.userId,
+      generationId: job.generationId,
+      songId: song.id,
+      status: 'generating_cover',
+      progress: STATUS_PROGRESS.generating_cover,
+    });
 
     try {
       if (!this.deps.coverArt.available) {
         throw new Error('Geração de capa indisponível: OPENROUTER_API_KEY não configurada.');
       }
 
-      const resultado = await this.deps.coverArt.generate(
-        job.coverPrompt ?? song.stylePrompt ?? song.title,
-      );
+      const resultado = await this.deps.coverArt.generate(job.coverPrompt ?? coverPromptFor(song));
       if (!resultado) throw new Error('O modelo de imagem não devolveu nenhuma capa.');
 
       const key = storageKeys.cover(song.id);
@@ -300,9 +337,9 @@ export class GenerationProcessor {
         },
       });
 
-      this.logger.log(`Capa de ${song.id} pronta.`);
+      this.logger.log(`Capa nova de ${song.id} pronta.`);
     } catch (err) {
-      await this.fail(job, err);
+      await this.fail(job, err, { mexeNaMusica: false });
       throw err;
     }
   }
@@ -355,39 +392,42 @@ export class GenerationProcessor {
   }
 
   /**
-   * O áudio ou já está no R2 (o motor de GPU subiu direto) ou veio em memória
-   * e precisa ser gravado aqui.
-   */
-  /**
-   * Desenha a capa a partir do mesmo prompt que gerou a música.
+   * Desenha a capa que nasce junto com a música.
    *
    * Não cobra crédito: é parte do mesmo pedido. Cobrar duas vezes por um
    * clique é o tipo de surpresa que faz o usuário desconfiar da fatura.
    *
-   * Nada aqui pode derrubar a geração. A música já está gravada, commitada e
-   * publicada quando isto roda; uma falha no modelo de imagem custa uma capa,
-   * e o card cai no gradiente com a inicial do título, que é o que já acontece
-   * hoje em toda música. Por isso o try/catch engole tudo e só registra.
+   * Nada aqui pode derrubar a geração: uma falha no modelo de imagem custa uma
+   * capa, e o card cai no gradiente com a inicial do título. Por isso o
+   * try/catch engole tudo e só registra, e a promessa devolve a chave da capa
+   * (ou null) em vez de rejeitar.
+   *
+   * O evento publicado sai com o status em que a música está: se ainda gera,
+   * o card troca o gradiente pela capa por baixo da barra de progresso; se já
+   * terminou, é o segundo evento de conclusão, agora com a arte.
    */
-  private async gerarCapa(song: Song, prompt: string): Promise<void> {
-    if (!this.deps.coverArt.available) return;
+  private async gerarCapa(job: GenerationJob, song: Song, prompt: string): Promise<string | null> {
+    if (!this.deps.coverArt.available) return null;
 
     try {
       const resultado = await this.deps.coverArt.generate(prompt);
-      if (!resultado) return;
+      if (!resultado) return null;
+
+      const status = this.andamento.get(job.generationId) ?? 'complete';
+      // A música falhou (ou foi cancelada) enquanto a capa era desenhada: não
+      // há o que ilustrar, e um evento agora reabriria o card na interface.
+      if (status === 'failed' || status === 'canceled') return null;
 
       const key = storageKeys.cover(song.id);
       await this.deps.storage.putObject(key, resultado.data, resultado.mimeType);
       await this.deps.dataSource.getRepository(Song).update({ id: song.id }, { coverKey: key });
 
-      // Segundo evento de conclusão, agora com a capa. A interface recarrega a
-      // música e a imagem entra no lugar do gradiente.
       await this.publish({
-        userId: song.userId,
-        generationId: song.id,
+        userId: job.userId,
+        generationId: job.generationId,
         songId: song.id,
-        status: 'complete',
-        progress: STATUS_PROGRESS.complete,
+        status,
+        progress: STATUS_PROGRESS[status],
         song: {
           id: song.id,
           title: song.title,
@@ -398,8 +438,10 @@ export class GenerationProcessor {
       });
 
       this.logger.log(`Capa de ${song.id} pronta.`);
+      return key;
     } catch (err) {
       this.logger.warn(`Não desenhei a capa de ${song.id}: ${(err as Error).message}`);
+      return null;
     }
   }
 
@@ -438,6 +480,10 @@ export class GenerationProcessor {
     return medido;
   }
 
+  /**
+   * O áudio ou já está no R2 (o motor de GPU subiu direto) ou veio em memória
+   * e precisa ser gravado aqui.
+   */
   private async storeAudio(
     songId: string,
     master: MasterFormat,
@@ -471,6 +517,7 @@ export class GenerationProcessor {
     await this.deps.dataSource
       .getRepository(Song)
       .update({ id: job.songId }, { status });
+    this.andamento.set(job.generationId, status);
 
     await this.publish({
       userId: job.userId,
@@ -481,15 +528,28 @@ export class GenerationProcessor {
     });
   }
 
-  private async fail(job: GenerationJob, err: unknown): Promise<void> {
+  /**
+   * Marca a geração como falha, estorna e avisa.
+   *
+   * `mexeNaMusica: false` é para a capa pedida à parte: a música já estava
+   * pronta antes do pedido e continua pronta depois dele.
+   */
+  private async fail(
+    job: GenerationJob,
+    err: unknown,
+    { mexeNaMusica = true }: { mexeNaMusica?: boolean } = {},
+  ): Promise<void> {
     const message = err instanceof Error ? err.message : String(err);
+    if (mexeNaMusica) this.andamento.set(job.generationId, 'failed');
 
     await this.deps.dataSource.transaction(async (em) => {
       await em.getRepository(Generation).update(
         { id: job.generationId },
         { status: 'failed', errorMessage: message, finishedAt: new Date() },
       );
-      await em.getRepository(Song).update({ id: job.songId }, { status: 'failed' });
+      if (mexeNaMusica) {
+        await em.getRepository(Song).update({ id: job.songId }, { status: 'failed' });
+      }
     });
 
     // Estorno idempotente: se o BullMQ tentar de novo e falhar de novo, o

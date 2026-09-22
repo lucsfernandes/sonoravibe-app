@@ -19,6 +19,41 @@ export interface CoverArtResult {
   mimeType: string;
 }
 
+/**
+ * O que o modelo de imagem recebe quando a capa sai junto com a música:
+ * título, estilo e o começo da letra.
+ *
+ * Só o estilo dá capa genérica — "forró" vira sanfona em toda música. A letra
+ * traz o tema (o quintal, a estrada, a pessoa), que é o que faz a capa parecer
+ * desta música e não de qualquer outra do mesmo gênero. Vai só o começo: o
+ * modelo não precisa dos três refrões, e prompt comprido custa token à toa.
+ */
+export function coverPromptFor(song: {
+  title: string;
+  stylePrompt: string | null;
+  lyrics: string | null;
+  instrumental: boolean;
+}): string {
+  const partes = [song.title.trim()];
+
+  const estilo = song.stylePrompt?.trim();
+  if (estilo && estilo !== song.title.trim()) partes.push(`Estilo: ${estilo}`);
+
+  if (!song.instrumental && song.lyrics) {
+    const trecho = song.lyrics
+      .split('\n')
+      .map((linha) => linha.trim())
+      // Marcações de seção ([Verso], [Refrão]) não descrevem imagem nenhuma.
+      .filter((linha) => linha && !/^\[.*\]$/.test(linha))
+      .slice(0, 6)
+      .join(' / ')
+      .slice(0, 300);
+    if (trecho) partes.push(`Tema da letra: ${trecho}`);
+  }
+
+  return partes.join('. ');
+}
+
 export class CoverArtGenerator {
   constructor(private readonly config: CoverArtConfig) {}
 

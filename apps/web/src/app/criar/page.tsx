@@ -77,7 +77,16 @@ function Conteudo() {
           <ul className="mb-5 space-y-2">
             {andamento.map((g) => (
               <li key={g.generationId} className="card flex items-center gap-3 p-3">
-                <span className="size-10 shrink-0 rounded-lg gradiente-acento pulsando" aria-hidden />
+                {g.song?.coverUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- URL assinada do R2, expira
+                  <img
+                    src={g.song.coverUrl}
+                    alt=""
+                    className="size-10 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <span className="size-10 shrink-0 rounded-lg gradiente-acento pulsando" aria-hidden />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">
                     {ROTULOS_STATUS[g.status]?.[locale] ?? g.status}

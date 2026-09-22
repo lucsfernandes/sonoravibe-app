@@ -19,7 +19,10 @@ export const CREDIT_COSTS = {
   replaceSection: 10,
   /** Remasterizar */
   remaster: 10,
-  /** Capa gerada por modelo de imagem */
+  /**
+   * Capa NOVA para uma música pronta. A primeira capa sai junto com a música,
+   * desenhada em paralelo ao áudio, e não custa nada: é o mesmo pedido.
+   */
   cover: 2,
   /** Letra escrita por LLM */
   lyrics: 1,
