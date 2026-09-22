@@ -428,6 +428,24 @@ const T: Dicionario = {
     en: 'Cancel whenever you want. Access lasts until the end of the paid period.',
   },
 
+  // Formulário de pagamento (assinatura e pacote)
+  'checkout.nome': { pt: 'Nome completo', en: 'Full name' },
+  'checkout.redirecionando': {
+    pt: 'Você vai para a página segura de pagamento. O cartão é digitado lá, nunca aqui.',
+    en: 'You will go to the secure payment page. Card details are entered there, never here.',
+  },
+  'checkout.pixTitulo': { pt: 'Pague com o Pix', en: 'Pay with Pix' },
+  'checkout.pixInstrucao': {
+    pt: 'Escaneie o QR code ou copie o código. Os créditos entram assim que o pagamento for confirmado.',
+    en: 'Scan the QR code or copy the code. Credits arrive as soon as the payment is confirmed.',
+  },
+  'checkout.copiar': { pt: 'Copiar código Pix', en: 'Copy Pix code' },
+  'checkout.copiado': { pt: 'Copiado', en: 'Copied' },
+  'checkout.aguardando': { pt: 'Aguardando o pagamento…', en: 'Waiting for payment…' },
+  'checkout.confirmado': { pt: 'Pagamento confirmado.', en: 'Payment confirmed.' },
+  'checkout.fechar': { pt: 'Voltar', en: 'Back' },
+  'checkout.comprarPacote': { pt: 'Comprar pacote', en: 'Buy pack' },
+
   'auth.rodape': {
     pt: 'Feito no Brasil. Preços em real.',
     en: 'Made in Brazil. Prices in BRL.',

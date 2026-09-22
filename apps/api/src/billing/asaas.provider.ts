@@ -31,10 +31,16 @@ const BILLING_TYPE: Record<PaymentMethod, string> = {
 
 interface AsaasCustomer {
   id: string;
+  cpfCnpj?: string | null;
+}
+interface AsaasSubscription {
+  id: string;
+  status: string;
 }
 interface AsaasPayment {
   id: string;
   status: string;
+  billingType?: string;
   invoiceUrl?: string;
   bankSlipUrl?: string;
   dueDate?: string;
@@ -42,9 +48,14 @@ interface AsaasPayment {
   externalReference?: string;
   subscription?: string;
 }
+interface AsaasPixQrCode {
+  encodedImage: string;
+  payload: string;
+}
 
 export class AsaasProvider implements PaymentProvider {
   readonly id = 'asaas';
+  readonly requiresTaxId = true;
   private readonly logger = new Logger(AsaasProvider.name);
   private readonly baseUrl: string;
   private readonly apiKey: string;
@@ -64,7 +75,19 @@ export class AsaasProvider implements PaymentProvider {
       `/customers?email=${encodeURIComponent(input.email)}`,
       { method: 'GET' },
     );
-    if (existing.data?.[0]) return existing.data[0].id;
+    const found = existing.data?.[0];
+    if (found) {
+      // Um cliente criado sem documento (compra de pacote antiga, cadastro
+      // manual no painel) ficaria sem CPF para sempre, e toda cobrança dele
+      // falharia com "preencha o CPF" por mais que a pessoa informasse.
+      if (input.taxId && found.cpfCnpj !== input.taxId) {
+        await this.request(`/customers/${found.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ name: input.name, cpfCnpj: input.taxId }),
+        });
+      }
+      return found.id;
+    }
 
     const created = await this.request<AsaasCustomer>('/customers', {
       method: 'POST',
@@ -78,8 +101,14 @@ export class AsaasProvider implements PaymentProvider {
     return created.id;
   }
 
+  /**
+   * A resposta de `POST /subscriptions` é a assinatura (status ACTIVE), não
+   * uma cobrança: ela não tem link de pagamento nem status de pago. Quem tem é
+   * a primeira cobrança, que o Asaas gera logo em seguida. É ela que vai para
+   * o usuário, e é o id dela que o webhook devolve depois.
+   */
   async createSubscription(input: SubscriptionInput): Promise<PaymentResult> {
-    const payment = await this.request<AsaasPayment>('/subscriptions', {
+    const subscription = await this.request<AsaasSubscription>('/subscriptions', {
       method: 'POST',
       body: JSON.stringify({
         customer: input.customerRef,
@@ -90,7 +119,19 @@ export class AsaasProvider implements PaymentProvider {
         nextDueDate: hoje(),
       }),
     });
-    return this.toResult(payment);
+
+    const primeira = await this.firstPayment(subscription.id);
+    if (!primeira) {
+      this.logger.warn(`Assinatura ${subscription.id} criada sem cobrança inicial visível.`);
+      return { ref: subscription.id, status: 'pending' };
+    }
+
+    return {
+      ...this.toResult(primeira),
+      ...(await this.pixOf(primeira, input.method)),
+      ref: subscription.id,
+      paymentRef: primeira.id,
+    };
   }
 
   async cancelSubscription(subscriptionRef: string): Promise<void> {
@@ -109,7 +150,41 @@ export class AsaasProvider implements PaymentProvider {
         dueDate: hoje(),
       }),
     });
-    return this.toResult(payment);
+    return { ...this.toResult(payment), ...(await this.pixOf(payment, input.method)) };
+  }
+
+  /** A cobrança gerada na criação da assinatura. Uma nova tentativa cobre o atraso raro do Asaas. */
+  private async firstPayment(subscriptionId: string): Promise<AsaasPayment | null> {
+    for (let tentativa = 0; tentativa < 2; tentativa += 1) {
+      if (tentativa > 0) await new Promise((r) => setTimeout(r, 1500));
+      const lista = await this.request<{ data: AsaasPayment[] }>(
+        `/subscriptions/${subscriptionId}/payments?limit=1`,
+        { method: 'GET' },
+      );
+      if (lista.data?.[0]) return lista.data[0];
+    }
+    return null;
+  }
+
+  /**
+   * QR e copia-e-cola do Pix, para mostrar na nossa tela em vez de mandar a
+   * pessoa para a página do gateway. Se falhar, o `paymentUrl` ainda serve:
+   * a página do Asaas também mostra o Pix.
+   */
+  private async pixOf(
+    payment: AsaasPayment,
+    method: PaymentMethod,
+  ): Promise<Pick<PaymentResult, 'pixQrCode' | 'pixImage'>> {
+    if (method !== 'pix') return {};
+    try {
+      const pix = await this.request<AsaasPixQrCode>(`/payments/${payment.id}/pixQrCode`, {
+        method: 'GET',
+      });
+      return { pixQrCode: pix.payload, pixImage: pix.encodedImage };
+    } catch (err) {
+      this.logger.warn(`Sem QR do Pix para ${payment.id}: ${(err as Error).message}`);
+      return {};
+    }
   }
 
   parseWebhook(
@@ -131,7 +206,13 @@ export class AsaasProvider implements PaymentProvider {
       );
     }
 
-    const evento = body as { event?: string; payment?: AsaasPayment };
+    // Evento de cobrança traz `payment`; evento de assinatura (SUBSCRIPTION_*)
+    // traz `subscription` no lugar, e a cobrança não existe.
+    const evento = body as {
+      event?: string;
+      payment?: AsaasPayment;
+      subscription?: AsaasSubscription;
+    };
     const payment = evento.payment;
 
     const kind = ((): WebhookEvent['kind'] => {
@@ -157,9 +238,10 @@ export class AsaasProvider implements PaymentProvider {
     return {
       kind,
       paymentRef: payment?.id,
-      subscriptionRef: payment?.subscription,
+      subscriptionRef: payment?.subscription ?? evento.subscription?.id,
       externalReference: payment?.externalReference,
       amountBrl: payment?.value,
+      method: methodOf(payment?.billingType),
       raw: body,
     };
   }
@@ -213,6 +295,11 @@ export class AsaasProvider implements PaymentProvider {
 
 function hoje(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** O inverso de BILLING_TYPE. 'UNDEFINED' (cliente escolhe na fatura) fica sem método. */
+function methodOf(billingType?: string): PaymentMethod | undefined {
+  return (Object.keys(BILLING_TYPE) as PaymentMethod[]).find((m) => BILLING_TYPE[m] === billingType);
 }
 
 /**

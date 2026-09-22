@@ -48,6 +48,7 @@ export interface CheckoutView {
   amountBrl: number;
   paymentUrl?: string;
   pixQrCode?: string;
+  pixImage?: string;
   /** Preenchido quando o gateway confirma na hora (Pix pago, ou o provider fake). */
   creditsGranted?: number;
 }
@@ -147,6 +148,7 @@ export class BillingService {
     planCode: PlanCode,
     method: PaymentMethod,
     taxId?: string,
+    name?: string,
   ): Promise<CheckoutView> {
     if (planCode === 'free') {
       throw new BadRequestException('O plano Free não precisa de assinatura.');
@@ -158,10 +160,11 @@ export class BillingService {
       throw new BadRequestException(`Você já está no plano ${plan.name}.`);
     }
 
+    this.assertTaxId(taxId);
     const user = await this.userOf(userId);
     const customerRef = await this.gateway.ensureCustomer({
       userId,
-      name: user.name,
+      name: name ?? user.name,
       email: user.email,
       taxId,
     });
@@ -197,7 +200,8 @@ export class BillingService {
           method,
           status: result.status === 'confirmed' ? 'confirmed' : 'pending',
           providerId: this.gateway.id,
-          providerRef: result.ref,
+          // A cobrança, não a assinatura: é o id que chega no webhook.
+          providerRef: result.paymentRef ?? result.ref,
           checkoutUrl: result.paymentUrl ?? null,
           pixPayload: result.pixQrCode ?? null,
           paidAt: result.status === 'confirmed' ? new Date() : null,
@@ -222,6 +226,7 @@ export class BillingService {
       amountBrl: plan.priceBrl,
       paymentUrl: result.paymentUrl,
       pixQrCode: result.pixQrCode,
+      pixImage: result.pixImage,
       ...(granted ? { creditsGranted: granted } : {}),
     };
   }
@@ -253,14 +258,16 @@ export class BillingService {
     packCode: string,
     method: PaymentMethod,
     taxId?: string,
+    name?: string,
   ): Promise<CheckoutView> {
     const pack = CREDIT_PACKS.find((p) => p.code === packCode);
     if (!pack) throw new NotFoundException(`Pacote '${packCode}' não existe.`);
 
+    this.assertTaxId(taxId);
     const user = await this.userOf(userId);
     const customerRef = await this.gateway.ensureCustomer({
       userId,
-      name: user.name,
+      name: name ?? user.name,
       email: user.email,
       taxId,
     });
@@ -290,7 +297,7 @@ export class BillingService {
     await this.dataSource.getRepository(Payment).update(
       { id: payment.id },
       {
-        providerRef: result.ref,
+        providerRef: result.paymentRef ?? result.ref,
         status: result.status === 'confirmed' ? 'confirmed' : 'pending',
         checkoutUrl: result.paymentUrl ?? null,
         pixPayload: result.pixQrCode ?? null,
@@ -306,8 +313,16 @@ export class BillingService {
       amountBrl: pack.priceBrl,
       paymentUrl: result.paymentUrl,
       pixQrCode: result.pixQrCode,
+      pixImage: result.pixImage,
       ...(granted ? { creditsGranted: granted } : {}),
     };
+  }
+
+  /** Recusa aqui, com mensagem nossa, em vez de repassar o 400 do gateway. */
+  private assertTaxId(taxId?: string): void {
+    if (this.gateway.requiresTaxId && !taxId) {
+      throw new BadRequestException('Informe o CPF ou CNPJ para emitir a cobrança.');
+    }
   }
 
   /**
@@ -318,6 +333,7 @@ export class BillingService {
    */
   async handleWebhook(event: WebhookEvent): Promise<{ handled: boolean; creditsGranted?: number }> {
     if (event.kind === 'ignored') return { handled: false };
+    if (event.kind === 'subscription_canceled') return this.cancelFromGateway(event.subscriptionRef);
 
     const payment = await this.findPayment(event);
     if (!payment) {
@@ -342,14 +358,27 @@ export class BillingService {
       return { handled: true };
     }
 
-    if (event.kind === 'subscription_canceled' && payment.subscriptionId) {
-      await this.dataSource
-        .getRepository(Subscription)
-        .update({ id: payment.subscriptionId }, { status: 'canceled', canceledAt: new Date() });
-      return { handled: true };
-    }
-
     return { handled: false };
+  }
+
+  /**
+   * A assinatura foi removida no gateway: pelo painel do Asaas, ou pelo nosso
+   * próprio cancelamento, que volta como evento. O evento de assinatura não
+   * tem cobrança, então não passa por `findPayment`.
+   */
+  private async cancelFromGateway(subscriptionRef?: string): Promise<{ handled: boolean }> {
+    const repo = this.dataSource.getRepository(Subscription);
+    const subscription = subscriptionRef ? await repo.findOneBy({ providerRef: subscriptionRef }) : null;
+    if (!subscription) {
+      this.logger.warn(`Webhook de cancelamento sem assinatura correspondente (ref ${subscriptionRef}).`);
+      return { handled: false };
+    }
+    // Já cancelada por aqui: a data que vale é a de quem cancelou.
+    if (subscription.status !== 'canceled') {
+      await repo.update({ id: subscription.id }, { status: 'canceled', canceledAt: new Date() });
+      this.logger.log(`Assinatura ${subscription.id} cancelada pelo gateway.`);
+    }
+    return { handled: true };
   }
 
   /**
@@ -423,6 +452,15 @@ export class BillingService {
     return credits;
   }
 
+  /**
+   * A cobrança a que o evento se refere — ou, numa renovação, a linha nova dela.
+   *
+   * Só a primeira cobrança da assinatura é gravada, no checkout. No mês
+   * seguinte o gateway gera outra e avisa com um id que não existe na tabela.
+   * Responder com "a última cobrança da assinatura" era responder com a do mês
+   * anterior, já com `creditsGranted`, e o mês pago ficava sem crédito. Cada
+   * cobrança do gateway vira uma linha própria: é nela que a flag vive.
+   */
   private async findPayment(event: WebhookEvent): Promise<Payment | null> {
     const repo = this.dataSource.getRepository(Payment);
     if (event.externalReference) {
@@ -433,18 +471,53 @@ export class BillingService {
       const byProvider = await repo.findOneBy({ providerRef: event.paymentRef });
       if (byProvider) return byProvider;
     }
-    if (event.subscriptionRef) {
-      const subscription = await this.dataSource
-        .getRepository(Subscription)
-        .findOneBy({ providerRef: event.subscriptionRef });
-      if (subscription) {
-        return repo.findOne({
-          where: { subscriptionId: subscription.id },
-          order: { createdAt: 'DESC' },
-        });
-      }
+    if (!event.subscriptionRef) return null;
+
+    const subscription = await this.dataSource
+      .getRepository(Subscription)
+      .findOneBy({ providerRef: event.subscriptionRef });
+    if (!subscription) return null;
+
+    const anterior = await repo.findOne({
+      where: { subscriptionId: subscription.id },
+      order: { createdAt: 'DESC' },
+    });
+    // Evento sem cobrança: só serve para chegar à assinatura.
+    if (!event.paymentRef) return anterior;
+
+    return this.renewalPayment(subscription, event.paymentRef, event, anterior);
+  }
+
+  /**
+   * Registra a cobrança de renovação, uma vez só. O índice único de
+   * `providerRef` decide a corrida entre duas entregas simultâneas do mesmo
+   * evento: a que perde reaproveita a linha da que ganhou.
+   */
+  private async renewalPayment(
+    subscription: Subscription,
+    providerRef: string,
+    event: WebhookEvent,
+    anterior: Payment | null,
+  ): Promise<Payment> {
+    const repo = this.dataSource.getRepository(Payment);
+    const linha = repo.create({
+      userId: subscription.userId,
+      subscriptionId: subscription.id,
+      amountBrl: String(event.amountBrl ?? PLANS[subscription.planCode].priceBrl),
+      method: event.method ?? anterior?.method ?? 'pix',
+      status: 'pending',
+      providerId: this.gateway.id,
+      providerRef,
+    });
+    try {
+      const salva = await repo.save(linha);
+      this.logger.log(`Renovação da assinatura ${subscription.id}: cobrança ${providerRef} registrada.`);
+      return salva;
+    } catch (err) {
+      const existente = await repo.findOneBy({ providerRef });
+      if (existente) return existente;
+      throw err;
     }
-    return null;
   }
 
   private async userOf(userId: string): Promise<User> {

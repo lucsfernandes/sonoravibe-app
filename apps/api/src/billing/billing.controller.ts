@@ -21,8 +21,14 @@ import { Inject } from '@nestjs/common';
 
 const checkoutSchema = z.object({
   method: z.enum(['pix', 'credit_card', 'boleto']).default('pix'),
-  /** CPF/CNPJ — o Asaas exige para cobrança no Brasil. */
-  taxId: z.string().trim().min(11).max(18).optional(),
+  /** Nome para a fatura, quando diferente do nome da conta. */
+  name: z.string().trim().min(2).max(120).optional(),
+  /** CPF/CNPJ — o Asaas exige para cobrança no Brasil. Aceita com ou sem pontuação. */
+  taxId: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ''))
+    .refine((v) => v.length === 11 || v.length === 14, 'CPF tem 11 dígitos e CNPJ tem 14.')
+    .optional(),
 });
 
 @Controller()
@@ -59,7 +65,7 @@ export class BillingController {
       body,
       'assinatura',
     );
-    return this.billing.subscribe(user.id, data.planCode, data.method, data.taxId);
+    return this.billing.subscribe(user.id, data.planCode, data.method, data.taxId, data.name);
   }
 
   @Post('billing/cancel')
@@ -76,7 +82,7 @@ export class BillingController {
     @Body() body: unknown,
   ): Promise<CheckoutView> {
     const data = parseOrThrow(checkoutSchema, body, 'compra de pacote');
-    return this.billing.buyPack(user.id, code, data.method, data.taxId);
+    return this.billing.buyPack(user.id, code, data.method, data.taxId, data.name);
   }
 
   /**
