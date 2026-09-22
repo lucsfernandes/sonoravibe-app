@@ -52,6 +52,6 @@ data:
   OPENROUTER_SITE_URL: "https://sonoravibe.com"
 
   # Produção do Asaas. O sandbox é api-sandbox.asaas.com/v3.
-  ASAAS_BASE_URL: "https://api.asaas.com/v3"
+  # ASAAS_BASE_URL: "https://api.asaas.com/v3"
 
   R2_PUBLIC_URL: "https://cdn.sonoravibe.com"

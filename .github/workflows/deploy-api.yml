@@ -64,6 +64,7 @@ jobs:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_ENDPOINT_ID: ${{ secrets.RUNPOD_ENDPOINT_ID }}
           ASAAS_API_KEY: ${{ secrets.ASAAS_API_KEY }}
+          ASAAS_BASE_URL: ${{ secrets.ASAAS_BASE_URL }}
           ASAAS_WEBHOOK_TOKEN: ${{ secrets.ASAAS_WEBHOOK_TOKEN }}
         run: |
           kubectl create secret generic sonora-api-secret -n sonora \
@@ -78,6 +79,7 @@ jobs:
             --from-literal=RUNPOD_API_KEY="$RUNPOD_API_KEY" \
             --from-literal=RUNPOD_ENDPOINT_ID="$RUNPOD_ENDPOINT_ID" \
             --from-literal=ASAAS_API_KEY="$ASAAS_API_KEY" \
+            --from-literal=ASAAS_BASE_URL="$ASAAS_BASE_URL" \
             --from-literal=ASAAS_WEBHOOK_TOKEN="$ASAAS_WEBHOOK_TOKEN" \
             --dry-run=client -o yaml | kubectl apply -f -
 
