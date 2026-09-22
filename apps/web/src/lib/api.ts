@@ -190,6 +190,23 @@ export async function enviarUpload(
   return corpo as Musica;
 }
 
+/** Envia a foto de perfil (já reduzida no navegador) como corpo bruto. */
+export async function enviarAvatar(imagem: Blob): Promise<{ avatarUrl: string }> {
+  const resposta = await buscar(`${API_URL}/me/avatar`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json', 'Content-Type': imagem.type || 'image/jpeg' },
+    body: imagem,
+  });
+  const texto = await resposta.text();
+  const corpo = texto ? seguroJson(texto) : null;
+  if (!resposta.ok) {
+    const mensagem = (corpo as { message?: string })?.message ?? `Erro ${resposta.status}`;
+    throw new ApiError(mensagem, resposta.status, corpo);
+  }
+  return corpo as { avatarUrl: string };
+}
+
 export const api = {
   get: <T>(caminho: string) => request<T>(caminho),
   post: <T>(caminho: string, corpo?: unknown) =>
@@ -287,6 +304,17 @@ export interface Workspace {
   name: string;
   isDefault: boolean;
   songCount: number;
+}
+
+/** O próprio usuário, como `GET /me` devolve: é o que o menu da barra lateral mostra. */
+export interface Perfil {
+  id: string;
+  email: string;
+  handle: string;
+  displayName: string;
+  bio: string | null;
+  avatarUrl: string | null;
+  locale: string;
 }
 
 export interface ProgressoGeracao {

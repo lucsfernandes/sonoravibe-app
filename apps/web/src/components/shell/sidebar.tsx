@@ -3,8 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useI18n, type Locale } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n';
 import { useSessao } from '@/lib/sessao';
+import { Avatar } from './avatar';
+import { EditarPerfil } from './editar-perfil';
+import { ItensMenuUsuario, MenuUsuario } from './menu-usuario';
 
 /**
  * Navegação lateral.
@@ -30,10 +33,11 @@ const ITENS = [
 ] as const;
 
 export function Sidebar() {
-  const { t, locale, setLocale } = useI18n();
-  const { usuario, saldo, sair } = useSessao();
+  const { t } = useI18n();
+  const { usuario, saldo, perfil } = useSessao();
   const caminho = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
+  const [editandoPerfil, setEditandoPerfil] = useState(false);
 
   /**
    * Menu lateral recolhido, em ícones só.
@@ -69,9 +73,14 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Desktop */}
+      {/* Desktop. A altura desconta o player fixo: sem isso o bloco do usuário,
+          no pé da barra, ficava escondido atrás dele enquanto uma faixa
+          tocava. */}
+      {/* `z-20`: a barra é sticky, o que cria um contexto de empilhamento
+          próprio; sem um z-index nela, o submenu do usuário (que abre para o
+          lado com o menu recolhido) ficava pintado por baixo do conteúdo. */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-borda bg-fundo py-5 transition-[width] duration-200 md:flex ${
+        className={`sticky top-0 z-20 hidden h-[calc(100vh-var(--altura-player))] shrink-0 flex-col border-r border-borda bg-fundo py-5 transition-[width] duration-200 md:flex ${
           recolhido ? 'w-[4.5rem] px-2' : 'w-60 px-3'
         }`}
       >
@@ -125,37 +134,9 @@ export function Sidebar() {
         </nav>
 
         <div className="mt-auto flex flex-col gap-3">
-          {/* Some quando recolhido: dois botões de idioma não cabem em 4.5rem
-              sem virar um alvo pequeno demais para acertar. */}
-          {!recolhido && <SeletorIdioma locale={locale} setLocale={setLocale} />}
-
-          {usuario ? (
-            <div className="rounded-xl border border-borda bg-superficie p-3">
-              <p className="truncate text-sm font-medium">{usuario.name}</p>
-              {saldo && (
-                <p className="mt-0.5 text-xs text-texto-suave">
-                  {saldo.balance.total.toLocaleString(locale === 'pt' ? 'pt-BR' : 'en-US')}{' '}
-                  {t('criar.custo')}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => void sair()}
-                className="mt-2 text-xs text-texto-fraco transition-colors hover:text-texto"
-              >
-                {t('nav.sair')}
-              </button>
-            </div>
-          ) : (
-            <Link
-              href="/entrar"
-              className="rounded-xl gradiente-acento px-4 py-2.5 text-center text-sm font-semibold text-white"
-            >
-              {t('nav.entrar')}
-            </Link>
-          )}
-
-          {usuario && saldo?.planCode === 'free' && (
+          {/* O convite ao Premier some com o menu recolhido: em 4.5rem viraria
+              um alvo pequeno demais para acertar. */}
+          {usuario && saldo?.planCode === 'free' && !recolhido && (
             <Link
               href="/creditos"
               className="rounded-xl border border-acento/40 px-4 py-2.5 text-center text-sm font-semibold text-acento transition-colors hover:bg-acento-suave"
@@ -163,11 +144,26 @@ export function Sidebar() {
               {t('nav.upgrade')}
             </Link>
           )}
+
+          {usuario ? (
+            <MenuUsuario recolhido={recolhido} />
+          ) : (
+            <Link
+              href="/entrar"
+              title={t('nav.entrar')}
+              className={`rounded-xl gradiente-acento py-2.5 text-center text-sm font-semibold text-white ${
+                recolhido ? 'px-0' : 'px-4'
+              }`}
+            >
+              {recolhido ? '→' : t('nav.entrar')}
+            </Link>
+          )}
         </div>
       </aside>
 
-      {/* Celular: barra inferior, acima do player */}
-      <nav className="fixed inset-x-0 bottom-20 z-30 flex items-center justify-around border-t border-borda bg-fundo/95 px-2 py-2 backdrop-blur md:hidden">
+      {/* Celular: barra inferior, colada no rodapé ou logo acima do player
+          quando há faixa tocando. */}
+      <nav className="fixed inset-x-0 bottom-[var(--altura-player)] z-30 flex items-center justify-around border-t border-borda bg-fundo/95 px-2 py-2 backdrop-blur md:hidden">
         {ITENS.filter((i) => !i.soDesktop).map(({ href, chave, icone: Icone }) => (
           <Link
             key={href}
@@ -185,63 +181,49 @@ export function Sidebar() {
           type="button"
           onClick={() => setMenuAberto((v) => !v)}
           aria-expanded={menuAberto}
-          aria-label={t('geral.fechar')}
-          className="flex min-w-16 flex-col items-center gap-1 px-2 py-1.5 text-[10px] text-texto-fraco"
+          aria-haspopup="menu"
+          aria-label={t('nav.menuUsuario')}
+          className={`flex min-w-16 flex-col items-center gap-1 px-2 py-1.5 text-[10px] ${
+            menuAberto ? 'text-acento' : 'text-texto-fraco'
+          }`}
         >
-          <PessoaIcone />
-          {usuario ? usuario.name.split(' ')[0] : t('nav.entrar')}
+          {usuario ? (
+            <Avatar url={perfil?.avatarUrl ?? usuario.image} nome={perfil?.displayName || usuario.name} tamanho={20} />
+          ) : (
+            <PessoaIcone />
+          )}
+          {usuario ? (perfil?.displayName || usuario.name).split(' ')[0] : t('nav.entrar')}
         </button>
       </nav>
 
       {menuAberto && (
-        <div className="fixed inset-x-0 bottom-36 z-40 mx-3 rounded-xl border border-borda bg-superficie p-3 md:hidden">
-          <SeletorIdioma locale={locale} setLocale={setLocale} />
+        <div
+          role="menu"
+          aria-label={t('nav.menuUsuario')}
+          className="fixed inset-x-0 bottom-[calc(var(--altura-player)+4.5rem)] z-40 mx-3 rounded-xl border border-borda bg-superficie-alta p-1.5 shadow-xl md:hidden"
+        >
           {usuario ? (
-            <button
-              type="button"
-              onClick={() => void sair()}
-              className="mt-3 w-full rounded-lg border border-borda py-2 text-sm"
-            >
-              {t('nav.sair')}
-            </button>
+            <ItensMenuUsuario
+              aoEditar={() => {
+                setMenuAberto(false);
+                setEditandoPerfil(true);
+              }}
+              aoFechar={() => setMenuAberto(false)}
+            />
           ) : (
             <Link
               href="/entrar"
               onClick={() => setMenuAberto(false)}
-              className="mt-3 block rounded-lg gradiente-acento py-2 text-center text-sm font-semibold text-white"
+              className="block rounded-lg gradiente-acento py-2 text-center text-sm font-semibold text-white"
             >
               {t('nav.entrar')}
             </Link>
           )}
         </div>
       )}
-    </>
-  );
-}
 
-function SeletorIdioma({
-  locale,
-  setLocale,
-}: {
-  locale: Locale;
-  setLocale: (l: Locale) => void;
-}) {
-  return (
-    <div className="flex rounded-lg border border-borda p-0.5" role="group" aria-label="Idioma">
-      {(['pt', 'en'] as const).map((opcao) => (
-        <button
-          key={opcao}
-          type="button"
-          onClick={() => setLocale(opcao)}
-          aria-pressed={locale === opcao}
-          className={`flex-1 rounded-md py-1 text-xs font-medium transition-colors ${
-            locale === opcao ? 'bg-superficie-alta text-texto' : 'text-texto-fraco'
-          }`}
-        >
-          {opcao === 'pt' ? 'PT-BR' : 'EN'}
-        </button>
-      ))}
-    </div>
+      {editandoPerfil && <EditarPerfil aoFechar={() => setEditandoPerfil(false)} />}
+    </>
   );
 }
 

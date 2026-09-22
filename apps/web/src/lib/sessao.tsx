@@ -9,14 +9,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { API_URL, api, type Saldo } from './api';
+import { API_URL, api, type Perfil, type Saldo } from './api';
 
 /**
- * Sessão e saldo, num contexto só.
+ * Sessão, saldo e perfil, num contexto só.
  *
- * Os dois andam juntos na interface: quase toda tela que sabe quem é o usuário
- * também precisa mostrar quantos créditos restam, e separá-los levaria a duas
- * chamadas em cascata no primeiro render.
+ * Os três andam juntos na interface: quase toda tela que sabe quem é o usuário
+ * também precisa mostrar quantos créditos restam e o nome e a foto no menu, e
+ * separá-los levaria a chamadas em cascata no primeiro render.
  */
 
 export interface Usuario {
@@ -29,11 +29,14 @@ export interface Usuario {
 interface Sessao {
   usuario: Usuario | null;
   saldo: Saldo | null;
+  /** Nome de exibição, handle, bio e foto. Null até carregar (ou se falhar). */
+  perfil: Perfil | null;
   carregando: boolean;
   entrar: (email: string, senha: string) => Promise<void>;
   cadastrar: (nome: string, email: string, senha: string) => Promise<void>;
   sair: () => Promise<void>;
   recarregarSaldo: () => Promise<void>;
+  recarregarPerfil: () => Promise<void>;
 }
 
 const Contexto = createContext<Sessao | null>(null);
@@ -41,6 +44,7 @@ const Contexto = createContext<Sessao | null>(null);
 export function SessaoProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [saldo, setSaldo] = useState<Saldo | null>(null);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [carregando, setCarregando] = useState(true);
 
   const carregarSaldo = useCallback(async () => {
@@ -53,6 +57,15 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const carregarPerfil = useCallback(async () => {
+    try {
+      setPerfil(await api.get<Perfil>('/me'));
+    } catch {
+      // Sem perfil o menu cai no nome da sessão e na inicial do nome.
+      setPerfil(null);
+    }
+  }, []);
+
   const carregarSessao = useCallback(async () => {
     try {
       const resposta = await fetch(`${API_URL}/api/auth/get-session`, {
@@ -60,13 +73,13 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       });
       const dados = (await resposta.json()) as { user?: Usuario } | null;
       setUsuario(dados?.user ?? null);
-      if (dados?.user) await carregarSaldo();
+      if (dados?.user) await Promise.all([carregarSaldo(), carregarPerfil()]);
     } catch {
       setUsuario(null);
     } finally {
       setCarregando(false);
     }
-  }, [carregarSaldo]);
+  }, [carregarSaldo, carregarPerfil]);
 
   useEffect(() => {
     void carregarSessao();
@@ -91,15 +104,16 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       }
 
       setUsuario(dados?.user ?? null);
-      await carregarSaldo();
+      await Promise.all([carregarSaldo(), carregarPerfil()]);
     },
-    [carregarSaldo],
+    [carregarSaldo, carregarPerfil],
   );
 
   const valor = useMemo<Sessao>(
     () => ({
       usuario,
       saldo,
+      perfil,
       carregando,
       entrar: (email, password) => autenticar('sign-in/email', { email, password }),
       cadastrar: (name, email, password) =>
@@ -111,10 +125,12 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
         });
         setUsuario(null);
         setSaldo(null);
+        setPerfil(null);
       },
       recarregarSaldo: carregarSaldo,
+      recarregarPerfil: carregarPerfil,
     }),
-    [usuario, saldo, carregando, autenticar, carregarSaldo],
+    [usuario, saldo, perfil, carregando, autenticar, carregarSaldo, carregarPerfil],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

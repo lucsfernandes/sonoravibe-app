@@ -257,7 +257,9 @@ export function BibliotecaCriar({
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
+      {/* `relative`: contém os elementos absolutos (rótulos `sr-only`, menus)
+          dentro do recorte, senão eles esticam a rolagem da página. */}
+      <div className="relative min-h-0 flex-1 overflow-y-auto px-5 pb-6">
         {erro && (
           <p role="alert" className="mb-3 rounded-xl border border-perigo/40 bg-perigo/10 px-3 py-2 text-sm text-perigo">
             {erro}

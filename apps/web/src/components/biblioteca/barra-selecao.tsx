@@ -57,12 +57,12 @@ export function BarraSelecao({
   }
 
   return (
-    // No celular sobe acima da navegação inferior (bottom-20); no desktop
-    // basta passar do player (bottom-0), a única barra fixa lá.
+    // Fica acima do player (altura real, zero sem faixa) e, no celular, também
+    // acima da navegação inferior.
     <div
       role="region"
       aria-label={t('lib.selecionadas')}
-      className="fixed inset-x-0 bottom-36 z-40 mx-auto w-[min(48rem,calc(100%-2rem))] rounded-xl border border-borda bg-superficie-alta p-3 shadow-lg md:bottom-24"
+      className="fixed inset-x-0 bottom-[calc(var(--altura-player)+5rem)] z-40 mx-auto w-[min(48rem,calc(100%-2rem))] rounded-xl border border-borda bg-superficie-alta p-3 shadow-lg md:bottom-[calc(var(--altura-player)+1rem)]"
     >
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium tabular-nums">
