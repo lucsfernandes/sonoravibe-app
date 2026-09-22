@@ -9,6 +9,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AUTH, type SonoraAuth } from './auth/auth.config';
 import { CONFIG, type AppConfig } from './config/env';
+import { MAX_UPLOAD_BYTES } from './songs/uploads.service';
 
 // Em desenvolvimento a configuração vem do .env da raiz; em produção, dos
 // secrets do k3s, que já chegam como variáveis de ambiente.
@@ -54,6 +55,10 @@ async function bootstrap(): Promise<void> {
   // No Express 5 o coringa de rota é `{*path}` — `/api/auth/*` do Express 4
   // dispara "Missing parameter name".
   app.use('/api/auth/{*path}', toNodeHandler(auth));
+  // Áudio enviado pelo usuário chega como corpo bruto, só nesta rota. O tipo
+  // é qualquer um: a validação do formato é do serviço, que responde 400 com
+  // a lista do que aceita. O teto é o mesmo de UploadsService.
+  app.use('/uploads', express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES }));
   // Só JSON. Aceitar formulário (urlencoded) deixaria um <form> em outro site
   // disparar uma ação aqui com o cookie de sessão da vítima; JSON cross-site
   // exige preflight de CORS, que a lista de origens recusa.

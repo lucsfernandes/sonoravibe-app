@@ -101,6 +101,38 @@ export interface StemsJob {
 }
 
 /**
+ * Importa um áudio enviado pelo usuário.
+ *
+ * Vai na fila de edição (é FFmpeg, sem motor): converte o arquivo bruto para
+ * o master, mede a duração e calcula a forma de onda. O nome do job é
+ * `import`, e é por ele que o worker distingue da edição comum.
+ */
+export interface ImportJob {
+  songId: string;
+  userId: string;
+  /** Chave do arquivo bruto no R2, como o usuário mandou. */
+  sourceKey: string;
+  /** Extensão do arquivo bruto ('mp3', 'wav', 'webm'...). */
+  extension: string;
+}
+
+/**
+ * Calcula a forma de onda de uma faixa que já tem master.
+ *
+ * Vai na fila de conversão com o nome `waveform`. Também serve de backfill
+ * para faixas antigas, quando a interface pede a onda e ela ainda não existe.
+ */
+export interface WaveformJob {
+  songId: string;
+}
+
+/** Nomes de job que compartilham fila com outro tipo. */
+export const JOB_NAMES = {
+  import: 'import',
+  waveform: 'waveform',
+} as const;
+
+/**
  * Monta um id de job estável (usado para deduplicar: o BullMQ descarta um job
  * cujo id já existe na fila).
  *

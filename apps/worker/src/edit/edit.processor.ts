@@ -3,6 +3,7 @@ import {
   AUDIO_FORMAT_SPECS,
   PROGRESS_CHANNEL,
   STATUS_PROGRESS,
+  WAVEFORM_POINTS,
   type EditJob,
   type GenerationProgressMessage,
   type MasterFormat,
@@ -10,7 +11,7 @@ import {
 import { StorageService, storageKeys } from '@sonora/storage';
 import type { Redis } from 'ioredis';
 import type { DataSource } from 'typeorm';
-import { transcodeBuffer } from '../audio/ffmpeg';
+import { peaksOfBuffer, transcodeBuffer } from '../audio/ffmpeg';
 import { argsForOperation } from '../audio/operations';
 
 /**
@@ -80,6 +81,10 @@ export class EditProcessor {
       const key = storageKeys.master(derived.id, master);
       await this.deps.storage.putObject(key, data, AUDIO_FORMAT_SPECS[master].mimeType);
 
+      // A onda sai daqui mesmo: os bytes já estão em memória, e um corte ou
+      // um reverse mudam o desenho, então a da faixa-mãe não serve.
+      const waveform = await peaksOfBuffer(data, master, this.deps.ffmpegPath, WAVEFORM_POINTS);
+
       await repo.update(
         { id: derived.id },
         {
@@ -88,6 +93,7 @@ export class EditProcessor {
           // A duração medida no arquivo, e não a calculada: corte e mudança de
           // velocidade mexem nela, e um número errado desalinha o player.
           durationMs: durationMs || parent.durationMs,
+          waveform,
         },
       );
 

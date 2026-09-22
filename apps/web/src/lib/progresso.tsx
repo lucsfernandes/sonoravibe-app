@@ -60,6 +60,7 @@ export function ProgressoProvider({ children }: { children: ReactNode }) {
 
     fonte.addEventListener('progress', (evento) => {
       const dados = JSON.parse((evento as MessageEvent<string>).data) as ProgressoGeracao;
+      const terminou = ['complete', 'failed', 'canceled'].includes(dados.status);
 
       setEmAndamento((atual) => {
         const anterior = atual[dados.generationId];
@@ -69,21 +70,26 @@ export function ProgressoProvider({ children }: { children: ReactNode }) {
         const song = dados.song
           ? { ...dados.song, coverUrl: dados.song.coverUrl ?? anterior?.song?.coverUrl ?? null }
           : anterior?.song;
-        const proximo = { ...atual, [dados.generationId]: { ...dados, ...(song ? { song } : {}) } };
-        // Terminou: sai da lista depois de um instante, para a interface ter
-        // tempo de mostrar 100% antes do item sumir.
-        if (['complete', 'failed', 'canceled'].includes(dados.status)) {
-          setTimeout(() => {
-            setEmAndamento((depois) => {
-              const copia = { ...depois };
-              delete copia[dados.generationId];
-              return copia;
-            });
-          }, 1500);
-          for (const ouvinte of ouvintesRef.current) ouvinte(dados);
-        }
-        return proximo;
+        return { ...atual, [dados.generationId]: { ...dados, ...(song ? { song } : {}) } };
       });
+
+      if (!terminou) return;
+
+      // Terminou: sai da lista depois de um instante, para a interface ter
+      // tempo de mostrar 100% antes do item sumir.
+      setTimeout(() => {
+        setEmAndamento((depois) => {
+          const copia = { ...depois };
+          delete copia[dados.generationId];
+          return copia;
+        });
+      }, 1500);
+
+      // Os ouvintes rodam FORA do atualizador de estado acima: um ouvinte que
+      // mexe no estado de outro componente (a referência do painel, por
+      // exemplo) dentro dele é o "cannot update a component while rendering
+      // a different component" do React.
+      for (const ouvinte of ouvintesRef.current) ouvinte(dados);
     });
 
     // O navegador reconecta sozinho depois de um erro de rede; não fechamos a

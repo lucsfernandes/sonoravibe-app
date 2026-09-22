@@ -155,6 +155,41 @@ export async function baixarLote(
   return { baixou: true };
 }
 
+/**
+ * Envia um áudio (arquivo do computador ou gravação do microfone).
+ *
+ * Não passa pelo `request` porque o corpo é o arquivo cru, não JSON: a API
+ * lê `POST /uploads` com um parser de corpo bruto e o tipo vem do próprio
+ * arquivo. A resposta é a faixa recém-criada, ainda em `uploading`; o SSE
+ * avisa quando o worker terminar de converter.
+ */
+export async function enviarUpload(
+  arquivo: Blob,
+  nome: string,
+  workspaceId?: string,
+): Promise<Musica> {
+  const busca = new URLSearchParams({ filename: nome });
+  if (workspaceId) busca.set('workspaceId', workspaceId);
+
+  const resposta = await buscar(`${API_URL}/uploads?${busca}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': arquivo.type || 'application/octet-stream',
+    },
+    body: arquivo,
+  });
+
+  const texto = await resposta.text();
+  const corpo = texto ? seguroJson(texto) : null;
+  if (!resposta.ok) {
+    const mensagem = (corpo as { message?: string })?.message ?? `Erro ${resposta.status}`;
+    throw new ApiError(mensagem, resposta.status, corpo);
+  }
+  return corpo as Musica;
+}
+
 export const api = {
   get: <T>(caminho: string) => request<T>(caminho),
   post: <T>(caminho: string, corpo?: unknown) =>
@@ -179,8 +214,13 @@ export interface Musica {
   likeCount: number;
   commentCount: number;
   workspaceId: string | null;
+  parentSongId?: string | null;
   audioUrl: string | null;
   coverUrl: string | null;
+  /** Forma de onda (0–1). Null até o worker calcular; ausente fora da biblioteca. */
+  waveform?: number[] | null;
+  /** Curtida por quem pediu. A biblioteca e o Explore preenchem. */
+  likedByMe: boolean;
   createdAt: string;
 }
 
@@ -207,13 +247,26 @@ export interface MusicaDetalhe extends Musica {
 export interface Pagina<T> {
   items: T[];
   nextCursor: string | null;
+  /** Quantos itens casam com os filtros, e a posição na paginação numerada. */
+  total: number;
+  page: number;
+  pageCount: number;
 }
 
 export interface ItemExplore extends Musica {
   publishedAt: string | null;
   author: { handle: string; displayName: string; avatarUrl: string | null };
   likedByMe: boolean;
+  /** O autor liberou usar a faixa como base (remix e "+ Áudio"). */
+  allowRemixes: boolean;
 }
+
+/** Ordens e filtros da listagem, espelhando o que a API aceita. */
+export const ORDENS = ['newest', 'oldest', 'plays', 'likes', 'title', 'duration'] as const;
+export type Ordem = (typeof ORDENS)[number];
+export const FILTROS_TIPO = ['all', 'song', 'clip', 'upload', 'derived'] as const;
+export const FILTROS_VOZ = ['all', 'vocal', 'instrumental'] as const;
+export const FILTROS_STATUS = ['all', 'ready', 'generating', 'failed'] as const;
 
 export interface Saldo {
   planCode: string;

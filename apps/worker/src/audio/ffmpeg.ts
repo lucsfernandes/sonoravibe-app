@@ -97,6 +97,67 @@ function run(command: string, args: string[]): Promise<string> {
 }
 
 /**
+ * Forma de onda de um áudio em memória: `points` valores de 0 a 1.
+ *
+ * O FFmpeg reduz o áudio a mono em 4 kHz e despeja as amostras cruas (s16le)
+ * num arquivo; daí é só dividir em `points` fatias e guardar o pico de cada
+ * uma. 4 kHz é de sobra para um desenho de 120 barras (uma música de 4 min
+ * vira ~960 mil amostras, 2 MB) e faz a extração levar menos de um segundo.
+ *
+ * O resultado é normalizado pelo pico global: uma faixa gravada baixinho no
+ * microfone ainda mostra a forma, em vez de uma linha reta. Falha aqui não é
+ * motivo para perder nada: quem chama trata `null` como "sem onda".
+ */
+export async function peaksOfBuffer(
+  data: Buffer,
+  extension: string,
+  ffmpegPath = 'ffmpeg',
+  points = 120,
+): Promise<number[] | null> {
+  const dir = await mkdtemp(join(tmpdir(), 'sonora-peaks-'));
+  try {
+    const inputPath = join(dir, `audio.${extension}`);
+    const pcmPath = join(dir, 'audio.pcm');
+    await writeFile(inputPath, data);
+    await run(ffmpegPath, [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      '-i', inputPath,
+      '-ac', '1', '-ar', '4000', '-f', 's16le', '-acodec', 'pcm_s16le',
+      pcmPath,
+    ]);
+    const pcm = await readFile(pcmPath);
+    return peaksOfPcm(pcm, points);
+  } catch {
+    return null;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/** Divide amostras s16le em `points` fatias e devolve o pico normalizado de cada uma. */
+export function peaksOfPcm(pcm: Buffer, points: number): number[] | null {
+  const total = Math.floor(pcm.byteLength / 2);
+  if (total === 0) return null;
+
+  const porFatia = total / points;
+  const picos = new Array<number>(points).fill(0);
+  for (let i = 0; i < points; i++) {
+    const inicio = Math.floor(i * porFatia);
+    const fim = Math.min(total, Math.floor((i + 1) * porFatia));
+    let pico = 0;
+    for (let s = inicio; s < fim; s++) {
+      const v = Math.abs(pcm.readInt16LE(s * 2));
+      if (v > pico) pico = v;
+    }
+    picos[i] = pico;
+  }
+
+  const maximo = Math.max(...picos);
+  if (maximo === 0) return picos.map(() => 0);
+  return picos.map((p) => Math.round((p / maximo) * 1000) / 1000);
+}
+
+/**
  * Duração de um áudio que só existe em memória.
  *
  * Passa por arquivo temporário em vez de `pipe:0` porque o ffprobe precisa dar

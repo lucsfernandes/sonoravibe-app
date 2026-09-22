@@ -40,4 +40,23 @@ export class AssistController {
     );
     return this.assist.suggestStyle(seed, { viaLlm: Boolean(user) });
   }
+
+  /**
+   * O botão de varinha do campo de estilos: reescreve o que o usuário digitou
+   * como um prompt de estilo mais rico. Exige login, como a letra, porque é o
+   * modelo pago; não custa crédito.
+   */
+  @Post('styles/enhance')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  enhance(@CurrentUser() user: SessionUser, @Body() body: unknown) {
+    const { styles, language } = parseOrThrow(
+      z.object({
+        styles: z.string().trim().min(2).max(1000),
+        language: z.string().trim().default('pt-BR'),
+      }),
+      body,
+      'aprimoramento de estilo',
+    );
+    return this.assist.enhanceStyle(user.id, styles, language);
+  }
 }

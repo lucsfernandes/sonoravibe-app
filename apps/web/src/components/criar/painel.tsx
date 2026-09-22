@@ -1,22 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
+import { CREDIT_COSTS, maxDurationFor, type PlanCode } from '@sonora/shared';
 import { ApiError, api, type Workspace } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
-import { EstilosSalvos } from './estilos-salvos';
-import { useProgresso } from '@/lib/progresso';
+import { formatarContagem, formatarDuracao, useI18n } from '@/lib/i18n';
+import { useAoConcluirGeracao, useProgresso } from '@/lib/progresso';
 import { useSessao } from '@/lib/sessao';
-import { Campo, Deslizante, Secao, Seletor, Interruptor } from './controles';
+import { AdicionarAudio, type Referencia } from './adicionar-audio';
+import { AdicionarInspiracao, type Inspiracao } from './adicionar-inspiracao';
+import { BotaoIcone, CampoComIcone, CartaoSecao, Interruptor, LinhaOpcao, SeletorChip } from './controles';
+import { CartaoEstilos } from './estilos';
+import {
+  BrilhoIcone,
+  CarregandoIcone,
+  EmbaralharIcone,
+  FecharIcone,
+  LixeiraIcone,
+  MaisIcone,
+  NotaIcone,
+  PastaIcone,
+} from './icones';
+import { CartaoLetra } from './letra';
+import { MaisOpcoes, OPCOES_PADRAO, type OpcoesAvancadas } from './mais-opcoes';
 
 type Aba = 'simples' | 'avancado' | 'sons';
-
-/** Custo em créditos, espelhando CREDIT_COSTS do backend. */
-const CUSTO: Record<Aba, number> = { simples: 10, avancado: 10, sons: 5 };
-
-const TONS = [
-  'any', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
-  'Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm',
-];
 
 interface Resultado {
   songId: string;
@@ -25,22 +32,28 @@ interface Resultado {
 }
 
 /**
- * Painel de criação — as três abas do Suno, melhoradas em dois pontos:
+ * Painel de criação, no desenho da referência: cabeçalho com saldo e as três
+ * abas, os botões de referência ("+ Áudio", "+ Inspiração"), os cartões de
+ * letra, estilos e mais opções, título e workspace, e o rodapé com a lixeira
+ * e o Criar.
  *
- *  - A duração começa em "automática" e diz por quê. No Suno o campo já vem com
- *    um número, e forçar duração estica ou comprime a estrutura da música.
- *  - O custo em créditos fica visível no botão, antes de clicar, em vez de o
- *    usuário descobrir o débito depois.
+ * A referência de áudio vive na página, não aqui: a biblioteca ao lado
+ * também a define ("Usar como referência" no menu de uma faixa), e os dois
+ * lados precisam ver o mesmo valor.
  */
 export function PainelCriar({
   aoEnfileirar,
   chavePrompt,
+  referencia,
+  aoMudarReferencia,
 }: {
   aoEnfileirar?: (r: Resultado) => void;
   /** Descrição vinda da home, para a página abrir já preenchida. */
   chavePrompt?: string;
+  referencia: Referencia | null;
+  aoMudarReferencia: (ref: Referencia | null) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { usuario, saldo, recarregarSaldo } = useSessao();
   const { acompanhar } = useProgresso();
 
@@ -48,30 +61,22 @@ export function PainelCriar({
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [workspaceId, setWorkspaceId] = useState('');
 
-  // Simples
   const [descricao, setDescricao] = useState(chavePrompt ?? '');
   const [instrumental, setInstrumental] = useState(false);
-
-  // Avançado
   const [letra, setLetra] = useState('');
   const [titulo, setTitulo] = useState('');
   const [estilos, setEstilos] = useState('');
-  const [excluir, setExcluir] = useState('');
-  const [voz, setVoz] = useState<'any' | 'male' | 'female'>('any');
-  const [duracaoAuto, setDuracaoAuto] = useState(true);
-  const [duracao, setDuracao] = useState(120);
-  const [bpm, setBpm] = useState<number | ''>('');
-  const [tom, setTom] = useState('any');
-  const [estranheza, setEstranheza] = useState(50);
-  const [aderencia, setAderencia] = useState(50);
-  const [maxMode, setMaxMode] = useState(false);
-  const [workspaceId, setWorkspaceId] = useState('');
-
-  // Sons
+  const [opcoes, setOpcoes] = useState<OpcoesAvancadas>(OPCOES_PADRAO);
   const [tipoSom, setTipoSom] = useState<'one-shot' | 'loop'>('one-shot');
 
+  const [inspiracao, setInspiracao] = useState<Inspiracao | null>(null);
+  const [modal, setModal] = useState<'audio' | 'inspiracao' | null>(null);
+
   const [escrevendoLetra, setEscrevendoLetra] = useState(false);
+  const [aprimorando, setAprimorando] = useState(false);
+  const [sorteando, setSorteando] = useState(false);
 
   useEffect(() => {
     if (!usuario) return;
@@ -84,37 +89,70 @@ export function PainelCriar({
       .catch(() => setWorkspaces([]));
   }, [usuario]);
 
-  const custo = CUSTO[aba];
+  // A referência recém-enviada (upload ou gravação) fica "processando" até o
+  // worker converter o áudio. O SSE avisa; sem isto o Criar ficaria travado
+  // até a pessoa recarregar a página.
+  useAoConcluirGeracao((evento) => {
+    if (!referencia || evento.songId !== referencia.id) return;
+    if (evento.status === 'complete') {
+      aoMudarReferencia({
+        ...referencia,
+        status: 'complete',
+        durationMs: evento.song?.durationMs ?? referencia.durationMs,
+        coverUrl: evento.song?.coverUrl ?? referencia.coverUrl,
+      });
+    } else {
+      aoMudarReferencia(null);
+      setErro(evento.error ?? t('geral.erro'));
+    }
+  });
+
+  const planCode = (saldo?.planCode ?? 'free') as PlanCode;
+  const custo = aba === 'sons' ? CREDIT_COSTS.clip : referencia ? CREDIT_COSTS.remix : CREDIT_COSTS.song;
   const semSaldo = saldo ? saldo.balance.total < custo : false;
+  const referenciaPronta = !referencia || referencia.status === 'complete';
 
   async function sortearEstilo() {
+    setSorteando(true);
     try {
       const { styles } = await api.post<{ styles: string }>('/styles/suggest', {
-        seed: estilos || descricao || undefined,
+        seed: (aba === 'simples' ? descricao : estilos) || undefined,
       });
-      if (aba === 'simples') setDescricao(styles);
-      else setEstilos(styles);
+      if (aba === 'avancado') setEstilos(styles);
+      else setDescricao(styles);
     } catch {
       setErro(t('geral.erro'));
+    } finally {
+      setSorteando(false);
     }
   }
 
-  async function escreverLetra() {
-    const tema = letra.trim() || descricao.trim() || estilos.trim();
-    if (!tema) {
-      setErro(
-        t('criar.letra') + ': ' + (t('criar.descricao') === 'Descrição'
-          ? 'escreva um tema primeiro.'
-          : 'write a brief first.'),
-      );
-      return;
+  async function aprimorarEstilo() {
+    const alvo = aba === 'avancado' ? estilos : descricao;
+    if (alvo.trim().length < 2) return;
+    setAprimorando(true);
+    setErro(null);
+    try {
+      const { styles } = await api.post<{ styles: string }>('/styles/enhance', {
+        styles: alvo.trim(),
+        language: locale === 'pt' ? 'pt-BR' : 'en',
+      });
+      if (aba === 'avancado') setEstilos(styles);
+      else setDescricao(styles);
+    } catch (err) {
+      setErro(mensagemDe(err, t));
+    } finally {
+      setAprimorando(false);
     }
+  }
+
+  async function escreverLetra(tema: string) {
     setEscrevendoLetra(true);
     setErro(null);
     try {
       const r = await api.post<{ title: string; lyrics: string }>('/lyrics/generate', {
         brief: tema,
-        language: 'pt-BR',
+        language: locale === 'pt' ? 'pt-BR' : 'en',
         styles: estilos || undefined,
       });
       setLetra(r.lyrics);
@@ -131,16 +169,26 @@ export function PainelCriar({
     setEnviando(true);
     setErro(null);
     try {
+      const referencias = {
+        ...(referencia ? { sourceSongId: referencia.id } : {}),
+        ...(inspiracao ? { inspirationPlaylistId: inspiracao.id } : {}),
+      };
       const corpo =
         aba === 'simples'
-          ? { mode: 'simple', prompt: descricao, instrumental, workspaceId: workspaceId || undefined }
+          ? {
+              mode: 'simple',
+              prompt: descricao,
+              instrumental,
+              workspaceId: workspaceId || undefined,
+              ...referencias,
+            }
           : aba === 'sons'
             ? {
                 mode: 'sounds',
                 prompt: descricao,
                 soundType: tipoSom,
-                ...(bpm ? { bpm: Number(bpm) } : {}),
-                key: tom,
+                ...(opcoes.bpm ? { bpm: Number(opcoes.bpm) } : {}),
+                key: opcoes.tom,
                 workspaceId: workspaceId || undefined,
               }
             : {
@@ -149,16 +197,19 @@ export function PainelCriar({
                 title: titulo || undefined,
                 instrumental,
                 workspaceId: workspaceId || undefined,
+                ...referencias,
                 controls: {
                   styles: estilos || undefined,
-                  excludeStyles: excluir || undefined,
-                  vocalGender: voz,
-                  ...(duracaoAuto ? {} : { durationSeconds: duracao }),
-                  maxMode,
-                  weirdness: estranheza,
-                  styleInfluence: aderencia,
-                  ...(bpm ? { bpm: Number(bpm) } : {}),
-                  key: tom,
+                  excludeStyles: opcoes.excluir || undefined,
+                  vocalGender: opcoes.voz,
+                  ...(opcoes.duracaoAuto ? {} : { durationSeconds: opcoes.duracao }),
+                  maxMode: opcoes.maxMode,
+                  weirdness: opcoes.estranheza,
+                  styleInfluence: opcoes.aderencia,
+                  variety: opcoes.variedade,
+                  personalize: opcoes.personalizar,
+                  ...(opcoes.bpm ? { bpm: Number(opcoes.bpm) } : {}),
+                  key: opcoes.tom,
                 },
               };
 
@@ -173,276 +224,395 @@ export function PainelCriar({
     }
   }
 
-  const podeCriar =
-    !enviando &&
-    Boolean(usuario) &&
-    (aba === 'avancado'
-      ? Boolean(estilos.trim() || letra.trim())
-      : descricao.trim().length >= 3);
+  function limparTudo() {
+    setDescricao('');
+    setLetra('');
+    setTitulo('');
+    setEstilos('');
+    setOpcoes(OPCOES_PADRAO);
+    setInstrumental(false);
+    setInspiracao(null);
+    aoMudarReferencia(null);
+    setErro(null);
+  }
+
+  const temConteudo =
+    aba === 'avancado' ? Boolean(estilos.trim() || letra.trim()) : descricao.trim().length >= 3;
+  const podeCriar = !enviando && Boolean(usuario) && temConteudo && referenciaPronta;
+  const temAlgo = Boolean(descricao || letra || titulo || estilos || referencia || inspiracao);
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      {/* O saldo fica aqui, ao lado das abas. O botão já diz quanto a geração
-          custa, mas não quanto sobra: descobrir que faltava crédito só depois
-          de clicar é o tipo de atrito que dá para evitar com um número. */}
-      {saldo && (
-        <p className="flex items-center gap-1.5 text-xs text-texto-suave">
-          <span
-            aria-hidden
-            className={`size-1.5 rounded-full ${
-              saldo.balance.total >= custo ? 'gradiente-acento' : 'bg-perigo'
-            }`}
-          />
-          {saldo.balance.total.toLocaleString('pt-BR')} {t('criar.custo')}
-        </p>
-      )}
+    <div className="flex h-full flex-col">
+      {/* Cabeçalho: saldo à esquerda, as três abas no meio. */}
+      <div className="flex h-[70px] shrink-0 items-center gap-3 border-b border-borda px-4">
+        <span
+          className="flex items-center gap-1.5 rounded-full border border-borda px-3.5 py-2 text-sm font-semibold"
+          title={`${saldo?.balance.total.toLocaleString(locale === 'pt' ? 'pt-BR' : 'en-US') ?? 0} ${t('criar.custo')}`}
+        >
+          <NotaIcone tamanho={15} className={semSaldo ? 'text-perigo' : 'text-acento'} />
+          {saldo ? formatarContagem(saldo.balance.total, locale) : '—'}
+        </span>
 
-      {/* Abas */}
-      <div className="flex rounded-xl border border-borda bg-superficie p-1" role="tablist">
-        {(['simples', 'avancado', 'sons'] as const).map((opcao) => (
-          <button
-            key={opcao}
-            type="button"
-            role="tab"
-            aria-selected={aba === opcao}
-            onClick={() => setAba(opcao)}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-              aba === opcao ? 'bg-superficie-alta text-texto' : 'text-texto-suave hover:text-texto'
-            }`}
-          >
-            {t(`criar.${opcao === 'avancado' ? 'avancado' : opcao}`)}
-          </button>
-        ))}
+        <div className="flex rounded-full border border-borda p-1" role="tablist">
+          {(['simples', 'avancado', 'sons'] as const).map((opcao) => (
+            <button
+              key={opcao}
+              type="button"
+              role="tab"
+              aria-selected={aba === opcao}
+              onClick={() => setAba(opcao)}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                aba === opcao ? 'bg-superficie-alta text-texto' : 'text-texto-suave hover:text-texto'
+              }`}
+            >
+              {t(`criar.${opcao}`)}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        {aba !== 'sons' && (
+          <div className="flex rounded-2xl bg-superficie p-1.5">
+            <BotaoReferencia
+              rotulo={t('criar.audio')}
+              chip={
+                referencia
+                  ? {
+                      titulo: referencia.title,
+                      detalhe:
+                        referencia.status === 'complete'
+                          ? referencia.durationMs > 0
+                            ? formatarDuracao(referencia.durationMs)
+                            : t('criar.referenciaAudio')
+                          : t('criar.referenciaProcessando'),
+                      capaUrl: referencia.coverUrl,
+                      processando: referencia.status !== 'complete',
+                      dica: t('criar.referenciaDica'),
+                    }
+                  : null
+              }
+              onClick={() => setModal('audio')}
+              aoRemover={() => aoMudarReferencia(null)}
+            />
+            <span className="my-2 w-px bg-borda" aria-hidden />
+            <BotaoReferencia
+              rotulo={t('criar.inspiracao')}
+              chip={
+                inspiracao
+                  ? {
+                      titulo: inspiracao.name,
+                      detalhe: `${inspiracao.songCount} ${t(inspiracao.songCount === 1 ? 'playlists.musica' : 'playlists.musicas')}`,
+                      capaUrl: null,
+                      dica: t('criar.inspiracaoDica'),
+                    }
+                  : null
+              }
+              onClick={() => setModal('inspiracao')}
+              aoRemover={() => setInspiracao(null)}
+            />
+          </div>
+        )}
+
         {aba !== 'avancado' && (
-          <Campo
-            rotulo={t('criar.descricao')}
+          <CartaoDescricao
             valor={descricao}
             onChange={setDescricao}
             placeholder={aba === 'sons' ? t('criar.estilosPlaceholder') : t('home.placeholder')}
-            multilinha
-            linhas={4}
-            acao={{ rotulo: t('criar.sortear'), onClick: () => void sortearEstilo() }}
+            instrumental={aba === 'simples' ? instrumental : undefined}
+            aoMudarInstrumental={setInstrumental}
+            aoAprimorar={() => void aprimorarEstilo()}
+            aprimorando={aprimorando}
+            aoSortear={() => void sortearEstilo()}
+            sorteando={sorteando}
           />
         )}
 
         {aba === 'avancado' && (
           <>
-            {/* Primeiro campo da aba, e não escondido dentro de "Letra": o nome
-                da música é do usuário. Sem ele preenchido, o título vem do
-                modelo — que já devolveu o mapa de seções da faixa como se
-                fosse nome ("[[A0]] [[B1]] [[C2]]"). */}
-            <Campo
-              rotulo={`${t('criar.tituloMusica')} — ${t('geral.opcional')}`}
-              valor={titulo}
-              onChange={setTitulo}
-              placeholder={t('criar.tituloPlaceholder')}
+            <CartaoLetra
+              letra={letra}
+              onChange={setLetra}
+              instrumental={instrumental}
+              aoMudarInstrumental={setInstrumental}
+              escrevendo={escrevendoLetra}
+              aoGerar={(tema) => void escreverLetra(tema)}
             />
 
-            <Secao
-              titulo={t('criar.letra')}
-              resumo={letra || undefined}
-              aoLimpar={() => setLetra('')}
-              aberta
-            >
-              <Campo
-                valor={letra}
-                onChange={setLetra}
-                placeholder={t('criar.letraPlaceholder')}
-                multilinha
-                linhas={8}
-                desabilitado={instrumental}
-                acao={{
-                  rotulo: escrevendoLetra ? t('geral.carregando') : t('criar.escreverComIA'),
-                  onClick: () => void escreverLetra(),
-                  desabilitado: escrevendoLetra || instrumental,
-                }}
-              />
-            </Secao>
-
-            <Secao
+            <CartaoEstilos
               titulo={t('criar.estilos')}
-              resumo={estilos || undefined}
-              aoLimpar={() => {
-                setEstilos('');
-                setExcluir('');
+              estilos={estilos}
+              excluir={opcoes.excluir}
+              onChange={setEstilos}
+              placeholder={t('criar.estilosPlaceholder')}
+              aoAplicarPreset={(novo, exclusao) => {
+                setEstilos(novo);
+                setOpcoes((o) => ({ ...o, excluir: exclusao }));
               }}
-              aberta
-            >
-              <Campo
-                valor={estilos}
-                onChange={setEstilos}
-                placeholder={t('criar.estilosPlaceholder')}
-                multilinha
-                linhas={3}
-                acao={{ rotulo: t('criar.sortear'), onClick: () => void sortearEstilo() }}
-              />
-              <Campo
-                rotulo={t('criar.excluir')}
-                valor={excluir}
-                onChange={setExcluir}
-                placeholder={t('criar.excluirPlaceholder')}
-              />
-              {/* Estilos e exclusões são salvos e aplicados juntos: foram
-                  escritos como par, e aplicar só metade deixaria a exclusão de
-                  outro preset valendo em silêncio. */}
-              <EstilosSalvos
-                estilosAtuais={estilos}
-                excluirAtuais={excluir}
-                aoAplicar={(novoEstilo, novaExclusao) => {
-                  setEstilos(novoEstilo);
-                  setExcluir(novaExclusao);
-                }}
-              />
-            </Secao>
+              aoAprimorar={() => void aprimorarEstilo()}
+              aprimorando={aprimorando}
+              aoSortear={() => void sortearEstilo()}
+              sorteando={sorteando}
+            />
 
-            <Secao titulo={t('criar.maisOpcoes')}>
-              <Seletor
-                rotulo={t('criar.voz')}
-                valor={voz}
-                onChange={(v) => setVoz(v as typeof voz)}
-                opcoes={[
-                  { valor: 'any', rotulo: t('criar.vozQualquer') },
-                  { valor: 'male', rotulo: t('criar.vozMasculina') },
-                  { valor: 'female', rotulo: t('criar.vozFeminina') },
-                ]}
-                desabilitado={instrumental}
-              />
+            <MaisOpcoes
+              valores={opcoes}
+              onChange={(patch) => setOpcoes((o) => ({ ...o, ...patch }))}
+              maxDuracao={maxDurationFor(planCode, 'acestep')}
+              podeMaxMode={planCode === 'premier'}
+              instrumental={instrumental}
+            />
 
-              <div>
-                <Interruptor
-                  rotulo={t('criar.duracaoAuto')}
-                  ligado={duracaoAuto}
-                  onChange={setDuracaoAuto}
-                />
-                <p className="mt-1 text-xs text-texto-fraco">{t('criar.duracaoDica')}</p>
-                {!duracaoAuto && (
-                  <Deslizante
-                    rotulo={t('criar.duracao')}
-                    valor={duracao}
-                    min={10}
-                    max={maxMode ? 480 : 240}
-                    passo={5}
-                    onChange={setDuracao}
-                    sufixo="s"
-                  />
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Campo
-                  rotulo={t('criar.bpm')}
-                  valor={String(bpm)}
-                  onChange={(v) => setBpm(v === '' ? '' : Number(v))}
-                  placeholder="auto"
-                  tipo="number"
-                />
-                <Seletor
-                  rotulo={t('criar.tom')}
-                  valor={tom}
-                  onChange={setTom}
-                  opcoes={TONS.map((k) => ({
-                    valor: k,
-                    rotulo: k === 'any' ? t('criar.vozQualquer') : k,
-                  }))}
-                />
-              </div>
-
-              <Deslizante
-                rotulo={t('criar.estranheza')}
-                valor={estranheza}
-                min={0}
-                max={100}
-                onChange={setEstranheza}
-                sufixo="%"
-              />
-              <Deslizante
-                rotulo={t('criar.aderencia')}
-                valor={aderencia}
-                min={0}
-                max={100}
-                onChange={setAderencia}
-                sufixo="%"
-              />
-              <Interruptor
-                rotulo={t('criar.maxMode')}
-                ligado={maxMode}
-                onChange={setMaxMode}
-                aviso={saldo?.planCode !== 'premier' ? t('musica.somenteePagos') : undefined}
-              />
-            </Secao>
+            <CampoComIcone
+              icone={<NotaIcone tamanho={16} />}
+              valor={titulo}
+              onChange={setTitulo}
+              placeholder={t('criar.tituloOpcional')}
+              rotulo={t('criar.tituloMusica')}
+              maxLength={120}
+            />
           </>
         )}
 
         {aba === 'sons' && (
-          <div className="grid grid-cols-2 gap-3">
-            <Seletor
+          <div className="grid grid-cols-2 gap-2">
+            <LinhaOpcao
               rotulo={t('criar.tipoSom')}
-              valor={tipoSom}
-              onChange={(v) => setTipoSom(v as typeof tipoSom)}
-              opcoes={[
-                { valor: 'one-shot', rotulo: t('criar.oneShot') },
-                { valor: 'loop', rotulo: t('criar.loop') },
-              ]}
+              direita={
+                <select
+                  value={tipoSom}
+                  onChange={(e) => setTipoSom(e.target.value as typeof tipoSom)}
+                  aria-label={t('criar.tipoSom')}
+                  className="cursor-pointer rounded-lg bg-superficie px-2 py-1 text-sm outline-none"
+                >
+                  <option value="one-shot" className="bg-superficie">{t('criar.oneShot')}</option>
+                  <option value="loop" className="bg-superficie">{t('criar.loop')}</option>
+                </select>
+              }
             />
-            <Campo
-              rotulo={t('criar.bpm')}
-              valor={String(bpm)}
-              onChange={(v) => setBpm(v === '' ? '' : Number(v))}
-              placeholder="auto"
-              tipo="number"
+            <LinhaOpcao
+              rotulo="BPM"
+              direita={
+                <input
+                  type="number"
+                  min={40}
+                  max={220}
+                  value={opcoes.bpm}
+                  onChange={(e) =>
+                    setOpcoes((o) => ({ ...o, bpm: e.target.value === '' ? '' : Number(e.target.value) }))
+                  }
+                  placeholder={t('criar.auto')}
+                  aria-label={t('criar.bpm')}
+                  className="w-16 rounded-lg bg-superficie px-2 py-1 text-right text-sm tabular-nums outline-none placeholder:text-texto-fraco"
+                />
+              }
             />
           </div>
         )}
 
-        {aba !== 'sons' && (
-          <Interruptor
-            rotulo={t('criar.instrumental')}
-            ligado={instrumental}
-            onChange={setInstrumental}
-          />
+        {workspaces.length > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-superficie px-4 py-2.5">
+            <span className="flex items-center gap-3 text-sm font-medium">
+              <PastaIcone tamanho={16} className="text-texto-suave" />
+              {t('criar.salvarEmDots')}
+            </span>
+            <SeletorChip
+              rotulo={t('criar.salvarEm')}
+              valor={workspaceId}
+              onChange={setWorkspaceId}
+              opcoes={workspaces.map((w) => ({ valor: w.id, rotulo: w.name }))}
+            />
+          </div>
         )}
 
-        {workspaces.length > 1 && (
-          <Seletor
-            rotulo={t('criar.salvarEm')}
-            valor={workspaceId}
-            onChange={setWorkspaceId}
-            opcoes={workspaces.map((w) => ({ valor: w.id, rotulo: w.name }))}
-          />
+        {erro && (
+          <p role="alert" className="rounded-xl border border-perigo/40 bg-perigo/10 px-3 py-2 text-sm text-perigo">
+            {erro}
+          </p>
+        )}
+
+        {semSaldo && (
+          <p className="text-center text-xs text-texto-suave">
+            {t('creditos.saldo')}: {saldo?.balance.total ?? 0} · {t('creditos.comprar')}{' '}
+            <a href="/creditos" className="text-acento underline">
+              {t('creditos.pacotes')}
+            </a>
+          </p>
         )}
       </div>
 
-      {erro && (
-        <p role="alert" className="rounded-lg border border-perigo/40 bg-perigo/10 px-3 py-2 text-sm text-perigo">
-          {erro}
-        </p>
-      )}
+      {/* Fora da área que rola: o botão principal não pode sumir quando a
+          pessoa desce até o fim das opções. */}
+      <div className="flex shrink-0 items-center gap-3 border-t border-borda px-4 py-3">
+        <button
+          type="button"
+          onClick={limparTudo}
+          disabled={!temAlgo}
+          aria-label={t('criar.limparTudo')}
+          title={t('criar.limparTudo')}
+          className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-borda text-texto-suave transition-colors hover:border-perigo/50 hover:text-perigo disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <LixeiraIcone tamanho={17} />
+        </button>
+        <button
+          type="button"
+          onClick={() => void criar()}
+          disabled={!podeCriar}
+          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl gradiente-acento text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {enviando ? <CarregandoIcone tamanho={16} /> : <BrilhoIcone tamanho={16} />}
+          {enviando ? t('criar.criando') : t('criar.botao')}
+          <span className="rounded-full bg-black/25 px-2 py-0.5 text-xs">
+            {custo} {t('criar.custo')}
+          </span>
+        </button>
+      </div>
 
-      {/* Fora da área que rola, com uma linha acima: o botão principal não
-          pode sumir quando a pessoa desce até o fim das opções avançadas. */}
+      {modal === 'audio' && (
+        <AdicionarAudio
+          aoFechar={() => setModal(null)}
+          aoEscolher={(ref) => {
+            aoMudarReferencia(ref);
+            setErro(null);
+          }}
+          workspaceId={workspaceId || undefined}
+        />
+      )}
+      {modal === 'inspiracao' && (
+        <AdicionarInspiracao aoFechar={() => setModal(null)} aoEscolher={setInspiracao} />
+      )}
+    </div>
+  );
+}
+
+/** Descrição livre (abas Simples e Sons), com aprimorar por IA e sortear. */
+function CartaoDescricao({
+  valor,
+  onChange,
+  placeholder,
+  instrumental,
+  aoMudarInstrumental,
+  aoAprimorar,
+  aprimorando,
+  aoSortear,
+  sorteando,
+}: {
+  valor: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  instrumental?: boolean;
+  aoMudarInstrumental: (v: boolean) => void;
+  aoAprimorar: () => void;
+  aprimorando: boolean;
+  aoSortear: () => void;
+  sorteando: boolean;
+}) {
+  const { t } = useI18n();
+  const id = useId();
+  return (
+    <CartaoSecao titulo={t('criar.descricaoTitulo')} resumo={valor || undefined} aberta>
+      <label htmlFor={id} className="sr-only">
+        {t('criar.descricao')}
+      </label>
+      <textarea
+        id={id}
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={6}
+        maxLength={2000}
+        className="min-h-[140px] w-full resize-none bg-transparent px-1.5 text-sm leading-relaxed text-texto outline-none placeholder:text-texto-fraco"
+      />
+      <div className="mt-2 flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={aoAprimorar}
+          disabled={aprimorando || valor.trim().length < 2}
+          aria-label={t('criar.aprimorar')}
+          title={t('criar.aprimorar')}
+          className="flex size-9 shrink-0 items-center justify-center rounded-full gradiente-acento text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          {aprimorando ? <CarregandoIcone tamanho={16} /> : <BrilhoIcone tamanho={16} />}
+        </button>
+        <BotaoIcone
+          rotulo={t('criar.sortear')}
+          onClick={aoSortear}
+          desabilitado={sorteando}
+          className="size-9 rounded-full bg-superficie-alta"
+        >
+          {sorteando ? <CarregandoIcone tamanho={15} /> : <EmbaralharIcone tamanho={15} />}
+        </BotaoIcone>
+        {instrumental !== undefined && (
+          <div className="ml-auto">
+            <Interruptor rotulo={t('criar.instrumental')} ligado={instrumental} onChange={aoMudarInstrumental} />
+          </div>
+        )}
+      </div>
+    </CartaoSecao>
+  );
+}
+
+/**
+ * "+ Áudio" / "+ Inspiração". Sem escolha, é o botão com o sinal de mais;
+ * com escolha, vira o chip do que foi escolhido, com o X para tirar.
+ */
+function BotaoReferencia({
+  rotulo,
+  chip,
+  onClick,
+  aoRemover,
+}: {
+  rotulo: string;
+  chip: {
+    titulo: string;
+    detalhe: string;
+    capaUrl: string | null;
+    processando?: boolean;
+    dica: string;
+  } | null;
+  onClick: () => void;
+  aoRemover: () => void;
+}) {
+  const { t } = useI18n();
+
+  if (!chip) {
+    return (
       <button
         type="button"
-        onClick={() => void criar()}
-        disabled={!podeCriar}
-        className="flex shrink-0 items-center justify-center gap-2 rounded-xl gradiente-acento py-3.5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium transition-colors hover:bg-superficie-alta"
       >
-        {enviando ? t('criar.criando') : t('criar.botao')}
-        <span className="rounded-full bg-black/25 px-2 py-0.5 text-xs">
-          {custo} {t('criar.custo')}
+        <MaisIcone tamanho={15} />
+        {rotulo}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-1.5" title={chip.dica}>
+      <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+        {chip.capaUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- URL assinada do R2, expira
+          <img src={chip.capaUrl} alt="" className="size-9 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg gradiente-acento text-white">
+            {chip.processando ? <CarregandoIcone tamanho={14} /> : <NotaIcone tamanho={14} />}
+          </span>
+        )}
+        <span className="min-w-0">
+          <span className="block truncate text-xs font-semibold">{chip.titulo}</span>
+          <span className="block truncate text-[11px] text-texto-fraco">{chip.detalhe}</span>
         </span>
       </button>
-
-      {semSaldo && (
-        <p className="text-center text-xs text-texto-suave">
-          {t('creditos.saldo')}: {saldo?.balance.total ?? 0} — {t('creditos.comprar')}{' '}
-          <a href="/creditos" className="text-acento underline">
-            {t('creditos.pacotes')}
-          </a>
-        </p>
-      )}
+      <button
+        type="button"
+        onClick={aoRemover}
+        aria-label={`${t('criar.remover')} ${rotulo}`}
+        title={t('criar.remover')}
+        className="flex size-7 shrink-0 items-center justify-center rounded-full text-texto-fraco transition-colors hover:bg-superficie-alta hover:text-texto"
+      >
+        <FecharIcone tamanho={13} />
+      </button>
     </div>
   );
 }

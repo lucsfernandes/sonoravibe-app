@@ -36,6 +36,7 @@ export interface ExploreItem {
   publishedAt: Date | null;
   author: { handle: string; displayName: string; avatarUrl: string | null };
   likedByMe: boolean;
+  allowRemixes: boolean;
 }
 
 /** Janela em que reproduções do mesmo ouvinte na mesma música não contam de novo. */
@@ -65,6 +66,7 @@ export class SocialService {
     viewerId: string | null,
     tab: ExploreTab,
     limit: number,
+    q?: string,
   ): Promise<ExploreItem[]> {
     const qb = this.dataSource
       .getRepository(Song)
@@ -72,6 +74,13 @@ export class SocialService {
       .where('song.isPublic = true')
       .andWhere("song.status = 'complete'")
       .take(limit);
+
+    const termo = q?.trim();
+    if (termo) {
+      qb.andWhere('(song.title ILIKE :q OR song.stylePrompt ILIKE :q)', {
+        q: `%${termo.replace(/[\\%_]/g, '\\$&')}%`,
+      });
+    }
 
     if (tab === 'following') {
       if (!viewerId) return [];
@@ -128,6 +137,8 @@ export class SocialService {
             avatarUrl: autor?.avatarKey ? await this.storage.presignGet(autor.avatarKey) : null,
           },
           likedByMe: curtidas.has(song.id),
+          // O "+ Áudio" só oferece como referência o que o autor liberou.
+          allowRemixes: song.allowRemixes,
         };
       }),
     );

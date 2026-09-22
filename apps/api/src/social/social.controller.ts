@@ -35,15 +35,17 @@ export class SocialController {
     @CurrentUser() user: SessionUser | undefined,
     @Query() query: unknown,
   ): Promise<ExploreItem[]> {
-    const { tab, limit } = parseOrThrow(
+    const { tab, limit, q } = parseOrThrow(
       z.object({
         tab: z.enum(['trending', 'new', 'following']).default('trending'),
         limit: z.coerce.number().int().min(1).max(50).default(24),
+        /** Busca por título ou estilo: é como o "+ Áudio" acha uma faixa pública. */
+        q: z.string().trim().max(200).optional(),
       }),
       query,
       'explore',
     );
-    return this.social.explore(user?.id ?? null, tab, limit);
+    return this.social.explore(user?.id ?? null, tab, limit, q);
   }
 
   @Public()

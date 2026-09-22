@@ -15,7 +15,14 @@ import { useI18n } from '@/lib/i18n';
  * vez: quem ainda não tem nenhuma quer justamente criar a primeira com esta
  * música dentro, e mandá-la para outra tela perderia o contexto.
  */
-export function AdicionarAPlaylist({ songId }: { songId: string }) {
+export function AdicionarAPlaylist({
+  songId,
+  compacto,
+}: {
+  songId: string;
+  /** Botão redondo só com o ícone, para as fileiras da aba Criar. */
+  compacto?: boolean;
+}) {
   const { t } = useI18n();
   const [aberto, setAberto] = useState(false);
   const [playlists, setPlaylists] = useState<Playlist[] | null>(null);
@@ -94,9 +101,25 @@ export function AdicionarAPlaylist({ songId }: { songId: string }) {
           setFeito(null);
         }}
         aria-expanded={aberto}
-        className="rounded-xl border border-borda px-4 py-2.5 text-sm transition-colors hover:border-acento hover:text-acento"
+        aria-label={compacto ? (feito ? `✓ ${feito}` : t('playlists.adicionar')) : undefined}
+        title={compacto ? (feito ? `✓ ${feito}` : t('playlists.adicionar')) : undefined}
+        className={
+          compacto
+            ? `flex size-8 items-center justify-center rounded-full bg-superficie-alta transition-colors hover:bg-borda ${
+                feito ? 'text-acento' : 'text-texto-suave hover:text-texto'
+              }`
+            : 'rounded-xl border border-borda px-4 py-2.5 text-sm transition-colors hover:border-acento hover:text-acento'
+        }
       >
-        {feito ? `✓ ${feito}` : t('playlists.adicionar')}
+        {compacto ? (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+            <path d="M4 6h12M4 12h12M4 18h7M18 14v6M15 17h6" />
+          </svg>
+        ) : feito ? (
+          `✓ ${feito}`
+        ) : (
+          t('playlists.adicionar')
+        )}
       </button>
 
       {aberto && (
