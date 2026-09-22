@@ -43,6 +43,11 @@ export function CartaoMusica({
   // "travado há 5 minutos".
   const progresso = progressoDaMusica(musica.id);
 
+  // A capa é desenhada em paralelo ao áudio e costuma ficar pronta antes: o
+  // evento de progresso já traz a URL dela, e o card troca o gradiente pela
+  // imagem por baixo da barra, sem esperar a lista recarregar.
+  const capaUrl = progresso?.song?.coverUrl ?? musica.coverUrl;
+
   const estaTocando = faixa?.id === musica.id && tocando;
   const pronta = musica.status === 'complete' && Boolean(musica.audioUrl);
 
@@ -74,6 +79,7 @@ export function CartaoMusica({
         pronta={pronta}
         estaTocando={estaTocando}
         progresso={progresso}
+        capaUrl={capaUrl}
         locale={locale}
         aoClicar={aoClicar}
         selecionada={selecionada}
@@ -89,7 +95,7 @@ export function CartaoMusica({
       }`}
     >
       <div className="relative aspect-square">
-        <Capa url={musica.coverUrl} titulo={musica.title} />
+        <Capa url={capaUrl} titulo={musica.title} />
 
         {selecionavel && (
           // Acima do botão de tocar, que cobre a capa inteira: sem o z-index a
@@ -264,6 +270,7 @@ function Linha({
   pronta,
   estaTocando,
   progresso,
+  capaUrl,
   locale,
   aoClicar,
   selecionada,
@@ -276,6 +283,7 @@ function Linha({
   pronta: boolean;
   estaTocando: boolean;
   progresso?: { status: string; progress: number };
+  capaUrl: string | null;
   locale: 'pt' | 'en';
   aoClicar: () => void;
   selecionada?: boolean;
@@ -306,7 +314,7 @@ function Linha({
         aria-label={`${estaTocando ? 'Pausar' : 'Tocar'} ${musica.title}`}
         className="relative size-10 shrink-0 overflow-hidden rounded-md"
       >
-        <Capa url={musica.coverUrl} titulo={musica.title} />
+        <Capa url={capaUrl} titulo={musica.title} />
         {pronta ? (
           <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
             {estaTocando ? <PausaIcone /> : <PlayIcone />}

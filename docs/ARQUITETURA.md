@@ -299,8 +299,9 @@ POST /api/songs/generate
                                  4. Registra o master (FLAC do ACE-Step ou
                                     MP3 do Lyria, este sem reencode)
                                  5. MP3 320k derivado do FLAC (só ACE-Step)
-                                 6. Capa (modelo de imagem) → R2
-                                 7. Song(status=COMPLETE)
+                                 6. Song(status=COMPLETE), já com a capa:
+                                    ela é desenhada em paralelo desde o passo 2
+                                    (modelo de imagem → R2), sem custar crédito
                                            │
                      SSE /api/generations/stream ──► browser atualiza em tempo real
 ```
@@ -334,7 +335,7 @@ combinação não paga duas vezes).
 | `transcode` | WAV, FLAC, OPUS, ZIP em lote | grátis (FFmpeg) |
 | `edit` | crop, fade, speed, reverse, normalize | grátis (FFmpeg) |
 | `stems` | separação Demucs | grátis, mas pesado — worker dedicado |
-| `cover` | capa da música | crédito (modelo de imagem) |
+| `cover` | capa nova para uma música pronta (a primeira sai junto com a música, sem custo) | 2 créditos (modelo de imagem) |
 | `maintenance` | backup, limpeza de cache, expiração de créditos | grátis |
 
 ---
@@ -382,7 +383,7 @@ Custo em créditos por operação (1 crédito ≈ R$ 0,01 de custo interno):
 | Música completa | 10 | ~$0,007–0,009 (medido) | $0,08 |
 | Clipe / Sound | 5 | ~$0,002 (estimado) | $0,04 |
 | Extend / Remix | 10 | ~$0,008 (estimado) | $0,08 |
-| Capa | 2 | ~$0,01 | — |
+| Capa nova (a primeira sai com a música, grátis) | 2 | ~$0,03–0,07 (Gemini Flash Image) | — |
 | Letra (LLM) | 1 | ~$0,001 | — |
 | Stems, edição FFmpeg, transcode | 0 | $0 | — |
 

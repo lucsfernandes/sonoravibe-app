@@ -26,11 +26,14 @@ export function Derivar({
   songId,
   duracaoMs,
   custoRemix,
+  custoCapa,
   aoEnfileirar,
 }: {
   songId: string;
   duracaoMs: number;
   custoRemix: number;
+  /** A capa nova custa: a primeira saiu de graça junto com a música. */
+  custoCapa: number;
   aoEnfileirar: () => Promise<void> | void;
 }) {
   const { t } = useI18n();
@@ -90,6 +93,7 @@ export function Derivar({
     }
   }
 
+  const custo = modo === 'capa' ? custoCapa : custoRemix;
   const trechoValido = modo !== 'trecho' || fim > inicio;
   const podeEnviar =
     !enviando &&
@@ -185,15 +189,10 @@ export function Derivar({
             disabled={!podeEnviar}
             className="mt-4 flex items-center gap-2 rounded-xl gradiente-acento px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {enviando ? t('geral.enviando') : t('criar.botao')}
-            {modo !== 'capa' && (
-              <>
-                {' '}
-                <span className="rounded bg-black/25 px-1.5 py-0.5 text-xs">
-                  {custoRemix} {t('criar.custo')}
-                </span>
-              </>
-            )}
+            {enviando ? t('geral.enviando') : t('criar.botao')}{' '}
+            <span className="rounded bg-black/25 px-1.5 py-0.5 text-xs">
+              {custo} {t(custo === 1 ? 'criar.custoUm' : 'criar.custo')}
+            </span>
           </button>
 
           {aviso && (
