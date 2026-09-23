@@ -179,7 +179,7 @@ export class SongsService {
     if (requested && requested > limite) {
       throw new ForbiddenException(
         `Seu plano gera músicas de até ${limite}s (pediu ${requested}s). ` +
-          `O teto técnico é ${MAX_DURATION_SECONDS}s.`,
+          `O máximo na plataforma é ${MAX_DURATION_SECONDS}s.`,
       );
     }
   }

@@ -21,7 +21,7 @@
 ## Conteúdo real (não inventar)
 
 - Planos: Free (30 créditos/dia, até 2 min, só MP3) · Pro R$ 39 (5.000/mês, até 4 min, 5 formatos,
-  stems, lote, uso comercial) · Premier R$ 99 (20.000/mês, até 8 min, Max Mode, 6 simultâneas).
+  stems, lote, uso comercial) · Premier R$ 99 (20.000/mês, até 6 min, Max Mode, 6 simultâneas).
 - Custos: música 10 créditos · som curto 5 · letra por IA 1 · edições sem IA e stems custam 0.
 - Formatos: MP3, WAV, FLAC, Opus, M4A. Pacotes avulsos valem 12 meses.
 - Pagamento: Pix, boleto, cartão (gateway Asaas).

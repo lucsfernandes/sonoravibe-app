@@ -28,12 +28,16 @@ export type MusicalKey = (typeof MUSICAL_KEYS)[number];
 
 /**
  * Limites de duração, em segundos.
- * O teto é 480 s (8 min): o ACE-Step limita a isso com o LM ligado, e o LM
- * (`thinking`) é obrigatório — sem ele os instrumentos saem descompassados.
- * O limite de cada usuário vem do plano (PlanFeatures.maxDurationSeconds).
+ *
+ * O teto do PRODUTO é 360 s (6 min): é o máximo que qualquer plano oferece e
+ * que a API aceita em `durationSeconds`. Fica abaixo do que o motor aguenta —
+ * o ACE-Step chega a 480 s com o LM ligado (`ENGINE_MAX_DURATION_SECONDS`) —
+ * de propósito: o teto do motor é capacidade, este aqui é o que vendemos.
+ * O limite de cada usuário vem do plano (PlanFeatures.maxDurationSeconds), e
+ * nenhum plano passa daqui.
  */
 export const MIN_DURATION_SECONDS = 10;
-export const MAX_DURATION_SECONDS = 480;
+export const MAX_DURATION_SECONDS = 360;
 
 const percent = z.number().int().min(0).max(100);
 
@@ -55,7 +59,7 @@ export const advancedControlsSchema = z.object({
     .min(MIN_DURATION_SECONDS)
     .max(MAX_DURATION_SECONDS)
     .optional(),
-  /** Libera músicas de até 8 min. Exclusivo do plano Premier. */
+  /** Libera músicas de até 6 min (MAX_DURATION_SECONDS). Exclusivo do plano Premier. */
   maxMode: z.boolean().default(false),
   /** 0 = previsível, 100 = experimental */
   weirdness: percent.default(50),
