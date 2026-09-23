@@ -1,10 +1,11 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import type { Referencia } from '@/components/criar/adicionar-audio';
 import { BibliotecaCriar } from '@/components/criar/biblioteca/biblioteca-criar';
 import { PainelCriar } from '@/components/criar/painel';
+import { api, type MusicaDetalhe } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useSessao } from '@/lib/sessao';
 
@@ -32,6 +33,35 @@ function Conteudo() {
   const parametros = useSearchParams();
   const [versao, setVersao] = useState(0);
   const [referencia, setReferencia] = useState<Referencia | null>(null);
+
+  /**
+   * `?referencia=<id>` é o botão Remix da página de uma música: chega aqui
+   * com a faixa já escolhida como "+ Áudio". Só entra o que a API deixaria
+   * gerar (pronta, e própria ou com remix liberado pelo autor); do contrário
+   * a pessoa montaria o pedido inteiro para receber um 404 no fim.
+   */
+  const referenciaId = parametros.get('referencia');
+  const usuarioId = usuario?.id;
+  useEffect(() => {
+    if (!referenciaId || !usuarioId) return;
+    let ativo = true;
+    void api
+      .get<MusicaDetalhe>(`/songs/${referenciaId}`)
+      .then((m) => {
+        if (!ativo || m.status !== 'complete' || !(m.isMine || m.allowRemixes)) return;
+        setReferencia({
+          id: m.id,
+          title: m.title,
+          coverUrl: m.coverUrl,
+          durationMs: m.durationMs,
+          status: m.status,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      ativo = false;
+    };
+  }, [referenciaId, usuarioId]);
 
   if (carregando) return <div className="p-8 text-sm text-texto-suave">{t('geral.carregando')}</div>;
 

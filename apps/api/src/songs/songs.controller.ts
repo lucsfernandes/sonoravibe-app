@@ -51,6 +51,10 @@ const updateSchema = z.object({
   workspaceId: z.string().uuid().nullable().optional(),
   allowRemixes: z.boolean().optional(),
   allowComments: z.boolean().optional(),
+  // Os mesmos tetos da geração: a letra e o estilo exibidos são editáveis na
+  // página da música, e não faria sentido aceitar ali mais do que o motor aceita.
+  lyrics: z.string().max(6000).nullable().optional(),
+  stylePrompt: z.string().trim().max(1000).nullable().optional(),
 });
 
 const batchSchema = z.object({

@@ -251,6 +251,8 @@ export interface MusicaDetalhe extends Musica {
   likedByMe: boolean;
   /** Quem pediu e o dono da musica sao a mesma pessoa. */
   isMine: boolean;
+  /** Quem fez a música: a página mostra nome e foto ao lado do título. */
+  author: { handle: string; displayName: string; avatarUrl: string | null };
   stems: { kind: string; url: string }[];
   downloads: {
     format: string;
@@ -276,6 +278,12 @@ export interface ItemExplore extends Musica {
   likedByMe: boolean;
   /** O autor liberou usar a faixa como base (remix e "+ Áudio"). */
   allowRemixes: boolean;
+}
+
+/** A lateral da página da música: parecidas e do mesmo autor. */
+export interface Relacionadas {
+  similar: ItemExplore[];
+  byAuthor: ItemExplore[];
 }
 
 /** Ordens e filtros da listagem, espelhando o que a API aceita. */

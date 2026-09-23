@@ -39,6 +39,48 @@ export interface ExploreItem {
   allowRemixes: boolean;
 }
 
+/** As duas listas da lateral da página da música. */
+export interface RelatedSongs {
+  /** Públicas de outras pessoas, com estilo parecido. */
+  similar: ExploreItem[];
+  /** Outras públicas do mesmo autor. */
+  byAuthor: ExploreItem[];
+}
+
+/**
+ * Palavras que não dizem nada sobre o estilo. Curta de propósito: o objetivo
+ * não é analisar texto, é evitar que "with" e "com" casem com tudo.
+ */
+const PALAVRAS_VAZIAS = new Set([
+  'a', 'an', 'and', 'as', 'at', 'by', 'for', 'from', 'in', 'into', 'of', 'on', 'or', 'over',
+  'the', 'to', 'with', 'without', 'very', 'some', 'like',
+  'com', 'sem', 'para', 'por', 'uma', 'um', 'das', 'dos', 'de', 'da', 'do', 'que', 'mais',
+  'muito', 'como', 'e', 'ou', 'em', 'na', 'no', 'nas', 'nos', 'bem', 'bpm',
+]);
+
+/** Quantos termos entram na busca de similares. Mais que isso só encarece a consulta. */
+const MAX_TERMOS_ESTILO = 8;
+
+/**
+ * Termos de um prompt de estilo, para achar músicas parecidas.
+ *
+ * Divide em palavras, tira as vazias, as curtas e os números (o "62" de
+ * "62 BPM" casaria com qualquer estilo que cite um andamento) e deduplica.
+ * É deliberadamente simples: "ambient, warm synths, unhurried" precisa casar
+ * com "ambient, spacious synths", e uma busca por frase inteira não casa.
+ */
+export function termosDeEstilo(stylePrompt: string | null | undefined): string[] {
+  if (!stylePrompt) return [];
+  const vistos = new Set<string>();
+  for (const bruto of stylePrompt.toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
+    const termo = bruto.trim();
+    if (termo.length < 3 || /^\d+$/.test(termo) || PALAVRAS_VAZIAS.has(termo)) continue;
+    vistos.add(termo);
+    if (vistos.size === MAX_TERMOS_ESTILO) break;
+  }
+  return [...vistos];
+}
+
 /** Janela em que reproduções do mesmo ouvinte na mesma música não contam de novo. */
 const PLAY_DEDUP_SECONDS = 30;
 
@@ -107,7 +149,71 @@ export class SocialService {
       ).orderBy('relevancia', 'DESC');
     }
 
-    const songs = await qb.getMany();
+    return this.toExploreItems(viewerId, await qb.getMany());
+  }
+
+  /**
+   * As listas da lateral da página de uma música: parecidas e do mesmo autor.
+   *
+   * "Parecida" é afinidade de termos do estilo: cada termo do prompt desta
+   * música que aparece no prompt da outra soma um ponto, e a lista sai por
+   * pontos e depois por reproduções. Sem termos (upload sem estilo, por
+   * exemplo) ou sem nenhuma coincidência, entram as mais tocadas do catálogo:
+   * uma lateral vazia numa página pública parece defeito.
+   *
+   * Só músicas PÚBLICAS: é uma lista que qualquer visitante vê, e a do próprio
+   * autor não pode vazar as privadas dele por aqui.
+   */
+  async related(viewerId: string | null, songId: string, limit = 12): Promise<RelatedSongs> {
+    const song = await this.publicSong(songId, viewerId);
+
+    const base = () =>
+      this.dataSource
+        .getRepository(Song)
+        .createQueryBuilder('song')
+        .where('song.isPublic = true')
+        .andWhere("song.status = 'complete'")
+        .andWhere('song.id != :id', { id: song.id })
+        .take(limit);
+
+    const doAutor = base()
+      .andWhere('song.userId = :autor', { autor: song.userId })
+      .orderBy('song.publishedAt', 'DESC');
+
+    const termos = termosDeEstilo(song.stylePrompt);
+    let parecidas: Song[] = [];
+    if (termos.length > 0) {
+      const afinidade = termos
+        .map((_, i) => `(CASE WHEN song.style_prompt ILIKE :termo${i} THEN 1 ELSE 0 END)`)
+        .join(' + ');
+      const parametros = Object.fromEntries(
+        termos.map((termo, i) => [`termo${i}`, `%${termo.replace(/[\\%_]/g, '\\$&')}%`]),
+      );
+      parecidas = await base()
+        .andWhere('song.userId != :autor', { autor: song.userId })
+        .andWhere(`(${afinidade}) > 0`, parametros)
+        .addSelect(`(${afinidade})`, 'afinidade')
+        .orderBy('afinidade', 'DESC')
+        .addOrderBy('song.playCount', 'DESC')
+        .getMany();
+    }
+    if (parecidas.length === 0) {
+      parecidas = await base()
+        .andWhere('song.userId != :autor', { autor: song.userId })
+        .orderBy('song.playCount', 'DESC')
+        .addOrderBy('song.publishedAt', 'DESC')
+        .getMany();
+    }
+
+    const [similar, byAuthor] = await Promise.all([
+      this.toExploreItems(viewerId, parecidas),
+      this.toExploreItems(viewerId, await doAutor.getMany()),
+    ]);
+    return { similar, byAuthor };
+  }
+
+  /** Faixas públicas no formato do Explore, com autor e curtida do visitante resolvidos de uma vez. */
+  private async toExploreItems(viewerId: string | null, songs: Song[]): Promise<ExploreItem[]> {
     if (songs.length === 0) return [];
 
     const [autores, curtidas] = await Promise.all([
