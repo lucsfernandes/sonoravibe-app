@@ -17,9 +17,10 @@ e é gerada por `node scripts/build-postman.mjs`.
 > - O motor em produção é o **Lyria 3** (OpenRouter), que entrega até ~3 min e não aceita
 >   duração como parâmetro — ela vai como sugestão de texto no prompt. Por isso
 >   `ENGINE_MAX_DURATION_SECONDS` limita o que os planos anunciam: sem ele, Pro e Premier
->   venderiam 4 e 8 min que o motor não entrega. O **ACE-Step** chega aos 480 s, mas depende
->   de um endpoint na RunPod que ainda não foi criado; o provider e a imagem GPU estão
->   prontos. Quando existir, basta subir aquela constante para 480.
+>   venderiam 4 e 6 min que o motor não entrega. O **ACE-Step** chega aos 480 s (o produto
+>   para em 360 s, `MAX_DURATION_SECONDS`), mas depende de um endpoint na RunPod que ainda
+>   não foi criado; o provider e a imagem GPU estão prontos. Quando existir, basta subir
+>   aquela constante para 480.
 > - Em desenvolvimento o motor é o `mock` (FFmpeg, custo zero).
 
 ---
@@ -170,7 +171,8 @@ curl -X POST http://localhost:3001/songs/generate \
 ```
 
 Omitir `durationSeconds` deixa a duração automática (derivada do tamanho da letra) — foi o que soou
-mais natural nos testes. Quando informado, o limite vem do plano: Free 120s, Pro 240s, Premier 480s.
+mais natural nos testes. Quando informado, o limite vem do plano: Free 120s, Pro 240s, Premier 360s
+(o teto do produto, `MAX_DURATION_SECONDS`).
 `excludeStyles` com termos vocais vira instrumental nativo no ACE-Step, não uma instrução em texto.
 
 **Aba Sounds** — efeitos e loops curtos:

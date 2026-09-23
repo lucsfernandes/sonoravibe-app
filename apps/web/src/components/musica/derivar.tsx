@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { MAX_DURATION_SECONDS } from '@sonora/shared';
 import { ApiError, api } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useProgresso } from '@/lib/progresso';
@@ -152,7 +153,7 @@ export function Derivar({
                 rotulo={t('editar.ate')}
                 valor={fim}
                 min={1}
-                max={Math.round(duracaoMs / 1000) || 480}
+                max={Math.round(duracaoMs / 1000) || MAX_DURATION_SECONDS}
                 onChange={setFim}
               />
               {!trechoValido && (

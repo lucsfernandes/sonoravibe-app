@@ -94,7 +94,7 @@ const T: Dicionario = {
   'criar.tom': { pt: 'Tom', en: 'Key' },
   'criar.estranheza': { pt: 'Estranheza', en: 'Weirdness' },
   'criar.aderencia': { pt: 'Aderência ao estilo', en: 'Style influence' },
-  'criar.maxMode': { pt: 'Max Mode (até 8 min)', en: 'Max Mode (up to 8 min)' },
+  'criar.maxMode': { pt: 'Max Mode (até 6 min)', en: 'Max Mode (up to 6 min)' },
   'criar.tipoSom': { pt: 'Tipo', en: 'Type' },
   'criar.oneShot': { pt: 'One-shot', en: 'One-shot' },
   'criar.loop': { pt: 'Loop', en: 'Loop' },
@@ -136,8 +136,8 @@ const T: Dicionario = {
   'criar.auto': { pt: 'Auto', en: 'Auto' },
   'criar.maxModeCurto': { pt: 'Max Mode', en: 'Max Mode' },
   'criar.maxModeDica': {
-    pt: 'Libera músicas de até 8 minutos. Exclusivo do plano Premier.',
-    en: 'Unlocks songs up to 8 minutes. Premier plan only.',
+    pt: 'Libera músicas de até 6 minutos. Exclusivo do plano Premier.',
+    en: 'Unlocks songs up to 6 minutes. Premier plan only.',
   },
   'criar.estranhezaDica': {
     pt: 'Quanto o modelo pode fugir do previsível: 0 é convencional, 100 é experimental.',
