@@ -37,7 +37,15 @@ const config: NextConfig = {
    */
   async rewrites() {
     return {
-      beforeFiles: [{ source: '/', destination: '/index.html' }],
+      beforeFiles: [
+        { source: '/', destination: '/index.html' },
+        // O blog segue o mesmo modelo: HTML estático em `public/blog/`, com
+        // URL limpa. O slug só aceita letras, números e hífen — sem ponto — para
+        // que `/blog/post.html` continue servindo o arquivo em vez de virar
+        // `post.html.html`.
+        { source: '/blog', destination: '/blog/index.html' },
+        { source: '/blog/:slug([a-z0-9-]+)', destination: '/blog/:slug.html' },
+      ],
       afterFiles: [],
       fallback: [],
     };

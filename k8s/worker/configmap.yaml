@@ -27,7 +27,7 @@ data:
   DEMUCS_PATH: "demucs"
 
   OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
-  OPENROUTER_IMAGE_MODEL: "google/gemini-2.5-flash-image"
+  OPENROUTER_IMAGE_MODEL: "meta/muse-image"
   OPENROUTER_MUSIC_MODEL: "google/lyria-3-pro-preview"
   OPENROUTER_CLIP_MODEL: "google/lyria-3-clip-preview"
   OPENROUTER_APP_NAME: "Sonora"

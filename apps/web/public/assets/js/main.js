@@ -140,6 +140,27 @@
     window.addEventListener('beforeprint', revelarTudo);
   }
 
+  /* --------------------------- copiar prompt (blog) ------------------------ */
+  // Os blocos de prompt do blog existem para ir direto para a aba Criar. O
+  // botão nasce escondido no HTML e só aparece aqui, onde a área de
+  // transferência existe: sem JS ou sem permissão, o texto continua
+  // selecionável à mão e não sobra um botão que não faz nada.
+  if (navigator.clipboard) {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-copiar]'), function (btn) {
+      var alvo = document.getElementById(btn.getAttribute('data-copiar'));
+      if (!alvo) return;
+      btn.hidden = false;
+      btn.addEventListener('click', function () {
+        navigator.clipboard.writeText(alvo.textContent.trim()).then(function () {
+          btn.textContent = 'Copiado';
+          window.setTimeout(function () { btn.textContent = 'Copiar'; }, 1800);
+        }, function () {
+          btn.textContent = 'Selecione e copie';
+        });
+      });
+    });
+  }
+
   /* -------------------------------- LGPD --------------------------------- */
   var aviso = document.getElementById('lgpd');
   var ok = document.getElementById('lgpd-ok');
