@@ -29,13 +29,22 @@
   --t--1:  clamp(.88rem, .85rem + .1vw, .94rem);
   --t-2:   clamp(1.3rem, 1.15rem + .5vw, 1.6rem);
   --t-3:   clamp(2rem, 1.5rem + 2vw, 3.2rem);
-  /* Teto em 4.4rem: a 5.4rem a manchete quebrava em quatro linhas e empurrava
-     os botões para fora da primeira tela — o CTA principal sumia. */
-  --disp:  clamp(2.6rem, 1.7rem + 3.4vw, 4.4rem);
+  /* Teto em 4.4rem: acima disso a manchete quebrava em quatro linhas e
+     empurrava o CTA para fora da primeira tela. */
+  --disp:  clamp(2.15rem, 1.3rem + 3.3vw, 4.4rem);
 
-  --fonte-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
-  --fonte-corpo:   'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
-  --fonte-mono:    'Space Mono', ui-monospace, monospace;
+  /* Três fontes, cada uma com um papel só (definidos pela marca):
+     - Audiowide: o nome Sonora Vibe, na logo. Tem um peso só (400).
+     - Sansation: títulos h1–h6 e os números de destaque (fatos, preços,
+       passos). Pesos 300, 400 e 700.
+     - Google Sans Flex: todo o resto — texto, botões, menu, rótulos, selos e
+       a primeira coluna das tabelas. Variável, de 1 a 1000.
+     Mono só onde o texto é literal (as marcações [Verse] no blog e o mockup do
+     app), e com a fonte do próprio sistema: não baixa nada. */
+  --fonte-marca:   'Audiowide', ui-sans-serif, sans-serif;
+  --fonte-display: 'Sansation', ui-sans-serif, system-ui, sans-serif;
+  --fonte-corpo:   'Google Sans Flex', ui-sans-serif, system-ui, sans-serif;
+  --fonte-mono:    ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
 
   /* Escala de 8px. */
   --e-1: .5rem;  --e-2: 1rem;   --e-3: 1.5rem;
@@ -62,16 +71,14 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--fonte-display);
   font-weight: 700;
-  line-height: 1.06;
-  letter-spacing: -0.025em;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
   margin: 0;
-  /* O opsz da Bricolage é o que faz o display parecer "composto", e não
-     apenas "o mesmo texto maior". */
-  font-variation-settings: 'opsz' 48;
 }
+h3, h4, h5, h6 { letter-spacing: 0; }
 
 p { margin: 0; }
 /* `height: auto` NÃO é opcional aqui. Os atributos width/height do HTML (que
@@ -106,16 +113,14 @@ a { color: inherit; }
 }
 
 .sobrancelha {
-  font-family: var(--fonte-mono);
-  font-size: .78rem;
-  letter-spacing: .12em;
-  text-transform: uppercase;
+  font-size: var(--t--1);
+  font-weight: 600;
   color: var(--acento);
   margin-bottom: var(--e-2);
 }
 
 .titulo { font-size: var(--t-3); }
-.display { font-size: var(--disp); font-weight: 800; font-variation-settings: 'opsz' 96; }
+.display { font-size: var(--disp); font-weight: 700; line-height: 1.02; }
 .texto-suave { color: var(--ink-2); }
 .tom-apagado { color: var(--ink-3); }
 .mono { font-family: var(--fonte-mono); font-size: var(--t--1); }
@@ -169,9 +174,11 @@ a { color: inherit; }
 
 .marca {
   display: inline-flex; align-items: center; gap: .55rem;
-  font-family: var(--fonte-display);
-  font-weight: 800; font-size: 1.22rem;
-  letter-spacing: -.02em;
+  /* Audiowide só tem o peso 400: pedir negrito faria o navegador engrossar a
+     letra artificialmente. */
+  font-family: var(--fonte-marca);
+  font-weight: 400; font-size: 1.15rem;
+  letter-spacing: 0;
   text-decoration: none;
 }
 
@@ -314,9 +321,12 @@ a { color: inherit; }
   display: flex; flex-direction: column; gap: .8rem;
 }
 .secao--alt .passo { background: var(--superficie-2); }
+/* Aqui o número é conteúdo (os passos são uma sequência de verdade), então ele
+   ganha a fonte de manchete em vez de virar etiqueta. */
 .passo__num {
-  font-family: var(--fonte-mono); font-size: .8rem;
-  color: var(--acento); letter-spacing: .1em;
+  font-family: var(--fonte-display);
+  font-weight: 700; font-size: 1.5rem; line-height: 1;
+  color: var(--acento);
 }
 .passo__titulo { font-size: var(--t-2); }
 .passo__texto { font-size: var(--t--1); color: var(--ink-2); }
@@ -401,12 +411,11 @@ a { color: inherit; }
 .tabela { width: 100%; border-collapse: collapse; min-width: 560px; }
 .tabela th, .tabela td { text-align: left; padding: 1rem 1.25rem; font-size: var(--t--1); }
 .tabela thead th {
-  font-family: var(--fonte-mono); font-size: .76rem;
-  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3);
-  border-bottom: 1px solid var(--linha); font-weight: 400;
+  font-size: .86rem; color: var(--ink-3);
+  border-bottom: 1px solid var(--linha); font-weight: 600;
 }
 .tabela tbody tr + tr { border-top: 1px solid var(--linha); }
-.tabela tbody th { font-weight: 600; font-family: var(--fonte-display); }
+.tabela tbody th { font-weight: 600; color: var(--ink); }
 .tabela td { color: var(--ink-2); }
 
 .etiqueta {
@@ -435,15 +444,14 @@ a { color: inherit; }
    e a comparação — que é a única função desta seção — ficava torta. */
 .plano__selo {
   position: absolute; top: -.72rem; left: var(--e-4);
-  font-family: var(--fonte-mono); font-size: .72rem;
-  letter-spacing: .1em; text-transform: uppercase;
+  font-size: .8rem; font-weight: 600;
   color: var(--acento); background: var(--superficie-2);
   border: 1px solid rgba(123,84,247,.42);
   border-radius: 999px; padding: .22rem .7rem;
 }
 .plano__nome { font-size: var(--t-2); }
 .plano__preco {
-  font-family: var(--fonte-display); font-weight: 800;
+  font-family: var(--fonte-display); font-weight: 700;
   font-size: clamp(2rem, 1.5rem + 1.6vw, 2.9rem);
   letter-spacing: -.03em; line-height: 1;
 }
@@ -478,7 +486,7 @@ a { color: inherit; }
 }
 .faq__item summary::-webkit-details-marker { display: none; }
 .faq__item summary::after {
-  content: "+"; font-family: var(--fonte-mono); color: var(--acento);
+  content: "+"; font-weight: 400; color: var(--acento);
   font-size: 1.2rem; flex-shrink: 0; transition: transform .2s ease;
 }
 .faq__item[open] summary::after { transform: rotate(45deg); }
@@ -518,8 +526,7 @@ a { color: inherit; }
 .rodape__frase { margin-top: .7rem; font-size: var(--t--1); color: var(--ink-3); max-width: 32ch; }
 .rodape__col { display: flex; flex-direction: column; gap: .5rem; }
 .rodape__titulo {
-  font-family: var(--fonte-mono); font-size: .76rem; font-weight: 400;
-  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3);
+  font-size: var(--t--1); letter-spacing: 0; line-height: 1.4; color: var(--ink);
   margin-bottom: .3rem;
 }
 .rodape__col a { font-size: var(--t--1); color: var(--ink-2); text-decoration: none; }
@@ -529,6 +536,10 @@ a { color: inherit; }
   display: flex; flex-wrap: wrap; gap: .5rem var(--e-3); justify-content: space-between;
   font-size: .82rem; color: var(--ink-3);
 }
+
+.rodape__links { display: flex; flex-wrap: wrap; gap: .4rem 1.4rem; }
+.rodape__links a { text-decoration: none; }
+.rodape__links a:hover { color: var(--ink); }
 
 /* ------------------------------ flutuantes ------------------------------ */
 .zap {
@@ -574,6 +585,138 @@ a { color: inherit; }
 .pagina p, .pagina li { color: var(--ink-2); max-width: 65ch; }
 .pagina ul { padding-inline-start: 1.2rem; display: grid; gap: .4rem; }
 
+/* --------------------------------- blog --------------------------------- */
+/* O blog usa a mesma base das páginas internas (.pagina), com uma coluna de
+   leitura de ~68ch. Nada de barra lateral: o post é longo e o que ajuda é o
+   sumário no topo, não um widget ao lado roubando largura no celular. */
+.blog-cabeca { padding-block: var(--e-8) var(--e-6); }
+.blog-cabeca .prosa { margin-top: var(--e-3); }
+
+/* `.pagina .blog-lista` e não só `.blog-lista`: a regra `.pagina ul` é mais
+   específica e recuava o card. */
+.pagina .blog-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e-3); }
+.pagina .blog-item { max-width: none; }
+.blog-item {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-g);
+  padding: var(--e-4);
+  display: grid; gap: .7rem;
+  transition: border-color .2s ease;
+}
+.blog-item:hover { border-color: rgba(123,84,247,.35); }
+.blog-item h2 { font-size: var(--t-2); margin: 0; }
+.blog-item h2 a { text-decoration: none; color: var(--ink); }
+.blog-item h2 a:hover { color: var(--acento); }
+.blog-item p { font-size: var(--t--1); color: var(--ink-2); max-width: 68ch; }
+.blog-meta { font-size: var(--t--1); color: var(--ink-3); }
+
+.artigo { padding-block: var(--e-6) var(--e-12); }
+.artigo__cabeca { padding-bottom: var(--e-4); border-bottom: 1px solid var(--linha); margin-bottom: var(--e-4); }
+.artigo__cabeca h1 { font-size: var(--t-3); margin-bottom: var(--e-3); }
+.artigo__linha-fina { font-size: clamp(1.08rem, 1rem + .4vw, 1.25rem); color: var(--ink-2); max-width: 62ch; }
+.artigo__cabeca .blog-meta { margin-top: var(--e-3); }
+
+.artigo h2 {
+  font-size: var(--t-2); margin-block: var(--e-8) var(--e-2);
+  /* O cabeçalho é fixo: sem isto, o link do sumário leva o título para baixo dele. */
+  scroll-margin-top: 90px;
+}
+.artigo h3 { font-size: 1.2rem; margin-block: var(--e-4) var(--e-1); scroll-margin-top: 90px; }
+.artigo p, .artigo li { color: var(--ink-2); max-width: 68ch; }
+.artigo p + p { margin-top: var(--e-2); }
+.artigo strong { color: var(--ink); font-weight: 600; }
+.artigo a { color: var(--acento); text-underline-offset: 3px; }
+.artigo ul, .artigo ol { padding-inline-start: 1.3rem; display: grid; gap: .45rem; margin-block: var(--e-2); }
+/* Numeração por contador, não pelo marcador nativo: o ::marker do Chrome usa
+   algarismos tabulares e ignora font-variant-numeric, então o número não
+   acompanhava a fonte do texto. */
+.artigo ol { list-style: none; padding-inline-start: 0; counter-reset: item; }
+.artigo ol > li { counter-increment: item; position: relative; padding-inline-start: 1.9rem; }
+.artigo ol > li::before {
+  content: counter(item) ".";
+  position: absolute; left: 0; width: 1.5rem; text-align: right;
+  font-weight: 600; color: var(--ink-3);
+}
+.artigo code {
+  font-family: var(--fonte-mono); font-size: .86em;
+  background: var(--superficie-2); border: 1px solid var(--linha);
+  border-radius: 6px; padding: .06rem .35rem; color: var(--ink);
+}
+.artigo .tabela-envolve { margin-block: var(--e-3); }
+
+.sumario {
+  background: var(--superficie); border: 1px solid var(--linha);
+  border-radius: var(--raio-g); padding: var(--e-3) var(--e-4);
+  margin-block: var(--e-4);
+}
+.sumario h2 {
+  font-size: 1.25rem;
+  margin: 0 0 var(--e-2);
+}
+.sumario ol { margin: 0; gap: .35rem; }
+.sumario a { color: var(--ink-2); text-decoration: none; }
+.sumario a:hover { color: var(--ink); }
+
+/* Caixa de aviso: uma cor só (o acento) e um rótulo em texto. Cor sozinha não
+   carrega significado para quem não enxerga o violeta. */
+.aviso {
+  border: 1px solid rgba(123,84,247,.32);
+  background: var(--acento-suave);
+  border-radius: var(--raio);
+  padding: var(--e-2) var(--e-3);
+  margin-block: var(--e-3);
+}
+.aviso p { color: var(--ink); max-width: none; }
+.aviso__rotulo {
+  display: block; font-weight: 700; color: var(--acento);
+  margin-bottom: .25rem;
+}
+
+/* Bloco de prompt: é para copiar e colar no app, então o texto quebra linha em
+   vez de rolar para o lado, e o botão Copiar fica sempre à vista. */
+.prompt { position: relative; margin-block: var(--e-2) var(--e-3); }
+.prompt__rotulo {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  font-size: .9rem; font-weight: 600; color: var(--ink-2);
+  margin-bottom: .4rem;
+}
+/* Na fonte do texto, não em mono: o que está aqui é descrição de estilo e letra
+   de música, não código. Em mono, a letra lia como terminal. */
+.prompt pre {
+  margin: 0;
+  background: var(--superficie); border: 1px solid var(--linha);
+  border-radius: var(--raio); padding: var(--e-2) var(--e-3);
+  font-family: var(--fonte-corpo); font-size: var(--t--1); line-height: 1.65;
+  color: var(--ink); white-space: pre-wrap; word-break: break-word;
+}
+.copiar {
+  font: inherit; font-size: .84rem;
+  background: transparent; color: var(--acento);
+  border: 1px solid rgba(123,84,247,.35); border-radius: 999px;
+  padding: .2rem .7rem; cursor: pointer;
+}
+.copiar:hover { background: var(--acento-suave); }
+
+/* Ficha de configuração do exemplo: rótulo à esquerda, valor à direita. */
+.ficha {
+  margin: var(--e-2) 0 var(--e-3); padding: 0;
+  border: 1px solid var(--linha); border-radius: var(--raio);
+  overflow: hidden;
+}
+.ficha div { display: grid; grid-template-columns: 11rem 1fr; gap: 1rem; padding: .7rem 1rem; }
+.ficha div + div { border-top: 1px solid var(--linha); }
+.ficha dt { font-size: var(--t--1); color: var(--ink-3); }
+.ficha dd { margin: 0; font-size: var(--t--1); color: var(--ink); }
+
+.artigo__fim {
+  margin-top: var(--e-8); padding: var(--e-4);
+  background: linear-gradient(140deg, rgba(123,84,247,.14), rgba(178,53,236,.10));
+  border: 1px solid rgba(123,84,247,.28); border-radius: var(--raio-g);
+  display: grid; gap: var(--e-2); justify-items: start;
+}
+.artigo__fim h2 { margin: 0; }
+
 /* ------------------------------ responsivo ------------------------------ */
 @media (max-width: 960px) {
   .hero__grade { grid-template-columns: 1fr; }
@@ -612,6 +755,9 @@ a { color: inherit; }
      com duas ou três palavras por linha. */
   .cartao--acento { grid-column: auto; flex-direction: column; align-items: flex-start; gap: .7rem; }
   .lgpd { left: 1.1rem; right: 1.1rem; max-width: none; bottom: 5.2rem; flex-direction: column; align-items: stretch; }
+
+  .ficha div { grid-template-columns: 1fr; gap: .15rem; }
+  .sumario, .blog-item, .artigo__fim { padding: var(--e-3); }
 }
 
 @media (max-width: 480px) {

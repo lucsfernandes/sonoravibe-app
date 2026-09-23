@@ -33,6 +33,29 @@ linhas de marcação e o CSS junto, com risco de perder detalhe visual, para gan
 consome dados da API nem precisa de estado. O rewrite custa três linhas e preserva o resultado
 byte a byte.
 
+## Blog
+
+Mesmo modelo do site: HTML estático em `public/blog/`, com o mesmo `styles.css` e `main.js`.
+Dois rewrites em `next.config.ts` dão URL limpa: `/blog` serve `blog/index.html` e
+`/blog/<slug>` serve `blog/<slug>.html`. Dentro do blog os links são **absolutos**
+(`/assets/css/styles.css`), porque a página é servida de uma subpasta.
+
+Para publicar um post novo:
+
+1. Copie `blog/como-criar-musicas-no-sonora-vibe.html` para `blog/<slug>.html`. O slug usa só
+   letras minúsculas, números e hífen: é o que o rewrite aceita.
+2. Troque o `<title>`, a descrição, o `canonical`, as tags `og:*` e o JSON-LD.
+3. Adicione um `<li class="blog-item">` no **topo** da lista em `blog/index.html`.
+4. Inclua a URL no `sitemap.xml`.
+
+Componentes prontos para o texto do post: `.aviso` (caixa de destaque), `.prompt` com
+`<pre id>` e um botão `data-copiar="<id>"` (ele copia para a área de transferência), `.ficha`
+(configurações em rótulo e valor) e `.tabela`.
+
+O primeiro post descreve o produto como ele é hoje, incluindo limites e o comportamento do
+**Estender**. Quando uma dessas coisas mudar no código, atualize o post e
+`docs/TEMPLATE-DE-PROMPT.md`.
+
 ## O que trocar antes de publicar
 
 Procure por `TROCAR` no `index.html` e na política de privacidade:
