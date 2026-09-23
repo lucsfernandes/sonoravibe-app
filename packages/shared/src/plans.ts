@@ -1,4 +1,5 @@
 import type { AudioFormat } from './audio';
+import { MAX_DURATION_SECONDS } from './generation';
 
 export const PLAN_CODES = ['free', 'pro', 'premier'] as const;
 export type PlanCode = (typeof PLAN_CODES)[number];
@@ -23,7 +24,10 @@ export interface PlanFeatures {
   readonly maxConcurrentGenerations: number;
   /** Libera Max Mode (geração mais longa/custosa) */
   readonly maxMode: boolean;
-  /** Duração máxima por música, em segundos. O teto técnico é 480 s. */
+  /**
+   * Duração máxima por música, em segundos. Nenhum plano passa de
+   * MAX_DURATION_SECONDS (360 s): é o teto do produto, e o Premier fica nele.
+   */
   readonly maxDurationSeconds: number;
   /** Download em lote (ZIP) */
   readonly batchDownload: boolean;
@@ -96,7 +100,7 @@ export const PLANS: Record<PlanCode, Plan> = {
    *
    * Formato não é alavanca entre os planos pagos. O Premier se diferencia pelo
    * que é mensurável: volume de créditos, fila prioritária, mais gerações
-   * simultâneas e Max Mode (músicas de até 8 min).
+   * simultâneas e Max Mode (músicas de até 6 min, o teto do produto).
    */
   pro: {
     code: 'pro',
@@ -128,7 +132,8 @@ export const PLANS: Record<PlanCode, Plan> = {
       queuePriority: 1,
       maxConcurrentGenerations: 6,
       maxMode: true,
-      maxDurationSeconds: 480,
+      /** O Premier vai até o teto do produto: 360 s (6 min). */
+      maxDurationSeconds: MAX_DURATION_SECONDS,
       batchDownload: true,
     },
   },
@@ -138,8 +143,10 @@ export const PLANS: Record<PlanCode, Plan> = {
  * Teto de duração que cada motor realmente entrega.
  *
  * O Lyria não recebe duração como parâmetro (ela viaja como sugestão de texto
- * dentro do prompt) e devolve no máximo ~3 min. O ACE-Step chega aos 480 s que
- * os planos prometem.
+ * dentro do prompt) e devolve no máximo ~3 min. O ACE-Step chega a 480 s com o
+ * LM ligado — acima dos 360 s que o produto oferece (MAX_DURATION_SECONDS), e
+ * o número aqui é a CAPACIDADE do motor, não o que vendemos: quem segura a
+ * oferta em 6 min é o teto do produto e o limite de cada plano.
  *
  * O teto é indexado pelo MOTOR, e não uma constante única, porque foi assim que
  * a promessa desandou da primeira vez: o plano dizia 8 min, o motor ligado
@@ -149,7 +156,7 @@ export const PLANS: Record<PlanCode, Plan> = {
  *
  * Agora `maxDurationFor` recebe qual motor está configurado e o anúncio segue a
  * realidade sozinho: trocar `MUSIC_PROVIDER` para `acestep` no ConfigMap já
- * libera os 8 min, sem editar constante nenhuma.
+ * libera os 6 min do Premier, sem editar constante nenhuma.
  */
 export const ENGINE_MAX_DURATION_SECONDS: Record<string, number> = {
   /** Não aceita duração como parâmetro; ela vai como sugestão no prompt. */
@@ -165,11 +172,12 @@ export const ENGINE_MAX_DURATION_SECONDS: Record<string, number> = {
  *
  * Existe para que a tela de planos, a validação da API e a fila leiam o mesmo
  * número. Ler `features.maxDurationSeconds` direto é o que produz a promessa
- * que o motor não cumpre.
+ * que o motor não cumpre. O teto do produto entra na conta também: um motor
+ * que aguenta mais do que oferecemos não vira upgrade silencioso.
  */
 export function maxDurationFor(code: PlanCode, engine = 'lyria'): number {
   const teto = ENGINE_MAX_DURATION_SECONDS[engine] ?? 180;
-  return Math.min(PLANS[code].features.maxDurationSeconds, teto);
+  return Math.min(PLANS[code].features.maxDurationSeconds, teto, MAX_DURATION_SECONDS);
 }
 
 export function planOf(code: PlanCode): Plan {

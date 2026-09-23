@@ -44,8 +44,12 @@ separação de stems, download em múltiplos formatos e publicação social.
 > - **WAV sem perdas nativo** (48 kHz) — o Lyria entrega MP3 192 kbps
 > - **Pulso tão estável quanto o do Lyria**, desde que `thinking: true`
 >
-> **Teto real: 8 minutos.** O `gpu_config` do ACE-Step limita a 480 s com o LM ligado. Os
-> 10 min anunciados exigem o LM desligado — e sem ele volta o descompasso.
+> **Teto real do motor: 8 minutos.** O `gpu_config` do ACE-Step limita a 480 s com o LM ligado.
+> Os 10 min anunciados exigem o LM desligado — e sem ele volta o descompasso.
+>
+> **Teto do produto: 6 minutos** (`MAX_DURATION_SECONDS = 360` em `packages/shared`). É o
+> máximo que qualquer plano oferece e que a API aceita; fica abaixo do que o motor aguenta de
+> propósito, e o Premier é o plano que chega nele.
 >
 > O Prompt Compiler (§4.2) segue existindo para o caminho de reserva (Lyria).
 
@@ -392,7 +396,7 @@ R$ 39 de receita — saudável mesmo com 100% da cota usada. O risco de margem m
 caminho de reserva: cada música que cai no Lyria custa 10x mais, então um período longo em
 reserva (RunPod fora do ar) volta a apertar a margem. Ver §8.
 
-Limite de duração por plano: Free 2 min · Pro 4 min · Premier 8 min (Max Mode).
+Limite de duração por plano: Free 2 min · Pro 4 min · Premier 6 min (Max Mode, o teto do produto).
 
 ---
 

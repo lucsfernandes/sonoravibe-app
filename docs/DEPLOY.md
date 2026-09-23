@@ -199,7 +199,7 @@ sem `RUNPOD_ENDPOINT_ID`.
 | | ACE-Step (RunPod) | Lyria (OpenRouter) — atual |
 |---|---|---|
 | Custo por música | ~US$ 0,008 | ~US$ 0,08 (**10×**) |
-| Duração máxima | 8 min | ~3 min |
+| Duração máxima | 8 min no motor (o produto oferece 6) | ~3 min |
 | Endpoint próprio | precisa criar | não precisa |
 
 Com `lyria`, os secrets `RUNPOD_API_KEY` e `RUNPOD_ENDPOINT_ID` **não precisam
@@ -217,14 +217,14 @@ O problema aparece quando alguém **fixa** uma duração acima de 3 minutos:
 |---|---|---|
 | Free | 2 min | funciona |
 | Pro | 4 min | **falha** se a duração for fixada acima de ~3 min |
-| Premier | 8 min | **falha** se a duração for fixada acima de ~3 min |
+| Premier | 6 min | **falha** se a duração for fixada acima de ~3 min |
 
 A falha é limpa — o roteador recusa antes de chamar o modelo e os créditos nem
 chegam a ser cobrados —, mas é uma promessa que o produto não cumpre.
 
 > **Antes de abrir para o público pagante**, resolva uma das duas: crie o
 > endpoint da RunPod, ou ajuste `maxDurationSeconds` em `packages/shared/src/plans.ts`
-> e os textos correspondentes no site. Vender um plano de 8 minutos que entrega
+> e os textos correspondentes no site. Vender um plano de 6 minutos que entrega
 > 3 é o tipo de coisa que gera estorno e reclamação.
 
 Para voltar ao ACE-Step depois: troque as duas linhas `MUSIC_PROVIDER` nos

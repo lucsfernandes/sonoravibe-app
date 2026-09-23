@@ -13,9 +13,10 @@ O resto do arquivo é como criar.
 Hoje o motor em produção é o **Lyria 3** (via OpenRouter). Ele entrega até ~3 minutos e não
 aceita duração como parâmetro — ela vai como sugestão de texto dentro do prompt. Por isso
 `ENGINE_MAX_DURATION_SECONDS` (em `packages/shared/src/plans.ts`) limita a 180 s o que os
-planos anunciam: sem esse teto, Pro e Premier venderiam 4 e 8 minutos que o motor não entrega.
+planos anunciam: sem esse teto, Pro e Premier venderiam 4 e 6 minutos que o motor não entrega.
 
-O **ACE-Step 1.5** chega aos 480 s. Ele roda na RunPod porque precisa de GPU e escala a zero —
+O **ACE-Step 1.5** chega aos 480 s (o produto para em 360 s, o teto de 6 min de
+`MAX_DURATION_SECONDS`). Ele roda na RunPod porque precisa de GPU e escala a zero —
 o VPS não tem GPU, e uma máquina com GPU ligada o tempo todo custaria mais que a receita.
 
 Quando o endpoint existir:

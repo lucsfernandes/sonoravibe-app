@@ -1,7 +1,7 @@
 'use client';
 
 import { useId } from 'react';
-import { MUSICAL_KEYS } from '@sonora/shared';
+import { MAX_DURATION_SECONDS, MUSICAL_KEYS } from '@sonora/shared';
 import { formatarDuracao, useI18n } from '@/lib/i18n';
 import {
   CartaoSecao,
@@ -99,7 +99,8 @@ export function MaisOpcoes({
     .filter(Boolean)
     .join(' · ');
 
-  const tetoDuracao = valores.maxMode ? 480 : maxDuracao;
+  // Max Mode libera o teto do produto (6 min); fora dele vale o do plano.
+  const tetoDuracao = valores.maxMode ? MAX_DURATION_SECONDS : maxDuracao;
 
   return (
     <CartaoSecao
