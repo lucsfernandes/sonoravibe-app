@@ -1,5 +1,5 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Song, SongLike, Stem, Workspace } from '@sonora/db';
+import { Profile, Song, SongLike, Stem, Workspace } from '@sonora/db';
 import {
   AUDIO_FORMAT_SPECS,
   DEFAULT_JOB_OPTIONS,
@@ -76,6 +76,11 @@ export interface SongDetail extends SongSummary {
    * 403 quando clicados.
    */
   isMine: boolean;
+  /**
+   * Quem fez a música. A página pública mostra nome e foto ao lado do título,
+   * e sem isto ela precisaria de uma segunda chamada ao perfil só para isso.
+   */
+  author: { handle: string; displayName: string; avatarUrl: string | null };
   stems: { kind: string; url: string }[];
   /** O que o usuário pode baixar, com aviso honesto sobre o que cada formato entrega. */
   downloads: {
@@ -262,13 +267,14 @@ export class LibraryService {
       throw new NotFoundException('Música não encontrada.');
     }
 
-    const [stems, likedByMe] = await Promise.all([
+    const [stems, likedByMe, autor] = await Promise.all([
       this.dataSource.getRepository(Stem).findBy({ songId }),
       userId
         ? this.dataSource
             .getRepository(SongLike)
             .existsBy({ songId, userId })
         : Promise.resolve(false),
+      this.dataSource.getRepository(Profile).findOneBy({ userId: song.userId }),
     ]);
 
     const planCode = await this.plans.planCodeOf(song.userId);
@@ -286,6 +292,11 @@ export class LibraryService {
       allowComments: song.allowComments,
       likedByMe,
       isMine: userId !== null && song.userId === userId,
+      author: {
+        handle: autor?.handle ?? 'desconhecido',
+        displayName: autor?.displayName ?? 'Usuário',
+        avatarUrl: autor?.avatarKey ? await this.storage.presignGet(autor.avatarKey) : null,
+      },
       stems: await Promise.all(
         stems.map(async (stem) => ({
           kind: stem.kind,
@@ -314,6 +325,13 @@ export class LibraryService {
       workspaceId?: string | null;
       allowRemixes?: boolean;
       allowComments?: boolean;
+      /**
+       * Letra e estilo EXIBIDOS. Editá-los não regera nada: a música já
+       * existe, e o que muda é o texto que a página mostra ao lado dela.
+       * Vazio vira null, para a página não desenhar um bloco em branco.
+       */
+      lyrics?: string | null;
+      stylePrompt?: string | null;
     },
   ): Promise<SongDetail> {
     const song = await this.own(userId, songId);
@@ -330,6 +348,8 @@ export class LibraryService {
       ...(patch.workspaceId !== undefined ? { workspaceId: patch.workspaceId } : {}),
       ...(patch.allowRemixes !== undefined ? { allowRemixes: patch.allowRemixes } : {}),
       ...(patch.allowComments !== undefined ? { allowComments: patch.allowComments } : {}),
+      ...(patch.lyrics !== undefined ? { lyrics: patch.lyrics?.trim() || null } : {}),
+      ...(patch.stylePrompt !== undefined ? { stylePrompt: patch.stylePrompt?.trim() || null } : {}),
     });
 
     return this.findOne(userId, songId);

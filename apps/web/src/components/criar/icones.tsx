@@ -301,3 +301,77 @@ export const CarregandoIcone = (p: Props) => (
     <path d="M12 3a9 9 0 1 0 9 9" />
   </Base>
 );
+
+// --- Player -----------------------------------------------------------------
+
+export const AnteriorIcone = (p: Props) => (
+  <Base {...p} fill="currentColor" stroke="none">
+    <path d="M18 6v12l-9-6zM5 6h2v12H5z" />
+  </Base>
+);
+
+export const ProximoIcone = (p: Props) => (
+  <Base {...p} fill="currentColor" stroke="none">
+    <path d="M6 6v12l9-6zM17 6h2v12h-2z" />
+  </Base>
+);
+
+export const RepetirIcone = (p: Props) => (
+  <Base {...p}>
+    <path d="M17 2l4 4-4 4" />
+    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+    <path d="M7 22l-4-4 4-4" />
+    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+  </Base>
+);
+
+/** Repetir só esta: o mesmo laço com um "1" no meio. */
+export const RepetirUmaIcone = (p: Props) => (
+  <Base {...p}>
+    <path d="M17 2l4 4-4 4" />
+    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+    <path d="M7 22l-4-4 4-4" />
+    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    <path d="M11 10l2-1v6" />
+  </Base>
+);
+
+export const VolumeIcone = ({ mudo, ...p }: Props & { mudo?: boolean }) => (
+  <Base {...p}>
+    <path d="M4 9v6h3.5L12 19V5L7.5 9z" />
+    {mudo ? (
+      <path d="M16 9l5 6M21 9l-5 6" />
+    ) : (
+      <path d="M16 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" />
+    )}
+  </Base>
+);
+
+export const FilaIcone = (p: Props) => (
+  <Base {...p}>
+    <path d="M4 6h10M4 12h10M4 18h16" />
+    <path d="M17 6l4 3-4 3z" fill="currentColor" stroke="none" />
+  </Base>
+);
+
+export const ComentarioIcone = (p: Props) => (
+  <Base {...p}>
+    <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-5 4z" />
+  </Base>
+);
+
+export const CopiarIcone = (p: Props) => (
+  <Base {...p}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
+  </Base>
+);
+
+export const RemixIcone = (p: Props) => (
+  <Base {...p}>
+    <path d="M4 12a8 8 0 0 1 13.7-5.7L20 8.5" />
+    <path d="M20 4v4.5h-4.5" />
+    <path d="M20 12a8 8 0 0 1-13.7 5.7L4 15.5" />
+    <path d="M4 20v-4.5h4.5" />
+  </Base>
+);

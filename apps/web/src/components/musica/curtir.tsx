@@ -29,9 +29,10 @@ export function BotaoCurtir({
   contagemInicial: number;
   /**
    * 'linha' é o botão redondo de polegar das fileiras da aba Criar: só o
-   * ícone, com a contagem ao lado quando há alguma.
+   * ícone, com a contagem ao lado quando há alguma. 'icone' é o mesmo polegar
+   * sem fundo, para a fileira de ações do player.
    */
-  tamanho?: 'pequeno' | 'grande' | 'linha';
+  tamanho?: 'pequeno' | 'grande' | 'linha' | 'icone';
   aoMudar?: (curtido: boolean, contagem: number) => void;
 }) {
   const { t, locale } = useI18n();
@@ -87,6 +88,23 @@ export function BotaoCurtir({
 
   const grande = tamanho === 'grande';
 
+  if (tamanho === 'icone') {
+    return (
+      <button
+        type="button"
+        onClick={alternar}
+        aria-pressed={curtido}
+        aria-label={curtido ? t('musica.descurtir') : t('musica.curtir')}
+        title={`${curtido ? t('musica.descurtir') : t('musica.curtir')} · ${formatarContagem(contagem, locale)}`}
+        className={`flex size-9 items-center justify-center rounded-full transition-colors hover:bg-superficie ${
+          curtido ? 'text-acento' : 'text-texto-suave hover:text-texto'
+        } ${enviando ? 'opacity-70' : ''}`}
+      >
+        <PolegarIcone preenchido={curtido} className="size-4" />
+      </button>
+    );
+  }
+
   if (tamanho === 'linha') {
     return (
       <button
@@ -125,11 +143,17 @@ export function BotaoCurtir({
   );
 }
 
-function PolegarIcone({ preenchido }: { preenchido: boolean }) {
+function PolegarIcone({
+  preenchido,
+  className = 'size-3.5',
+}: {
+  preenchido: boolean;
+  className?: string;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="size-3.5"
+      className={className}
       fill={preenchido ? 'currentColor' : 'none'}
       stroke="currentColor"
       strokeWidth="1.8"

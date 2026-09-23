@@ -418,6 +418,45 @@ const T: Dicionario = {
   'musica.curtidas': { pt: 'curtidas', en: 'likes' },
   'musica.curtida': { pt: 'curtida', en: 'like' },
 
+  // Página da música (referência visual do Suno)
+  'musica.editar': { pt: 'Editar', en: 'Edit' },
+  'musica.edicaoTitulo': { pt: 'Editar a música', en: 'Edit the song' },
+  'musica.editarLetra': { pt: 'Editar letra exibida', en: 'Edit displayed lyrics' },
+  'musica.semLetra': { pt: 'Sem letra exibida.', en: 'No displayed lyrics.' },
+  'musica.editarTitulo': { pt: 'Clique para editar o título', en: 'Click to edit the title' },
+  'musica.editarEstilo': { pt: 'Clique para editar o estilo', en: 'Click to edit the style' },
+  'musica.copiarEstilo': { pt: 'Copiar o estilo', en: 'Copy the style' },
+  'musica.copiado': { pt: 'Copiado', en: 'Copied' },
+  'musica.semEstilo': { pt: 'Adicionar um estilo', en: 'Add a style' },
+  'musica.similares': { pt: 'Similares', en: 'Similar' },
+  'musica.de': { pt: 'De', en: 'By' },
+  'musica.nadaSimilar': { pt: 'Nenhuma música parecida ainda.', en: 'No similar songs yet.' },
+  'musica.nadaDoAutor': {
+    pt: 'Nenhuma outra música pública deste autor.',
+    en: 'No other public songs by this author.',
+  },
+  'musica.remixBloqueado': {
+    pt: 'Entre na sua conta, ou o autor não liberou remixes desta música.',
+    en: 'Sign in, or the author has not allowed remixes of this song.',
+  },
+  'musica.pausar': { pt: 'Pausar', en: 'Pause' },
+  'musica.detalhes': { pt: 'Ver a música', en: 'Open the song' },
+  'musica.abrirComentarios': { pt: 'Ir para os comentários', en: 'Go to the comments' },
+  'musica.baixarTitulo': { pt: 'Baixar a música', en: 'Download the song' },
+
+  // Player do rodapé
+  'player.embaralhar': { pt: 'Embaralhar', en: 'Shuffle' },
+  'player.repetir': { pt: 'Repetir', en: 'Repeat' },
+  'player.repetirTudo': { pt: 'Repetindo tudo', en: 'Repeating all' },
+  'player.repetirUma': { pt: 'Repetindo esta', en: 'Repeating this one' },
+  'player.anterior': { pt: 'Anterior', en: 'Previous' },
+  'player.proxima': { pt: 'Próxima', en: 'Next' },
+  'player.fila': { pt: 'Fila', en: 'Queue' },
+  'player.volume': { pt: 'Volume', en: 'Volume' },
+  'player.silenciar': { pt: 'Silenciar', en: 'Mute' },
+  'player.ativarSom': { pt: 'Ativar o som', en: 'Unmute' },
+  'player.posicao': { pt: 'Posição na faixa', en: 'Track position' },
+
   // Explorar
   'explorar.titulo': { pt: 'Explorar', en: 'Explore' },
   'explorar.emAlta': { pt: 'Em alta', en: 'Trending' },
@@ -643,10 +682,16 @@ const T: Dicionario = {
   'musica.curtir': { pt: 'Curtir', en: 'Like' },
   'musica.descurtir': { pt: 'Descurtir', en: 'Unlike' },
   'comentarios.titulo': { pt: 'Comentários', en: 'Comments' },
-  'comentarios.vazio': { pt: 'Nenhum comentário ainda.', en: 'No comments yet.' },
+  'comentarios.vazio': { pt: 'Nenhum comentário ainda!', en: 'No comments yet!' },
   'comentarios.placeholder': { pt: 'Escreva um comentário', en: 'Write a comment' },
   'comentarios.enviar': { pt: 'Comentar', en: 'Post' },
   'comentarios.marcarInstante': { pt: 'Marcar o instante', en: 'Mark the timestamp' },
+  'comentarios.reagir': { pt: 'Reagir com', en: 'React with' },
+  'comentarios.maisReacoes': { pt: 'Mais reações', en: 'More reactions' },
+  'comentarios.dicaEnvio': {
+    pt: 'Enter envia. Shift+Enter quebra a linha.',
+    en: 'Enter sends. Shift+Enter adds a line.',
+  },
   'comentarios.desativados': {
     pt: 'O autor desativou os comentários nesta música.',
     en: 'The author turned off comments on this song.',

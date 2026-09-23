@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { MaisIcone } from '@/components/criar/icones';
+import { Avatar } from '@/components/shell/avatar';
 import {
   api,
   ApiError,
@@ -12,12 +14,22 @@ import { useI18n } from '@/lib/i18n';
 import { usePlayer } from '@/lib/player';
 import { useSessao } from '@/lib/sessao';
 
+/** As reações de um toque, como na referência. */
+const REACOES = ['🔥', '😍', '😱', '👏', '👍', '😎', '🤯'];
+const MAIS_REACOES = ['❤️', '💜', '🎉', '🎶', '🕺', '😢', '🙌', '✨'];
+
 /**
- * Comentários de uma música.
+ * Comentários de uma música, no cartão da referência: a fileira de reações,
+ * o campo em pílula com a foto de quem escreve e, sem nenhum comentário, o
+ * aviso grande no meio.
+ *
+ * As reações não são um sistema à parte: cada emoji entra no texto do
+ * comentário. É o que dá o gesto rápido da referência sem inventar uma
+ * segunda tabela para "reagiu com 🔥".
  *
  * Um comentário pode estar ancorado num instante da faixa (`timestampMs`): é
  * assim que alguém diz "o refrão em 1:12 ficou ótimo" sem descrever onde. Por
- * isso o instante é clicável e leva o player até lá, e o formulário oferece
+ * isso o instante é clicável e leva o player até lá, e o campo oferece
  * marcar o ponto em que a faixa está tocando agora.
  *
  * Carrega sob demanda, não junto com a música: a maioria das visitas é para
@@ -32,7 +44,7 @@ export function Comentarios({
   aoMudarTotal?: (delta: number) => void;
 }) {
   const { t } = useI18n();
-  const { usuario } = useSessao();
+  const { usuario, perfil } = useSessao();
   const { faixa, posicaoMs, buscar } = usePlayer();
 
   const [dados, setDados] = useState<ComentariosDTO | null>(null);
@@ -40,6 +52,8 @@ export function Comentarios({
   const [texto, setTexto] = useState('');
   const [comInstante, setComInstante] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [maisReacoes, setMaisReacoes] = useState(false);
+  const campo = useRef<HTMLTextAreaElement>(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -58,8 +72,7 @@ export function Comentarios({
   // apontaria para um lugar que não existe aqui.
   const instanteAtual = faixa?.id === songId ? posicaoMs : null;
 
-  async function enviar(e: React.FormEvent) {
-    e.preventDefault();
+  async function enviar() {
     const corpo = texto.trim();
     if (!corpo || enviando) return;
 
@@ -73,6 +86,7 @@ export function Comentarios({
       });
       setTexto('');
       setComInstante(false);
+      if (campo.current) campo.current.style.height = 'auto';
       aoMudarTotal?.(1);
       await carregar();
     } catch (err) {
@@ -96,66 +110,125 @@ export function Comentarios({
     }
   }
 
-  if (!dados) {
-    return (
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold">{t('comentarios.titulo')}</h2>
-        <p className="mt-3 text-sm text-texto-fraco pulsando">{t('geral.carregando')}</p>
-      </section>
-    );
+  function reagir(emoji: string) {
+    setTexto((atual) => (atual && !atual.endsWith(' ') ? `${atual} ${emoji}` : `${atual}${emoji}`));
+    campo.current?.focus();
   }
 
+  /** O campo cresce com o texto, até umas seis linhas; depois rola. */
+  function ajustarAltura(el: HTMLTextAreaElement) {
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }
+
+  const podeEscrever = Boolean(dados?.allowed && usuario);
+
   return (
-    <section className="mt-10">
-      {/* O espaço entre título e contagem é explícito: sem ele o leitor de
-          tela anuncia "Comentários1". */}
-      <h2 className="text-lg font-semibold">
+    <section id="comentarios" className="scroll-mt-6 rounded-3xl bg-superficie p-4 sm:p-5">
+      <h2 className="sr-only">
         {t('comentarios.titulo')}
-        {dados.items.length > 0 && (
-          <>
-            {' '}
-            <span className="text-sm font-normal text-texto-fraco">{dados.items.length}</span>
-          </>
-        )}
+        {dados && dados.items.length > 0 ? ` ${dados.items.length}` : ''}
       </h2>
 
-      {!dados.allowed ? (
-        <p className="mt-3 text-sm text-texto-fraco">{t('comentarios.desativados')}</p>
+      {podeEscrever && (
+        <div className="flex flex-wrap items-center gap-1" aria-label={t('comentarios.reagir')}>
+          {[...REACOES, ...(maisReacoes ? MAIS_REACOES : [])].map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => reagir(emoji)}
+              aria-label={`${t('comentarios.reagir')} ${emoji}`}
+              className="flex size-9 items-center justify-center rounded-full text-xl transition-transform hover:scale-125"
+            >
+              {emoji}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setMaisReacoes((v) => !v)}
+            aria-expanded={maisReacoes}
+            aria-label={t('comentarios.maisReacoes')}
+            title={t('comentarios.maisReacoes')}
+            className="flex size-8 items-center justify-center rounded-full border border-borda text-texto-suave transition-colors hover:bg-superficie-alta hover:text-texto"
+          >
+            <MaisIcone tamanho={14} />
+          </button>
+        </div>
+      )}
+
+      {dados && !dados.allowed ? (
+        <p className="py-6 text-center text-sm text-texto-fraco">{t('comentarios.desativados')}</p>
       ) : usuario ? (
-        <form onSubmit={enviar} className="mt-4">
-          <textarea
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            placeholder={t('comentarios.placeholder')}
-            aria-label={t('comentarios.placeholder')}
-            rows={3}
-            maxLength={2000}
-            className="w-full resize-y rounded-xl border border-borda bg-superficie px-3 py-2 text-sm outline-none placeholder:text-texto-fraco focus:border-texto-fraco"
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void enviar();
+          }}
+          className="mt-3 flex items-end gap-3 rounded-3xl bg-superficie-alta py-2 pl-2.5 pr-2.5"
+        >
+          <Avatar
+            url={perfil?.avatarUrl ?? usuario.image}
+            nome={perfil?.displayName || usuario.name}
+            tamanho={34}
+            className="mb-0.5"
           />
-          <div className="mt-2 flex flex-wrap items-center gap-3">
+          <label htmlFor="novo-comentario" className="sr-only">
+            {t('comentarios.placeholder')}
+          </label>
+          <textarea
+            id="novo-comentario"
+            ref={campo}
+            value={texto}
+            onChange={(e) => {
+              setTexto(e.target.value);
+              ajustarAltura(e.target);
+            }}
+            onKeyDown={(e) => {
+              // Enter envia, como num chat; Shift+Enter quebra a linha.
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void enviar();
+              }
+            }}
+            placeholder={t('comentarios.placeholder')}
+            title={t('comentarios.dicaEnvio')}
+            rows={1}
+            maxLength={2000}
+            disabled={!dados || !dados.allowed || enviando}
+            className="min-w-0 flex-1 resize-none bg-transparent py-2 text-sm leading-relaxed outline-none placeholder:text-texto-fraco disabled:opacity-60"
+          />
+
+          {instanteAtual !== null && (
+            <button
+              type="button"
+              onClick={() => setComInstante((v) => !v)}
+              aria-pressed={comInstante}
+              title={t('comentarios.marcarInstante')}
+              className={`mb-0.5 flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] tabular-nums transition-colors ${
+                comInstante
+                  ? 'bg-acento-suave text-acento'
+                  : 'bg-fundo/60 text-texto-fraco hover:text-texto'
+              }`}
+            >
+              <RelogioIcone />
+              {formatarInstante(instanteAtual)}
+            </button>
+          )}
+
+          {texto.trim() && (
             <button
               type="submit"
-              disabled={!texto.trim() || enviando}
-              className="rounded-xl gradiente-acento px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              disabled={enviando}
+              aria-label={t('comentarios.enviar')}
+              title={t('comentarios.enviar')}
+              className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full gradiente-acento text-white disabled:opacity-50"
             >
-              {enviando ? t('geral.enviando') : t('comentarios.enviar')}
+              <EnviarIcone />
             </button>
-
-            {instanteAtual !== null && (
-              <label className="flex items-center gap-2 text-xs text-texto-suave">
-                <input
-                  type="checkbox"
-                  checked={comInstante}
-                  onChange={(e) => setComInstante(e.target.checked)}
-                  className="accent-acento"
-                />
-                {t('comentarios.marcarInstante')} {formatarInstante(instanteAtual)}
-              </label>
-            )}
-          </div>
+          )}
         </form>
       ) : (
-        <p className="mt-3 text-sm text-texto-suave">
+        <p className="mt-3 rounded-3xl bg-superficie-alta px-4 py-3 text-sm text-texto-suave">
           <Link href="/entrar" className="text-acento hover:underline">
             {t('nav.entrar')}
           </Link>{' '}
@@ -163,12 +236,22 @@ export function Comentarios({
         </p>
       )}
 
-      {erro && <p className="mt-3 text-sm text-perigo">{erro}</p>}
+      {erro && (
+        <p role="alert" className="mt-3 text-sm text-perigo">
+          {erro}
+        </p>
+      )}
 
-      {dados.items.length === 0 ? (
-        dados.allowed && <p className="mt-6 text-sm text-texto-fraco">{t('comentarios.vazio')}</p>
+      {!dados ? (
+        <p className="py-8 text-center text-sm text-texto-fraco pulsando">{t('geral.carregando')}</p>
+      ) : dados.items.length === 0 ? (
+        dados.allowed && (
+          <p className="py-8 text-center font-serif text-2xl text-texto sm:text-3xl">
+            {t('comentarios.vazio')}
+          </p>
+        )
       ) : (
-        <ul className="mt-6 space-y-4">
+        <ul className="mt-5 space-y-4">
           {dados.items.map((c) => (
             <ItemComentario
               key={c.id}
@@ -199,12 +282,8 @@ function ItemComentario({
 
   return (
     <li className="flex gap-3">
-      <Link
-        href={`/u/${c.author.handle}`}
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-superficie-alta text-xs font-semibold"
-        aria-hidden
-      >
-        {c.author.displayName.slice(0, 1).toUpperCase()}
+      <Link href={`/u/${c.author.handle}`} className="shrink-0" aria-hidden tabIndex={-1}>
+        <Avatar url={c.author.avatarUrl} nome={c.author.displayName} tamanho={32} />
       </Link>
 
       <div className="min-w-0 flex-1">
@@ -253,4 +332,21 @@ function ItemComentario({
 function formatarInstante(ms: number): string {
   const total = Math.floor(ms / 1000);
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+function RelogioIcone() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function EnviarIcone() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M3 11.5 21 3l-8.5 18-2.5-7.5z" />
+    </svg>
+  );
 }

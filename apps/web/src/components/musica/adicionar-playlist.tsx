@@ -18,10 +18,16 @@ import { useI18n } from '@/lib/i18n';
 export function AdicionarAPlaylist({
   songId,
   compacto,
+  aparencia = 'redondo',
+  alinhamento = 'esquerda',
 }: {
   songId: string;
-  /** Botão redondo só com o ícone, para as fileiras da aba Criar. */
+  /** Botão só com o ícone, para as fileiras da aba Criar e a página da música. */
   compacto?: boolean;
+  /** 'quadrado' é o "+" de borda da página da música; 'redondo' é o das fileiras. */
+  aparencia?: 'redondo' | 'quadrado';
+  /** Para onde o painel abre. 'direita' quando o botão está na beira da tela. */
+  alinhamento?: 'esquerda' | 'direita';
 }) {
   const { t } = useI18n();
   const [aberto, setAberto] = useState(false);
@@ -105,16 +111,26 @@ export function AdicionarAPlaylist({
         title={compacto ? (feito ? `✓ ${feito}` : t('playlists.adicionar')) : undefined}
         className={
           compacto
-            ? `flex size-8 items-center justify-center rounded-full bg-superficie-alta transition-colors hover:bg-borda ${
-                feito ? 'text-acento' : 'text-texto-suave hover:text-texto'
-              }`
+            ? aparencia === 'quadrado'
+              ? `flex size-11 items-center justify-center rounded-xl border border-borda transition-colors hover:bg-superficie-alta ${
+                  feito ? 'text-acento' : 'text-texto hover:text-texto'
+                }`
+              : `flex size-8 items-center justify-center rounded-full bg-superficie-alta transition-colors hover:bg-borda ${
+                  feito ? 'text-acento' : 'text-texto-suave hover:text-texto'
+                }`
             : 'rounded-xl border border-borda px-4 py-2.5 text-sm transition-colors hover:border-acento hover:text-acento'
         }
       >
         {compacto ? (
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-            <path d="M4 6h12M4 12h12M4 18h7M18 14v6M15 17h6" />
-          </svg>
+          aparencia === 'quadrado' ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+              <path d="M4 6h12M4 12h12M4 18h7M18 14v6M15 17h6" />
+            </svg>
+          )
         ) : feito ? (
           `✓ ${feito}`
         ) : (
@@ -123,7 +139,11 @@ export function AdicionarAPlaylist({
       </button>
 
       {aberto && (
-        <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-xl border border-borda bg-superficie-alta p-2 shadow-lg">
+        <div
+          className={`absolute top-full z-20 mt-2 w-64 rounded-xl border border-borda bg-superficie-alta p-2 shadow-lg ${
+            alinhamento === 'direita' ? 'right-0' : 'left-0'
+          }`}
+        >
           {playlists === null ? (
             <p className="px-2 py-3 text-xs text-texto-fraco pulsando">{t('geral.carregando')}</p>
           ) : (

@@ -13,12 +13,15 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 export function MenuSuspenso({
   gatilho,
   alinhamento = 'esquerda',
+  direcao = 'baixo',
   largura = 'w-56',
   children,
 }: {
   /** Recebe se está aberto, para o botão marcar o estado. */
   gatilho: (aberto: boolean) => ReactNode;
   alinhamento?: 'esquerda' | 'direita';
+  /** 'cima' para menus no player do rodapé, que não têm espaço embaixo. */
+  direcao?: 'baixo' | 'cima';
   largura?: string;
   children: (fechar: () => void) => ReactNode;
 }) {
@@ -47,9 +50,9 @@ export function MenuSuspenso({
       {aberto && (
         <div
           role="menu"
-          className={`absolute top-full z-30 mt-1.5 ${largura} rounded-xl border border-borda bg-superficie-alta p-1.5 shadow-xl ${
-            alinhamento === 'direita' ? 'right-0' : 'left-0'
-          }`}
+          className={`absolute z-30 ${largura} rounded-xl border border-borda bg-superficie-alta p-1.5 shadow-xl ${
+            direcao === 'cima' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          } ${alinhamento === 'direita' ? 'right-0' : 'left-0'}`}
         >
           {children(() => setAberto(false))}
         </div>

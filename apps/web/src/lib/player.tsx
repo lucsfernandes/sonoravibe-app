@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { API_URL, type Musica } from './api';
+import { API_URL, type ItemExplore, type Musica } from './api';
 
 /**
  * Player global.
@@ -27,7 +27,17 @@ export interface FaixaTocando {
   coverUrl: string | null;
   durationMs: number;
   autor?: string;
+  /** Para o player levar ao perfil e mostrar a foto, quando a lista os trouxe. */
+  autorHandle?: string;
+  autorAvatarUrl?: string | null;
+  /** O botão de curtir do player precisa saber por onde começar. */
+  likedByMe?: boolean;
+  likeCount?: number;
+  commentCount?: number;
 }
+
+/** Como a fila continua quando a faixa acaba. */
+export type Repeticao = 'off' | 'all' | 'one';
 
 interface Player {
   faixa: FaixaTocando | null;
@@ -36,12 +46,21 @@ interface Player {
   posicaoMs: number;
   duracaoMs: number;
   volume: number;
+  mudo: boolean;
+  embaralhando: boolean;
+  repeticao: Repeticao;
   tocar: (faixa: FaixaTocando, fila?: FaixaTocando[]) => void;
+  /** Toca uma faixa que já está na fila, sem trocar a fila. */
+  tocarDaFila: (id: string) => void;
   alternar: () => void;
   proxima: () => void;
   anterior: () => void;
   buscar: (ms: number) => void;
   setVolume: (v: number) => void;
+  alternarMudo: () => void;
+  alternarEmbaralhar: () => void;
+  /** Desligado → repetir tudo → repetir esta → desligado. */
+  alternarRepeticao: () => void;
 }
 
 const Contexto = createContext<Player | null>(null);
@@ -53,6 +72,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const escutadoRef = useRef(0);
   const registradoRef = useRef<string | null>(null);
+  /** Volume de antes de silenciar, para o som voltar onde estava. */
+  const volumeAnteriorRef = useRef(1);
 
   const [faixa, setFaixa] = useState<FaixaTocando | null>(null);
   const [fila, setFila] = useState<FaixaTocando[]>([]);
@@ -60,6 +81,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [posicaoMs, setPosicaoMs] = useState(0);
   const [duracaoMs, setDuracaoMs] = useState(0);
   const [volume, setVolumeEstado] = useState(1);
+  const [embaralhando, setEmbaralhando] = useState(false);
+  const [repeticao, setRepeticao] = useState<Repeticao>('off');
 
   // O elemento é criado uma vez e nunca é desmontado enquanto o app viver.
   useEffect(() => {
@@ -133,21 +156,47 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     void audio.play().catch(() => setTocando(false));
   }, []);
 
-  const proxima = useCallback(() => {
-    if (!faixa) return;
-    const atual = fila.findIndex((f) => f.id === faixa.id);
-    const seguinte = fila[atual + 1];
-    if (seguinte) tocarFaixa(seguinte);
-  }, [faixa, fila, tocarFaixa]);
+  /**
+   * A faixa seguinte, respeitando embaralhar e repetir.
+   *
+   * `automatico` é o fim natural da faixa: só aí "repetir esta" recomeça a
+   * mesma. Quem clica em "próxima" com "repetir esta" ligado quer mesmo a
+   * próxima, senão o botão não faria nada.
+   */
+  const avancar = useCallback(
+    (automatico: boolean) => {
+      const audio = audioRef.current;
+      if (!faixa || !audio) return;
+
+      if (automatico && repeticao === 'one') {
+        audio.currentTime = 0;
+        void audio.play().catch(() => setTocando(false));
+        return;
+      }
+
+      const atual = fila.findIndex((f) => f.id === faixa.id);
+      let seguinte: FaixaTocando | undefined;
+      if (embaralhando && fila.length > 1) {
+        // Qualquer outra da fila, nunca a que acabou de tocar.
+        const candidatas = fila.filter((_, i) => i !== atual);
+        seguinte = candidatas[Math.floor(Math.random() * candidatas.length)];
+      } else {
+        seguinte = fila[atual + 1];
+        if (!seguinte && repeticao === 'all') seguinte = fila[0];
+      }
+      if (seguinte) tocarFaixa(seguinte);
+    },
+    [faixa, fila, embaralhando, repeticao, tocarFaixa],
+  );
 
   // Avanço automático ao terminar a faixa.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const aoTerminar = () => proxima();
+    const aoTerminar = () => avancar(true);
     audio.addEventListener('ended', aoTerminar);
     return () => audio.removeEventListener('ended', aoTerminar);
-  }, [proxima]);
+  }, [avancar]);
 
   const valor = useMemo<Player>(
     () => ({
@@ -157,9 +206,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       posicaoMs,
       duracaoMs,
       volume,
+      mudo: volume === 0,
+      embaralhando,
+      repeticao,
       tocar: (nova, novaFila) => {
         setFila(novaFila ?? [nova]);
         tocarFaixa(nova);
+      },
+      tocarDaFila: (id) => {
+        const alvo = fila.find((f) => f.id === id);
+        if (alvo) tocarFaixa(alvo);
       },
       alternar: () => {
         const audio = audioRef.current;
@@ -167,7 +223,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         if (audio.paused) void audio.play().catch(() => setTocando(false));
         else audio.pause();
       },
-      proxima,
+      proxima: () => avancar(false),
       anterior: () => {
         const audio = audioRef.current;
         if (!audio || !faixa) return;
@@ -178,7 +234,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           return;
         }
         const atual = fila.findIndex((f) => f.id === faixa.id);
-        const anterior = fila[atual - 1];
+        const anterior = fila[atual - 1] ?? (repeticao === 'all' ? fila[fila.length - 1] : undefined);
         if (anterior) tocarFaixa(anterior);
       },
       buscar: (ms) => {
@@ -188,10 +244,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setVolume: (v) => {
         const audio = audioRef.current;
         if (audio) audio.volume = v;
+        if (v > 0) volumeAnteriorRef.current = v;
         setVolumeEstado(v);
       },
+      alternarMudo: () => {
+        const audio = audioRef.current;
+        const novo = volume === 0 ? volumeAnteriorRef.current || 1 : 0;
+        if (audio) audio.volume = novo;
+        setVolumeEstado(novo);
+      },
+      alternarEmbaralhar: () => setEmbaralhando((v) => !v),
+      alternarRepeticao: () =>
+        setRepeticao((r) => (r === 'off' ? 'all' : r === 'all' ? 'one' : 'off')),
     }),
-    [faixa, fila, tocando, posicaoMs, duracaoMs, volume, proxima, tocarFaixa],
+    [faixa, fila, tocando, posicaoMs, duracaoMs, volume, embaralhando, repeticao, avancar, tocarFaixa],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
@@ -203,15 +269,39 @@ export function usePlayer(): Player {
   return contexto;
 }
 
-/** Converte uma música da API no formato que o player entende. */
-export function paraFaixa(musica: Musica, autor?: string): FaixaTocando | null {
+/** Quem fez a faixa, como o player mostra. */
+export interface AutorFaixa {
+  displayName: string;
+  handle?: string;
+  avatarUrl?: string | null;
+}
+
+/**
+ * Converte uma música da API no formato que o player entende.
+ *
+ * O autor pode vir por parâmetro (a página de perfil sabe de quem são todas)
+ * ou da própria música, quando ela veio do Explore e traz `author`.
+ */
+export function paraFaixa(
+  musica: Musica | ItemExplore,
+  autor?: string | AutorFaixa,
+): FaixaTocando | null {
   if (!musica.audioUrl) return null;
+  const quem: AutorFaixa | undefined =
+    typeof autor === 'string'
+      ? { displayName: autor }
+      : (autor ?? ('author' in musica ? musica.author : undefined));
   return {
     id: musica.id,
     title: musica.title,
     audioUrl: musica.audioUrl,
     coverUrl: musica.coverUrl,
     durationMs: musica.durationMs,
-    autor,
+    autor: quem?.displayName,
+    autorHandle: quem?.handle,
+    autorAvatarUrl: quem?.avatarUrl ?? null,
+    likedByMe: musica.likedByMe,
+    likeCount: musica.likeCount,
+    commentCount: musica.commentCount,
   };
 }

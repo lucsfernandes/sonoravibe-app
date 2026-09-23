@@ -16,7 +16,7 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { CurrentUser, Public, type SessionUser } from '../auth/session.guard';
 import { parseOrThrow } from '../common/parse';
-import { SocialService, type ExploreItem } from './social.service';
+import { SocialService, type ExploreItem, type RelatedSongs } from './social.service';
 
 const commentSchema = z.object({
   body: z.string().trim().min(1).max(2000),
@@ -64,6 +64,25 @@ export class SocialController {
   @HttpCode(HttpStatus.OK)
   like(@CurrentUser() user: SessionUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.social.toggleLike(user.id, id);
+  }
+
+  /**
+   * A lateral da página da música: parecidas e do mesmo autor. Pública como a
+   * própria página; o serviço responde 404 para música privada de outra pessoa.
+   */
+  @Public()
+  @Get('songs/:id/related')
+  related(
+    @CurrentUser() user: SessionUser | undefined,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: unknown,
+  ): Promise<RelatedSongs> {
+    const { limit } = parseOrThrow(
+      z.object({ limit: z.coerce.number().int().min(1).max(30).default(12) }),
+      query,
+      'relacionadas',
+    );
+    return this.social.related(user?.id ?? null, id, limit);
   }
 
   @Public()

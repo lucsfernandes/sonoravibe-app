@@ -57,10 +57,12 @@ export function CartaoMusica({
       alternar();
       return;
     }
-    const nova = paraFaixa(musica, autor?.displayName);
+    const nova = paraFaixa(musica, autor);
     if (!nova) return;
+    // Na página de perfil todas são do mesmo autor; no Explore cada item traz
+    // o seu, e `paraFaixa` o lê da própria música.
     const novaFila = (fila ?? [musica])
-      .map((m) => paraFaixa(m))
+      .map((m) => paraFaixa(m, 'author' in m ? undefined : autor))
       .filter((f): f is FaixaTocando => f !== null);
     tocar(nova, novaFila);
   };

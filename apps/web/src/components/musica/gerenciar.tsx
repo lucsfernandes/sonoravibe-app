@@ -49,7 +49,7 @@ export function GerenciarMusica({
   const tituloMudou = titulo.trim() !== musica.title && titulo.trim().length > 0;
 
   return (
-    <section className="mt-10 rounded-xl border border-borda">
+    <section className="mt-6 rounded-xl border border-borda">
       <button
         type="button"
         onClick={() => setAberto((a) => !a)}
