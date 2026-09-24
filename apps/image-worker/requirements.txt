@@ -1,0 +1,11 @@
+# Worker de capas (FLUX.2 [klein] 4B). O Flux2KleinPipeline existe desde o
+# diffusers 0.37; o encoder de texto é um Qwen3, que pede transformers >= 4.56.
+# Subir qualquer versão exige gerar capas e conferir de novo. (safetensors >= 0.8
+# é exigência do diffusers 0.38: com 0.6 o pip recusa a instalação.)
+diffusers==0.38.0
+transformers==4.57.6
+accelerate==1.10.1
+huggingface_hub==0.35.3
+safetensors==0.8.0
+pillow==11.3.0
+runpod==1.12.0

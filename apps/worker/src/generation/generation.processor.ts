@@ -20,6 +20,7 @@ import {
   type PlaylistInspiration,
   type UploadTarget,
   type WaveformJob,
+  isMusicModel,
 } from '@sonora/shared';
 import { CreditsLedger, Generation, Song } from '@sonora/db';
 import { StorageService, storageKeys } from '@sonora/storage';
@@ -28,7 +29,8 @@ import type { Redis } from 'ioredis';
 import { In, type DataSource } from 'typeorm';
 import type { MusicRouter } from '../providers/music-router';
 import { durationOfBuffer } from '../audio/ffmpeg';
-import { coverPromptFor, type CoverArtGenerator } from './cover-art';
+import { coverPromptFor, coverVisualFor } from './cover-art';
+import type { CoverArtSource } from './flux-cover';
 
 /**
  * O que acontece com um job de geração, do início ao fim.
@@ -96,7 +98,7 @@ export interface ProcessorDeps {
   credits: CreditsLedger;
   /** Fila de conversão, para já deixar o MP3 pronto quando a música nasce. */
   transcodeQueue: Queue;
-  coverArt: CoverArtGenerator;
+  coverArt: CoverArtSource;
   /** Usado para medir a duração quando o provedor não informa. Ver `resolveDuration`. */
   ffmpegPath: string;
   logger?: { log(msg: string): void; warn(msg: string): void; error(msg: string): void };
@@ -433,7 +435,10 @@ export class GenerationProcessor {
         throw new Error('Geração de capa indisponível: OPENROUTER_API_KEY não configurada.');
       }
 
-      const resultado = await this.deps.coverArt.generate(job.coverPrompt ?? coverPromptFor(song));
+      // Texto do próprio usuário vai como veio; sem ele, a capa parte da música.
+      const resultado = job.coverPrompt
+        ? await this.deps.coverArt.generate(job.coverPrompt)
+        : await this.deps.coverArt.generate(coverPromptFor(song), coverVisualFor(song));
       if (!resultado) throw new Error('O modelo de imagem não devolveu nenhuma capa.');
 
       const key = storageKeys.cover(song.id);
@@ -480,6 +485,8 @@ export class GenerationProcessor {
       sectionEndMs?: number;
       addSeconds?: number;
       inspiration?: PlaylistInspiration;
+      /** Versão escolhida na aba Criar. Música antiga, sem o campo, vai na padrão. */
+      model?: string;
     };
 
     // A inspiração da playlist entra no fim do estilo, depois do que o
@@ -507,6 +514,7 @@ export class GenerationProcessor {
         ? { sectionStartMs: controls.sectionStartMs, sectionEndMs: controls.sectionEndMs }
         : {}),
       kind: song.kind,
+      ...(isMusicModel(controls.model) ? { model: controls.model } : {}),
       prompt: styles,
       lyrics: song.instrumental ? null : song.lyrics,
       instrumental: song.instrumental,
@@ -547,7 +555,7 @@ export class GenerationProcessor {
     const { song } = faixa;
 
     try {
-      const resultado = await this.deps.coverArt.generate(prompt);
+      const resultado = await this.deps.coverArt.generate(prompt, coverVisualFor(song));
       if (!resultado) return null;
 
       const status = this.andamento.get(faixa.generationId) ?? 'complete';

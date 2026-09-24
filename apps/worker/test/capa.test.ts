@@ -159,9 +159,14 @@ describe('capa junto com a música', () => {
 
     // Pedida com o motor ainda pendente: paralelo de verdade. E o prompt leva
     // estilo e letra, não só o título.
-    expect(coverArt.generate).toHaveBeenCalledWith(expect.stringContaining('forró pé de serra'));
-    expect(coverArt.generate).toHaveBeenCalledWith(expect.stringContaining('a lua no quintal'));
-    expect(coverArt.generate).not.toHaveBeenCalledWith(expect.stringContaining('[Verso]'));
+    const visual = { style: 'forró pé de serra', lyrics: expect.stringContaining('a lua no quintal') };
+    expect(coverArt.generate).toHaveBeenCalledWith(expect.stringContaining('forró pé de serra'), visual);
+    expect(coverArt.generate).toHaveBeenCalledWith(expect.stringContaining('a lua no quintal'), visual);
+    expect(coverArt.generate).not.toHaveBeenCalledWith(expect.stringContaining('[Verso]'), expect.anything());
+    // As partes visuais (para o FLUX, que escreve o que lê) não levam o título.
+    const [, partes] = coverArt.generate.mock.calls[0] as unknown as [string, { style: string; lyrics: string }];
+    expect(partes.lyrics).not.toContain('[Verso]');
+    expect(JSON.stringify(partes)).not.toContain('Quintal à noite');
     expect(eventos.some((e) => e.status === 'complete')).toBe(false);
 
     motor.resolver(AUDIO);
