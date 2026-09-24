@@ -197,13 +197,16 @@ export interface AceStepCaptionInput {
  * Monta o caption do ACE-Step.
  *
  * Diferente do Lyria, BPM, tom, duração e idioma NÃO entram aqui: vão como
- * parâmetros nativos. O caption fica com estilo, voz e as exclusões que não
- * são de voz.
+ * parâmetros nativos. O caption fica só com o que o usuário QUER: estilo, voz e
+ * o tom de estranheza.
  *
- * NÃO TESTADO: a eficácia de "without X" no caption. O LM do ACE-Step reescreve
- * o caption (use_cot_caption) e deve interpretar a negação, mas isso não foi
- * medido como o ritmo foi. Exclusões de voz não dependem disso (ver
- * excludesVocals).
+ * As exclusões NÃO entram no caption. O encoder de texto do ACE-Step é um
+ * modelo de embeddings: "without distorted guitars" carrega "distorted guitars"
+ * no vetor do caption, negação ou não, e o modelo tende a puxar para o que foi
+ * citado. Elas seguem por `buildAceStepNegative`, para o único caminho de
+ * negativo que o ACE-Step tem de verdade: o `lm_negative_prompt`, o ramo
+ * incondicional do guidance do LM. Exclusões de voz não passam nem por lá
+ * (ver excludesVocals).
  */
 export function compileAceStepCaption(input: AceStepCaptionInput): string {
   const parts: string[] = [];
@@ -223,15 +226,28 @@ export function compileAceStepCaption(input: AceStepCaptionInput): string {
   if (weirdness >= 80) parts.push('experimental, unconventional structure');
   else if (weirdness <= 20) parts.push('conventional song structure');
 
-  const otherExclusions = splitExclusions(input.excludeStyles).filter(
-    (item) => !excludesVocals(item),
-  );
-  if (otherExclusions.length) parts.push(`without ${otherExclusions.join(', ')}`);
-
   const caption = parts.join(', ').replace(/\s+/g, ' ').trim();
   return caption.length <= ACESTEP_MAX_CAPTION
     ? caption
     : caption.slice(0, ACESTEP_MAX_CAPTION).replace(/,[^,]*$/, '');
+}
+
+/**
+ * O que o ACE-Step deve evitar, como uma lista de estilos para o
+ * `lm_negative_prompt` — ou `undefined` quando não há o que evitar.
+ *
+ * Sem prefixo "no"/"without": o campo já é o lado negativo do guidance, e o LM
+ * o lê como um caption do que NÃO quer. Vocal fica de fora: já vira
+ * `instrumental`, que é nativo (ver excludesVocals).
+ */
+export function buildAceStepNegative(excludeStyles?: string | null): string | undefined {
+  const items = splitExclusions(excludeStyles).filter((item) => !excludesVocals(item));
+  if (items.length === 0) return undefined;
+
+  const negative = items.join(', ');
+  return negative.length <= ACESTEP_MAX_CAPTION
+    ? negative
+    : negative.slice(0, ACESTEP_MAX_CAPTION).replace(/,[^,]*$/, '');
 }
 
 function splitExclusions(excludeStyles?: string | null): string[] {

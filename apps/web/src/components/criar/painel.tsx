@@ -29,6 +29,8 @@ interface Resultado {
   songId: string;
   generationId: string;
   creditsCharged: number;
+  /** Todas as faixas do pedido, a principal primeiro. Música nova traz duas. */
+  variants?: { songId: string; generationId: string }[];
 }
 
 /**
@@ -214,7 +216,11 @@ export function PainelCriar({
               };
 
       const resultado = await api.post<Resultado>('/songs/generate', corpo);
-      acompanhar(resultado.generationId, resultado.songId);
+      // Cada faixa tem a sua geração, e o progresso chega por ela.
+      const faixas = resultado.variants ?? [
+        { songId: resultado.songId, generationId: resultado.generationId },
+      ];
+      for (const faixa of faixas) acompanhar(faixa.generationId, faixa.songId);
       await recarregarSaldo();
       aoEnfileirar?.(resultado);
     } catch (err) {

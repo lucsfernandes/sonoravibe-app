@@ -46,6 +46,13 @@ export interface GenerationJob {
   kind: GenerationKind;
   /** Créditos já reservados no ledger; estornados se o job falhar. */
   reservedCredits: number;
+  /**
+   * Faixas extras do mesmo pedido, além de `songId`. Cada uma tem a própria
+   * Generation (é por ela que o SSE, o cancelamento e a biblioteca enxergam a
+   * música), mas só a primária carrega o crédito reservado: o pedido é cobrado
+   * uma vez, e o estorno também.
+   */
+  variants?: { generationId: string; songId: string }[];
   /** Faixa de origem em extend, remix e replace_section. */
   sourceSongId?: string;
   /** Descrição da capa, quando kind === 'cover'. */

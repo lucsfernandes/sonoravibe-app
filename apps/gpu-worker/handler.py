@@ -3,6 +3,8 @@ Worker serverless da RunPod que gera música com o ACE-Step 1.5.
 
 Contrato (entrada em job["input"]):
     caption          str, obrigatório   estilo/descrição (até 512 caracteres)
+    negative_caption str | None         estilos a EVITAR (até 512 caracteres), sem "no"/"without":
+                                        vai para o lm_negative_prompt, não para o caption
     lyrics           str                letra com marcadores [Verse]/[Chorus]; vazio = sem letra
     instrumental     bool               força instrumental
     duration         float | None       10–480 s; None = o modelo decide pelo tamanho da letra
@@ -10,7 +12,11 @@ Contrato (entrada em job["input"]):
     keyscale         str | None         ex. "C Major", "Am"; None = automático
     vocal_language   str                código do idioma ("pt", "en"...); padrão "unknown"
     seed             int | None         reprodutibilidade (só vale no mesmo tipo de GPU)
-    batch_size       int                1 ou 2 variações por pedido
+    style_influence  int                0–100, padrão 50: quanto seguir o estilo. SÓ age no perfil
+                                        SFT (vira o CFG); o turbo, que é o padrão, não tem CFG
+    variety          str                "low" | "medium" | "high" (padrão): temperatura do LM.
+                                        Também só age no perfil SFT
+    batch_size       int                1 ou 2 variações por pedido (2 só em text2music)
     task_type        str                "text2music" | "cover" | "repaint"
     src_audio_url    str                obrigatório para cover/repaint
     repainting_start float              repaint: início do trecho, em segundos
@@ -22,7 +28,24 @@ Saída:
     {"tracks": [{storage_key, size_bytes, duration_ms, format, sample_rate, bit_depth, seed}],
      "metadata": {...}, "timings": {...}, "worker": {...}}
 
-Decisões — todas vêm de medições em docs/ARQUITETURA.md:
+Decisões — as de ritmo e cold start vêm de medições em docs/ARQUITETURA.md; a escolha
+do modelo, do benchmark com escuta em docs/BENCHMARK-QUALIDADE.md:
+  - O padrão é o `acestep-v15-xl-turbo` (DiT de 4B destilado, 8 passos, sem CFG)
+    com o LM 1.7B. Foi a ÚNICA configuração que soou limpa e coerente numa escuta
+    às cegas de 29 faixas do mesmo prompt. O XL-SFT (50 passos com CFG) e o LM 4B,
+    que as métricas espectrais apontavam como melhores, soaram com ruído e sem
+    coesão — inclusive com pulso mais irregular (~7% de variação entre batidas,
+    contra 1,4–2,7% do XL-turbo). Não trocar sem escutar de novo.
+  - O perfil SFT continua no código, só que fora do padrão (ACESTEP_CONFIG_PATH).
+    O SFT NÃO é o turbo: precisa de ~50 passos de difusão com CFG, enquanto o
+    turbo é destilado para 8 passos sem CFG. Por isso os parâmetros de difusão
+    saem de um perfil por família de DiT (`_model_settings`). Rodar o SFT com os
+    8 passos e o cronograma fixo do turbo não dá erro nenhum: dá ruído.
+  - O que evitar (exclude styles) vai em `lm_negative_prompt`, nunca no caption.
+    O DiT não tem negativo próprio (o CFG dele usa um caption nulo); o único
+    negativo real do ACE-Step é o do LM, o ramo incondicional do guidance dele,
+    que afasta os códigos semânticos do estilo excluído. Citar o estilo no
+    caption ("without X") faz o inverso: o encoder de texto embute o X.
   - Os modelos carregam na IMPORTAÇÃO do módulo, não no primeiro job. É o que
     permite ao FlashBoot da RunPod congelar um worker já carregado; carregando
     no primeiro job, todo cold start pagaria os 56 s de carga de novo.
@@ -69,9 +92,12 @@ from acestep.llm_inference import LLMHandler
 # ---------------------------------------------------------------------------
 
 PROJECT_ROOT = os.environ.get("ACESTEP_PROJECT_ROOT", "/app")
-CONFIG_PATH = os.environ.get("ACESTEP_CONFIG_PATH", "acestep-v15-turbo")
+CONFIG_PATH = os.environ.get("ACESTEP_CONFIG_PATH", "acestep-v15-xl-turbo")
 LM_MODEL_PATH = os.environ.get("ACESTEP_LM_MODEL_PATH", "acestep-5Hz-lm-1.7B")
 LM_BACKEND = os.environ.get("ACESTEP_LM_BACKEND", "vllm")
+
+# O perfil de difusão depende da família do DiT: o turbo é destilado, o SFT não.
+IS_TURBO = "turbo" in CONFIG_PATH.lower()
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -81,10 +107,22 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-# Em GPU de 24 GB nada precisa de offload. Na RTX 4060 (8 GB) do teste local, sim.
+# O padrão (XL-turbo + LM 1.7B) roda sem offload numa GPU de 24 GB. O offload
+# tira o encoder e o VAE da GPU entre as etapas e desliga a checagem prévia de VRAM
+# do ACE-Step, que recusa faixas longas por estimativa (ver docs/BENCHMARK-QUALIDADE.md).
+# Na RTX 4060 (8 GB) do teste local, é obrigatório.
 OFFLOAD_TO_CPU = _env_bool("ACESTEP_OFFLOAD_TO_CPU", False)
 OFFLOAD_DIT_TO_CPU = _env_bool("ACESTEP_OFFLOAD_DIT_TO_CPU", False)
 LM_OFFLOAD_TO_CPU = _env_bool("ACESTEP_LM_OFFLOAD_TO_CPU", False)
+
+# O LM reescreve o caption e é a versão dele que o DiT recebe. Enriquece um
+# caption curto, mas se afasta do estilo pedido (medido: 10 de 10 captions do
+# benchmark trouxeram itens da lista de exclusão; ver docs/BENCHMARK-QUALIDADE.md).
+# Fica LIGADO porque é assim que a configuração escolhida foi escutada: o XL-turbo
+# soou limpo com a reescrita ligada. Desligar devolve ao DiT o caption do usuário,
+# palavra por palavra — só foi testado com o XL-SFT, não com o XL-turbo, e o ritmo
+# foi medido com ela ligada. Escute antes de mudar o padrão.
+COT_CAPTION = _env_bool("ACESTEP_COT_CAPTION", True)
 
 MIN_DURATION = 10.0
 # Teto com o LM ligado, segundo o gpu_config do ACE-Step. Os 10 min anunciados
@@ -92,10 +130,35 @@ MIN_DURATION = 10.0
 MAX_DURATION = 480.0
 MAX_CAPTION = 512
 MAX_LYRICS = 4096
+# Faixas por chamada. O ACE-Step gera o lote inteiro junto (LM em lote, DiT em
+# lote), o que sai bem mais barato que duas chamadas.
+MAX_BATCH = 2
 
+# --- Perfil do turbo ---------------------------------------------------------
 # Cronograma de difusão do turbo usado pelo servidor oficial — é a configuração
 # em que medimos o ritmo corrigido. Não trocar sem medir de novo.
 TURBO_TIMESTEPS = [0.97, 0.76, 0.615, 0.5, 0.395, 0.28, 0.18, 0.085, 0.0]
+
+# --- Perfil do SFT (XL-SFT) --------------------------------------------------
+# Os defaults da própria UI do ACE-Step para modelos SFT: 50 passos e shift 3.0
+# (a docs de inferência recomenda 30–100 passos e CFG entre 5 e 9). O número de
+# passos é o botão de custo x qualidade e pode ser mudado por env, sem rebuild.
+SFT_STEPS = int(os.environ.get("ACESTEP_SFT_STEPS", "50"))
+SFT_SHIFT = 3.0
+# "Aderência ao estilo" da UI (0–100) -> guidance_scale (CFG) do DiT. 50 dá 7.0,
+# o padrão do ACE-Step; as pontas ficam dentro da faixa 5–9 recomendada: acima
+# disso o CFG passa a saturar o áudio, que é justamente o ruído que se quer evitar.
+CFG_MIN, CFG_MAX = 5.0, 9.0
+LM_CFG_SCALE = 2.5  # >1 é o que faz o lm_negative_prompt valer
+
+# "Variedade" da UI -> temperatura do LM. O teto é 0.85, a temperatura em que o
+# ritmo foi medido; abaixo dela o modelo segue o caption com mais fidelidade.
+LM_TEMPERATURE_BY_VARIETY = {"low": 0.7, "medium": 0.8, "high": 0.85}
+DEFAULT_VARIETY = "high"
+
+# Medido no benchmark (nvidia-smi, 2 faixas): XL-SFT + LM 4B chega a 26,1 GB de
+# VRAM; XL + LM 1.7B, a 18–21 GB. Com o LM 4B não cabe numa GPU de 24 GB.
+XL_4B_MIN_VRAM_GB = 32.0
 
 SUPPORTED_TASKS = {"text2music", "cover", "repaint"}
 # Estas tarefas usam o áudio de origem; o LM é pulado nelas de qualquer forma.
@@ -161,8 +224,28 @@ def _load_models() -> tuple[AceStepHandler, LLMHandler, dict[str, Any]]:
         "dit": CONFIG_PATH,
         "lm": LM_MODEL_PATH,
         "lm_backend": backend,
+        "profile": "turbo" if IS_TURBO else f"sft-{SFT_STEPS}steps",
+        "cot_caption": COT_CAPTION,
         "load_s": round(time.time() - started, 1),
     }
+    if torch.cuda.is_available():
+        free_bytes, total_bytes = torch.cuda.mem_get_info()
+        info["vram_total_gb"] = round(total_bytes / 1024**3, 1)
+        # O que sobra depois da carga é o que resta às ativações de cada faixa.
+        info["vram_free_after_load_gb"] = round(free_bytes / 1024**3, 1)
+        if (
+            not IS_TURBO
+            and "xl" in CONFIG_PATH.lower()
+            and "4B" in LM_MODEL_PATH
+            and total_bytes / 1024**3 < XL_4B_MIN_VRAM_GB
+        ):
+            print(
+                f"[sonora] AVISO: {CONFIG_PATH} + {LM_MODEL_PATH} numa GPU de "
+                f"{info['vram_total_gb']} GB (estimativa: pede ~{XL_4B_MIN_VRAM_GB:.0f} GB). "
+                f"Faixas longas podem falhar por falta de memória; use uma GPU de 48 GB "
+                f"ou volte o LM para 1.7B (ACESTEP_LM_MODEL_PATH).",
+                flush=True,
+            )
     print(f"[sonora] modelos carregados: {info}", flush=True)
     return dit, llm, info
 
@@ -208,9 +291,21 @@ def _parse_input(data: dict) -> dict:
     if len(lyrics) > MAX_LYRICS:
         raise InputError(f"'lyrics' passa de {MAX_LYRICS} caracteres")
 
+    negative_caption = (data.get("negative_caption") or "").strip()
+    if len(negative_caption) > MAX_CAPTION:
+        raise InputError(f"'negative_caption' passa de {MAX_CAPTION} caracteres")
+
     batch_size = int(data.get("batch_size") or 1)
-    if batch_size not in (1, 2):
-        raise InputError("'batch_size' precisa ser 1 ou 2")
+    if not 1 <= batch_size <= MAX_BATCH:
+        raise InputError(f"'batch_size' precisa estar entre 1 e {MAX_BATCH}")
+    # Cover e repaint partem de UM áudio de origem: o lote não foi exercitado ali.
+    if batch_size > 1 and task_type != "text2music":
+        raise InputError(f"'{task_type}' aceita só batch_size 1")
+
+    style_influence = _optional_number(data, "style_influence", 0, 100, as_int=True)
+    variety = (data.get("variety") or DEFAULT_VARIETY).strip().lower()
+    if variety not in LM_TEMPERATURE_BY_VARIETY:
+        raise InputError(f"'variety' precisa ser um de {sorted(LM_TEMPERATURE_BY_VARIETY)}")
 
     uploads = data.get("uploads") or []
     if len(uploads) != batch_size:
@@ -235,6 +330,9 @@ def _parse_input(data: dict) -> dict:
     return {
         "task_type": task_type,
         "caption": caption,
+        "negative_caption": negative_caption,
+        "style_influence": 50 if style_influence is None else style_influence,
+        "variety": variety,
         "lyrics": lyrics,
         "instrumental": bool(data.get("instrumental", False)),
         "duration": _optional_number(data, "duration", MIN_DURATION, MAX_DURATION),
@@ -248,6 +346,50 @@ def _parse_input(data: dict) -> dict:
         "repainting_start": float(data.get("repainting_start") or 0.0),
         "repainting_end": float(data.get("repainting_end") if data.get("repainting_end") is not None else -1),
         "audio_cover_strength": float(data.get("audio_cover_strength") or 1.0),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Perfil do modelo: como o pedido vira parâmetros de difusão e do LM
+# ---------------------------------------------------------------------------
+
+
+def _model_settings(req: dict) -> dict[str, Any]:
+    """
+    Parâmetros de difusão e de LM que dependem do modelo carregado e dos
+    controles de 0–100 da UI. Função pura, para testar sem GPU.
+
+    Turbo: 8 passos com o cronograma fixo de sempre, sem CFG — a configuração
+    em que o ritmo foi medido; os controles da UI não mexem no DiT.
+    SFT: 50 passos (env), shift 3.0 e CFG guiado por `style_influence`.
+    """
+    negative = req.get("negative_caption") or ""
+    # "NO USER INPUT" é o sentinela do ACE-Step para "sem negativo": o CFG do LM
+    # então usa um caption vazio como ramo incondicional.
+    lm_negative_prompt = negative if negative else "NO USER INPUT"
+
+    if IS_TURBO:
+        return {
+            "inference_steps": 8,
+            "guidance_scale": 7.0,  # o pipeline força 1.0 no turbo; fica por clareza
+            "infer_method": "ode",
+            "timesteps": TURBO_TIMESTEPS,
+            "lm_temperature": 0.85,
+            "lm_cfg_scale": 2.0,
+            "lm_negative_prompt": lm_negative_prompt,
+        }
+
+    influence = max(0, min(100, int(req.get("style_influence", 50))))
+    return {
+        "inference_steps": SFT_STEPS,
+        "guidance_scale": round(CFG_MIN + (CFG_MAX - CFG_MIN) * influence / 100, 2),
+        "shift": SFT_SHIFT,
+        "infer_method": "ode",
+        # `timesteps` sobrepõe passos e shift; o do turbo NUNCA pode vir para o SFT.
+        "timesteps": None,
+        "lm_temperature": LM_TEMPERATURE_BY_VARIETY[req.get("variety", DEFAULT_VARIETY)],
+        "lm_cfg_scale": LM_CFG_SCALE,
+        "lm_negative_prompt": lm_negative_prompt,
     }
 
 
@@ -342,6 +484,7 @@ def handler(job: dict) -> dict:
                 audio_codes = codes
 
         uses_lm = req["task_type"] not in AUDIO_TASKS
+        settings = _model_settings(req)
         params = GenerationParams(
             task_type=req["task_type"],
             instruction=TASK_INSTRUCTIONS.get(req["task_type"], TASK_INSTRUCTIONS["text2music"]),
@@ -354,20 +497,16 @@ def handler(job: dict) -> dict:
             bpm=req["bpm"],
             keyscale=req["keyscale"],
             duration=req["duration"] if req["duration"] is not None else -1.0,
-            inference_steps=8,
-            infer_method="ode",
-            guidance_scale=7.0,
-            lm_temperature=0.85,
-            lm_cfg_scale=2.0,
             lm_top_p=0.9,
             lm_top_k=0,
             # Obrigatório: sem thinking, sem esqueleto rítmico.
             thinking=uses_lm,
             use_cot_metas=uses_lm,
-            use_cot_caption=uses_lm,
+            use_cot_caption=uses_lm and COT_CAPTION,
             use_cot_language=uses_lm,
             use_constrained_decoding=True,
-            timesteps=TURBO_TIMESTEPS,
+            # Difusão e LM conforme o modelo carregado (turbo x SFT).
+            **settings,
             repainting_start=req["repainting_start"],
             repainting_end=req["repainting_end"],
             audio_cover_strength=req["audio_cover_strength"],
@@ -421,6 +560,12 @@ def handler(job: dict) -> dict:
             for key in ("caption", "bpm", "duration", "keyscale", "timesignature", "language")
             if lm_meta.get(key) is not None
         }
+        # O que de fato rodou, para diagnosticar qualidade sem abrir o log do worker.
+        metadata["settings"] = {
+            key: settings[key]
+            for key in ("inference_steps", "guidance_scale", "lm_temperature", "lm_cfg_scale")
+        }
+        metadata["negative_applied"] = settings["lm_negative_prompt"] != "NO USER INPUT"
 
         return {
             "tracks": tracks,

@@ -51,3 +51,10 @@ apps/web/CLAUDE.md
 
 # Relatórios da revisão de segurança: ficam só na máquina, nunca no repositório
 .claude/seguranca/
+
+# logs brutos do benchmark de qualidade (os JSONs de resultado ficam)
+docs/benchmarks/**/*.log
+docs/benchmarks
+
+scripts/benchmark-qualidade
+benchmark-qualidade.mjs

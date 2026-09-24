@@ -172,6 +172,27 @@ export interface PlaylistInspiration {
   styles: string[];
 }
 
+/**
+ * Quantas faixas um único pedido produz, por tipo de geração. Quem não está
+ * aqui produz uma.
+ *
+ * Só a música nova a partir do texto ('song') gera duas versões: elas saem da
+ * mesma chamada ao motor, com seeds diferentes. Um remix parte do áudio de
+ * outra faixa e um clipe da aba Sounds é um efeito curto — ali o usuário pede
+ * uma coisa específica, e a segunda opção só gastaria GPU.
+ *
+ * O preço NÃO muda com o número de faixas: 1 pedido = 1 cobrança
+ * (CREDIT_COSTS). Duas versões pelo preço de uma é decisão de produto; se um
+ * dia mudar, é aqui e em CREDIT_COSTS.
+ */
+export const VARIANTS_PER_GENERATION: Partial<Record<GenerationKind, number>> = {
+  song: 2,
+};
+
+export function variantsFor(kind: GenerationKind): number {
+  return VARIANTS_PER_GENERATION[kind] ?? 1;
+}
+
 /** Quantos pontos tem a forma de onda guardada por faixa. */
 export const WAVEFORM_POINTS = 120;
 

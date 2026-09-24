@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { advancedControlsSchema } from '@sonora/shared';
 import {
   ACESTEP_MAX_CAPTION,
+  buildAceStepNegative,
   compileAceStepCaption,
   compilePrompt,
   excludesVocals,
@@ -61,6 +62,43 @@ describe('compileAceStepCaption', () => {
 
     expect(caption.length).toBeLessThanOrEqual(ACESTEP_MAX_CAPTION);
     expect(caption.endsWith(',')).toBe(false);
+  });
+
+  it('NÃO cita o que o usuário quer evitar: o encoder de texto embute a palavra citada', () => {
+    const caption = compileAceStepCaption({
+      styles: 'forró pé de serra',
+      excludeStyles: 'funk, distorted guitars, sem reggaeton',
+      instrumental: false,
+      controls: controls(),
+    });
+
+    expect(caption).toBe('forró pé de serra');
+    expect(caption).not.toMatch(/funk|distorted|reggaeton|without/i);
+  });
+});
+
+describe('buildAceStepNegative', () => {
+  it('lista os estilos a evitar, sem prefixo de negação nem duplicatas', () => {
+    expect(buildAceStepNegative('Funk, no distorted guitars, sem Reggaeton; funk')).toBe(
+      'funk, distorted guitars, reggaeton',
+    );
+  });
+
+  it('deixa a voz de fora: ela já vira instrumental nativo', () => {
+    expect(buildAceStepNegative('vocals, rap, distortion')).toBe('rap, distortion');
+    expect(buildAceStepNegative('vocals')).toBeUndefined();
+  });
+
+  it('devolve undefined sem exclusão', () => {
+    expect(buildAceStepNegative(undefined)).toBeUndefined();
+    expect(buildAceStepNegative('  ')).toBeUndefined();
+  });
+
+  it('respeita o limite de caracteres cortando num separador', () => {
+    const negative = buildAceStepNegative(Array.from({ length: 100 }, (_, i) => `estilo${i}`).join(', '));
+
+    expect(negative!.length).toBeLessThanOrEqual(ACESTEP_MAX_CAPTION);
+    expect(negative!.endsWith(',')).toBe(false);
   });
 });
 
