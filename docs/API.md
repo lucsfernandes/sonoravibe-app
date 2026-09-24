@@ -188,6 +188,12 @@ Resposta das três abas: `202` com
 `402` quando falta crédito, `403` quando a duração ou o Max Mode excedem o plano, `400` com a
 lista de campos inválidos, `401` sem sessão.
 
+**Versão do motor (`model`).** Simple e Advanced aceitam `"model": "v1" | "v1.5" | "v2.0" | "v2.5"`
+(padrão `v1`). A versão decide o modelo, os passos e o preço; ver `docs/PRECOS.md`. O custo de
+música nova é por versão e faixa de duração (até 2, 4 ou 6 min; duração automática cobra como
+até 4 min), de 10 a 78 créditos. Com `sourceSongId` (remix) a versão é ignorada: roda na v1 e
+custa o preço de remix. A versão fica gravada em `params.model` da música.
+
 **Duas versões por pedido.** Uma música nova (Simple e Advanced, sem faixa de referência) sai em
 **duas** faixas, geradas na mesma chamada ao motor com seeds diferentes; `variants` traz as duas,
 a principal primeiro (`songId` e `generationId` na raiz são os dela). Cada faixa é uma música na
