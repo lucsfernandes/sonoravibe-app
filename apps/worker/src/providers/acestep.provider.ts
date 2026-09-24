@@ -2,11 +2,13 @@ import {
   CREDIT_COSTS,
   MusicProviderError,
   type GenerationKind,
+  type GeneratedVariant,
   type MusicGenerationRequest,
   type MusicGenerationResult,
   type MusicProvider,
 } from '@sonora/shared';
 import {
+  buildAceStepNegative,
   compileAceStepCaption,
   excludesVocals,
   toAceStepKeyscale,
@@ -19,9 +21,11 @@ import {
  * master FLAC 24-bit direto no R2 (URL pré-assinada em `uploadTarget`) e só
  * devolve a chave — a resposta da RunPod é limitada a 10–30 MB.
  *
- * Tempos de referência medidos na L4: cold start 56 s, música de 4min30 em
- * 44,8 s. Os timeouts padrão abaixo deixam folga para isso e, quando estouram,
- * o erro é marcado como retentável para o roteador cair no Lyria.
+ * Tempos de referência medidos na L4 com o turbo 2B + LM 1.7B: cold start 56 s,
+ * música de 4min30 em 44,8 s. O XL-SFT + LM 4B (50 passos com CFG, duas
+ * variantes) NÃO foi medido: é bem mais lento e carrega mais pesos, então os
+ * timeouts padrão abaixo têm folga para isso. Quando estouram, o erro é marcado
+ * como retentável para o roteador cair no Lyria.
  *
  * Funciona também contra o emulador local do SDK da RunPod
  * (`handler.py --rp_serve_api`), com duas diferenças que o provider tolera:
@@ -85,6 +89,9 @@ const SUPPORTED: readonly GenerationKind[] = ['song', 'clip', 'cover', 'remix', 
 /** Duração padrão de um clipe da aba Sounds quando o usuário não escolhe. */
 const DEFAULT_CLIP_SECONDS = 30;
 
+/** Faixas que o worker entrega numa chamada. Espelha `batch_size` do handler. */
+const MAX_VARIANTS = 2;
+
 /** Falhas seguidas de rede no polling antes de desistir do job. */
 const MAX_CONSECUTIVE_POLL_FAILURES = 3;
 
@@ -109,8 +116,12 @@ export class AceStepProvider implements MusicProvider {
     if (!config.baseUrl) throw new Error('AceStepProvider exige baseUrl do endpoint da RunPod.');
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
     this.statusMethod = config.statusMethod ?? 'GET';
-    this.queueTimeoutMs = config.queueTimeoutMs ?? 120_000;
-    this.totalTimeoutMs = config.totalTimeoutMs ?? 10 * 60_000;
+    // Um job fica IN_QUEUE também enquanto o worker sobe e carrega os modelos.
+    // Com o XL-SFT e o LM 4B (~17 GB de pesos) isso passa dos 120 s de antes, e
+    // cada cold start viraria uma queda para o Lyria — dez vezes mais caro e
+    // de outra qualidade.
+    this.queueTimeoutMs = config.queueTimeoutMs ?? 300_000;
+    this.totalTimeoutMs = config.totalTimeoutMs ?? 15 * 60_000;
     this.pollIntervalMs = config.pollIntervalMs ?? 2_000;
     this.requestTimeoutMs = config.requestTimeoutMs ?? 30_000;
     this.fetchImpl = config.fetchImpl ?? fetch;
@@ -177,22 +188,36 @@ export class AceStepProvider implements MusicProvider {
     }
 
     const output = job.output as WorkerOutput | undefined;
-    const track = output?.tracks?.[0];
+    const [track, ...extraTracks] = output?.tracks ?? [];
     if (!track?.storage_key) {
       throw this.error(`Job ${job.id} completou sem faixa na saída.`, true);
     }
-    // O worker só pode ter gravado onde mandamos; qualquer outra chave é bug.
-    if (req.uploadTarget && track.storage_key !== req.uploadTarget.storageKey) {
-      throw this.error(
-        `Worker gravou em ${track.storage_key}, mas o destino pedido era ${req.uploadTarget.storageKey}.`,
-        false,
-      );
+
+    // O worker só pode ter gravado onde mandamos, faixa a faixa e na ordem;
+    // qualquer outra chave é bug.
+    const targets = [req.uploadTarget, ...(req.variantUploadTargets ?? [])];
+    for (const [index, written] of [track, ...extraTracks].entries()) {
+      const target = targets[index];
+      if (target && written.storage_key !== target.storageKey) {
+        throw this.error(
+          `Worker gravou em ${written.storage_key}, mas o destino pedido era ${target.storageKey}.`,
+          false,
+        );
+      }
     }
+
+    const variants: GeneratedVariant[] = extraTracks.map((extra) => ({
+      audio: { kind: 'stored', storageKey: extra.storage_key, sizeBytes: extra.size_bytes },
+      sourceFormat: extra.format,
+      durationMs: extra.duration_ms,
+      seed: extra.seed,
+    }));
 
     return {
       audio: { kind: 'stored', storageKey: track.storage_key, sizeBytes: track.size_bytes },
       sourceFormat: track.format,
       durationMs: track.duration_ms,
+      ...(variants.length ? { variants } : {}),
       providerRef: job.id,
       providerMetadata: {
         ...(output?.metadata ?? {}),
@@ -274,9 +299,23 @@ export function buildJobInput(req: MusicGenerationRequest): Record<string, unkno
   const taskType =
     req.kind === 'replace_section' ? 'repaint' : req.kind === 'cover' || req.kind === 'remix' ? 'cover' : 'text2music';
 
+  // Variantes só existem na geração a partir do texto. Cover e repaint partem
+  // do áudio de origem e o worker roda uma faixa por chamada nesses casos.
+  const targets = [req.uploadTarget, ...(req.variantUploadTargets ?? [])];
+  if (targets.length > MAX_VARIANTS || (targets.length > 1 && taskType !== 'text2music')) {
+    throw new MusicProviderError(
+      `'${req.kind}' não aceita ${targets.length} faixas por pedido ` +
+        `(o limite é ${MAX_VARIANTS}, e só em música nova a partir do texto).`,
+      'acestep',
+      false,
+    );
+  }
+
   return {
     task_type: taskType,
     caption,
+    // O que evitar vai à parte do caption: ver compileAceStepCaption.
+    negative_caption: buildAceStepNegative(req.controls.excludeStyles) ?? null,
     lyrics: instrumental ? '' : (req.lyrics ?? ''),
     instrumental,
     duration: req.kind === 'clip' ? (req.durationSeconds ?? DEFAULT_CLIP_SECONDS) : (req.durationSeconds ?? null),
@@ -284,11 +323,15 @@ export function buildJobInput(req: MusicGenerationRequest): Record<string, unkno
     keyscale: toAceStepKeyscale(req.controls.key) ?? null,
     vocal_language: req.vocalLanguage ?? 'unknown',
     seed: req.seed ?? null,
-    batch_size: 1,
+    // Controles 0–100 da UI. O worker os traduz para os parâmetros do modelo
+    // que estiver carregado: quem conhece o turbo e o SFT é ele.
+    style_influence: req.controls.styleInfluence,
+    variety: req.controls.variety,
+    batch_size: targets.length,
     src_audio_url: req.sourceAudioUrl ?? null,
     repainting_start: req.sectionStartMs !== undefined ? req.sectionStartMs / 1000 : 0,
     repainting_end: req.sectionEndMs !== undefined ? req.sectionEndMs / 1000 : -1,
-    uploads: [{ url: req.uploadTarget.url, storage_key: req.uploadTarget.storageKey }],
+    uploads: targets.map((target) => ({ url: target.url, storage_key: target.storageKey })),
   };
 }
 

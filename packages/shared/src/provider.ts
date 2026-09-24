@@ -46,7 +46,23 @@ export interface MusicGenerationRequest {
    * na RunPod) sobem o áudio direto aqui: a resposta da RunPod é limitada a
    * 10–30 MB e um master FLAC de 4 min passa disso.
    */
-  uploadTarget?: { url: string; storageKey: string; contentType: string };
+  uploadTarget?: UploadTarget;
+  /**
+   * Destinos das variantes além da principal: cada destino é uma faixa extra
+   * que o pedido quer. As variantes saem da MESMA chamada ao motor (mesmo
+   * prompt, seeds diferentes), e é isso que as torna baratas — uma segunda
+   * chamada pagaria de novo a carga do worker e a fila.
+   *
+   * Um motor que só entrega uma faixa (o Lyria) ignora este campo e devolve
+   * `variants` vazio; quem pediu confere o que voltou.
+   */
+  variantUploadTargets?: UploadTarget[];
+}
+
+export interface UploadTarget {
+  url: string;
+  storageKey: string;
+  contentType: string;
 }
 
 /** O áudio volta em memória (Lyria, Mock) ou já gravado no R2 (ACE-Step). */
@@ -54,11 +70,25 @@ export type GeneratedAudio =
   | { kind: 'buffer'; data: Buffer }
   | { kind: 'stored'; storageKey: string; sizeBytes: number };
 
+/** Uma faixa a mais do mesmo pedido, na ordem de `variantUploadTargets`. */
+export interface GeneratedVariant {
+  audio: GeneratedAudio;
+  sourceFormat: string;
+  durationMs: number;
+  /** Seed desta faixa, para reproduzir ou regerar só ela. */
+  seed?: number;
+}
+
 export interface MusicGenerationResult {
   audio: GeneratedAudio;
   /** Extensão do áudio devolvido (ex.: 'wav', 'mp3'). */
   sourceFormat: string;
   durationMs: number;
+  /**
+   * Variantes além da principal. Ausente ou mais curta que `variantUploadTargets`
+   * quando o motor não conseguiu entregar todas.
+   */
+  variants?: GeneratedVariant[];
   /** Identificador do lado do provedor, para rastreio e suporte. */
   providerRef?: string;
   /** Título sugerido pelo provedor, quando houver. */

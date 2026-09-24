@@ -413,7 +413,7 @@ Fora do namespace:
    postgres (namespace `databases`, compartilhado com os outros projetos)
 
 Fora do cluster:
-   RunPod Serverless ── worker ACE-Step (L4/A5000/3090, escala a zero)
+   RunPod Serverless ── worker ACE-Step (XL-turbo + LM 1.7B, GPU de 24 GB, escala a zero)
    Cloudflare R2 ────── áudio, capas e stems (egress gratuito)
 ```
 
@@ -449,7 +449,8 @@ Passo a passo, pré-requisitos e diagnóstico em [DEPLOY.md](DEPLOY.md).
 | **Cold start de 56 s** quando o worker está desligado | Pesos dentro da imagem e carga no init (aproveita o FlashBoot); com volume constante, manter 1 worker ativo; a UI mostra "preparando o estúdio" no progresso |
 | `thinking` desligado por engano traz o descompasso de volta | O `AceStepProvider` envia `thinking: true` sempre; teste de regressão com `analyze-rhythm.py` numa faixa de referência a cada atualização do modelo |
 | **O LM reescreve o caption** (`use_cot_caption`) e pode se afastar do estilo pedido — observado: pedimos "live drums" e a descrição gerada disse "drum machine"; também inventou um tema ("rainy day") ausente da letra | Nunca exibir o caption do LM como descrição da música. Testar `use_cot_caption: false` mantendo `thinking: true` e **medir o ritmo de novo** com `analyze-rhythm.py` antes de mudar — o ritmo corrigido foi medido com a reescrita ligada |
-| Qualidade: só a variante turbo 2B + LM 1.7B foi testada | A variante XL (mais pesada, 24 GB sem offload) é a próxima alavanca de qualidade — testar antes do lançamento |
+| **Qualidade do motor** — o turbo de 2B dava ruído de agudos e faixas desconexas | **Decidido pela escuta (2026-09-23):** XL-turbo (4B, 8 passos) + LM 1.7B com offload de encoder/VAE, GPU de 24 GB. O XL-SFT e o LM 4B soaram pior. Qualquer troca de modelo exige nova escuta, não só métricas: ver `docs/BENCHMARK-QUALIDADE.md` |
+| O exclude style não tem negativo no DiT | O CFG do DiT usa um caption nulo, e citar o estilo no caption ("without X") o embute em vez de tirar. O único negativo real é o do LM (`lm_negative_prompt`, ramo incondicional do guidance dele, com `lm_cfg_scale` > 1), e é por ele que o exclude style vai; vocal continua virando `instrumental`. Afasta os códigos semânticos do estilo excluído, sem garantia total — se ainda escapar, testar `ACESTEP_COT_CAPTION=false` |
 | Lyria 3 está em *preview* — API pode mudar ou sair do ar | Deixou de ser crítico: agora é reserva. A abstração `MusicProvider` permite trocar |
 | Sem controle determinístico de estilo no Lyria (sem seed/BPM nativo) | Só afeta o caminho de reserva; Prompt Compiler + expectativa clara na UI |
 | Demucs em CPU é lento (minutos por faixa) | Worker dedicado, fila separada, stems só para Pro+ |

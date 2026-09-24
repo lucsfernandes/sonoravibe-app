@@ -3,6 +3,7 @@ import {
   CREDIT_COSTS,
   MusicProviderError,
   type GenerationKind,
+  type GeneratedVariant,
   type MusicGenerationRequest,
   type MusicGenerationResult,
   type MusicProvider,
@@ -46,13 +47,24 @@ export class MockMusicProvider implements MusicProvider {
     // Simula a latência real para que a UI de progresso seja exercitada de verdade.
     await delay(1500);
 
-    const frequencies = chordFromPrompt(req.prompt);
-    const audio = await this.synthesize(frequencies, seconds);
+    const audio = await this.synthesize(chordFromPrompt(req.prompt), seconds);
+
+    // Variantes com outro acorde, como o motor real entrega faixas diferentes
+    // do mesmo prompt: sem isso o dev nunca exercitaria o fluxo de duas faixas.
+    const variants: GeneratedVariant[] = [];
+    for (const [index] of (req.variantUploadTargets ?? []).entries()) {
+      variants.push({
+        audio: { kind: 'buffer', data: await this.synthesize(chordFromPrompt(`${req.prompt}#${index + 1}`), seconds) },
+        sourceFormat: 'flac',
+        durationMs: seconds * 1000,
+      });
+    }
 
     return {
       audio: { kind: 'buffer', data: audio },
       sourceFormat: 'flac',
       durationMs: seconds * 1000,
+      ...(variants.length ? { variants } : {}),
       providerRef: `mock-${hash(req.prompt).toString(16)}`,
       suggestedTitle: undefined,
     };

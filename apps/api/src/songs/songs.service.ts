@@ -13,6 +13,7 @@ import {
   DEFAULT_JOB_OPTIONS,
   MAX_DURATION_SECONDS,
   maxDurationFor,
+  variantsFor,
   type AdvancedControls,
   type GenerationJob,
   type GenerationKind,
@@ -30,10 +31,16 @@ import { GENERATION_QUEUE } from '../queue/queue.module';
 import type { SessionUser } from '../auth/session.guard';
 
 export interface GenerateResult {
+  /** A faixa principal. Igual a `variants[0].songId`. */
   songId: string;
   generationId: string;
   creditsCharged: number;
   status: 'queued';
+  /**
+   * Todas as faixas do pedido, a principal primeiro. Música nova vem com duas
+   * (ver `variantsFor`); o cliente acompanha cada uma pelo `generationId`.
+   */
+  variants: { songId: string; generationId: string }[];
 }
 
 /**
@@ -46,6 +53,11 @@ export interface GenerateResult {
  *
  * Se a reserva falhar, a geração já gravada é marcada como falha em vez de
  * apagada: o usuário vê no histórico por que não rodou.
+ *
+ * Um pedido de música nova vira DUAS faixas (`variantsFor`), cada uma com a sua
+ * Song e a sua Generation, mas um único job na fila e uma única cobrança: o
+ * crédito é reservado na Generation da primária, e as demais nascem com
+ * `creditsCharged: 0` e o mesmo `jobId`, que é como o cancelamento as acha.
  */
 @Injectable()
 export class SongsService {
@@ -84,9 +96,12 @@ export class SongsService {
 
     const workspaceId = await this.resolveWorkspace(user.id, request.workspaceId);
 
-    const { song, generation } = await this.dataSource.transaction(async (em) => {
-      const song = await em.getRepository(Song).save(
-        em.getRepository(Song).create({
+    const { song, generation, extras } = await this.dataSource.transaction(async (em) => {
+      const songs = em.getRepository(Song);
+      const generations = em.getRepository(Generation);
+
+      const novaMusica = () =>
+        songs.create({
           userId: user.id,
           workspaceId,
           parentSongId: source?.id ?? null,
@@ -98,11 +113,11 @@ export class SongsService {
           status: 'queued',
           kind,
           params: this.paramsOf(request, inspiration),
-        }),
-      );
+        });
 
-      const generation = await em.getRepository(Generation).save(
-        em.getRepository(Generation).create({
+      const song = await songs.save(novaMusica());
+      const generation = await generations.save(
+        generations.create({
           songId: song.id,
           userId: user.id,
           kind,
@@ -114,13 +129,38 @@ export class SongsService {
         }),
       );
 
-      return { song, generation };
+      // As faixas extras do pedido. Não carregam crédito (é o pedido que custa)
+      // e apontam para o job da primária, cujo id é o da Generation dela.
+      const extras: { song: Song; generation: Generation }[] = [];
+      for (let i = 1; i < variantsFor(kind); i++) {
+        const songExtra = await songs.save(novaMusica());
+        const generationExtra = await generations.save(
+          generations.create({
+            songId: songExtra.id,
+            userId: user.id,
+            kind,
+            status: 'queued',
+            providerId: 'pending',
+            creditsCharged: 0,
+            jobId: generation.id,
+          }),
+        );
+        extras.push({ song: songExtra, generation: generationExtra });
+      }
+
+      return { song, generation, extras };
     });
+
+    const todas = [{ song, generation }, ...extras];
 
     try {
       await this.credits.reserve(user.id, cost, generation.id);
     } catch (err) {
-      await this.markFailed(song.id, generation.id, err);
+      await this.markFailed(
+        todas.map((t) => t.song.id),
+        todas.map((t) => t.generation.id),
+        err,
+      );
       if (err instanceof InsufficientCreditsError) throw insufficientCredits(err);
       throw err;
     }
@@ -131,6 +171,9 @@ export class SongsService {
       userId: user.id,
       kind,
       reservedCredits: cost,
+      ...(extras.length
+        ? { variants: extras.map((e) => ({ generationId: e.generation.id, songId: e.song.id })) }
+        : {}),
       ...(source ? { sourceSongId: source.id } : {}),
       // Quem nomeou a música não quer que o modelo a renomeie no fim.
       titleFromUser: request.mode === 'advanced' && Boolean(request.title),
@@ -147,10 +190,17 @@ export class SongsService {
       .update({ id: generation.id }, { jobId: enqueued.id ?? generation.id });
 
     this.logger.log(
-      `Geração ${generation.id} na fila | usuário ${user.id} | plano ${plan.code} | ${cost} créditos`,
+      `Geração ${generation.id} na fila | usuário ${user.id} | plano ${plan.code} | ` +
+        `${todas.length} faixa(s) | ${cost} créditos`,
     );
 
-    return { songId: song.id, generationId: generation.id, creditsCharged: cost, status: 'queued' };
+    return {
+      songId: song.id,
+      generationId: generation.id,
+      creditsCharged: cost,
+      status: 'queued',
+      variants: todas.map((t) => ({ songId: t.song.id, generationId: t.generation.id })),
+    };
   }
 
   /**
@@ -266,14 +316,14 @@ export class SongsService {
     return { playlistId: playlist.id, name: playlist.name, styles };
   }
 
-  private async markFailed(songId: string, generationId: string, err: unknown): Promise<void> {
+  private async markFailed(songIds: string[], generationIds: string[], err: unknown): Promise<void> {
     const message = err instanceof Error ? err.message : String(err);
     await this.dataSource.transaction(async (em) => {
       await em.getRepository(Generation).update(
-        { id: generationId },
+        { id: In(generationIds) },
         { status: 'failed', errorMessage: message, finishedAt: new Date() },
       );
-      await em.getRepository(Song).update({ id: songId }, { status: 'failed' });
+      await em.getRepository(Song).update({ id: In(songIds) }, { status: 'failed' });
     });
   }
 

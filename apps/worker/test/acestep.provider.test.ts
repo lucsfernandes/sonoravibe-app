@@ -202,6 +202,77 @@ describe('AceStepProvider', () => {
     expect(result.providerRef).toBe('job-1');
   });
 
+  it('devolve a segunda faixa como variante, conferindo o destino de cada uma', async () => {
+    const two = structuredClone(COMPLETED);
+    two.json.output.tracks.push({
+      storage_key: 'songs/def/master.flac',
+      size_bytes: 8_100_000,
+      duration_ms: 41_000,
+      format: 'flac',
+      sample_rate: 48_000,
+      bit_depth: 24,
+      seed: 43,
+    });
+    const { baseUrl, calls } = await fakeRunPod({ statuses: [two] });
+    const provider = new AceStepProvider({ baseUrl, ...fast });
+
+    const result = await provider.generate(
+      request({
+        variantUploadTargets: [
+          { url: 'https://r2.example/presigned-b', storageKey: 'songs/def/master.flac', contentType: 'audio/flac' },
+        ],
+      }),
+    );
+
+    expect(result.audio).toMatchObject({ storageKey: 'songs/abc/master.flac' });
+    expect(result.variants).toEqual([
+      {
+        audio: { kind: 'stored', storageKey: 'songs/def/master.flac', sizeBytes: 8_100_000 },
+        sourceFormat: 'flac',
+        durationMs: 41_000,
+        seed: 43,
+      },
+    ]);
+    expect(calls.find((c) => c.path === '/run')!.body.input.batch_size).toBe(2);
+  });
+
+  it('sem variantes pedidas, o resultado não traz variantes', async () => {
+    const { baseUrl } = await fakeRunPod({ statuses: [COMPLETED] });
+    const provider = new AceStepProvider({ baseUrl, ...fast });
+
+    const result = await provider.generate(request());
+
+    expect(result.variants).toBeUndefined();
+  });
+
+  it('recusa variante gravada fora do destino pedido para ela', async () => {
+    const swapped = structuredClone(COMPLETED);
+    swapped.json.output.tracks.push({
+      storage_key: 'songs/abc/master.flac', // o da primeira faixa, de novo
+      size_bytes: 1,
+      duration_ms: 1,
+      format: 'flac',
+      sample_rate: 48_000,
+      bit_depth: 24,
+      seed: 43,
+    });
+    const { baseUrl } = await fakeRunPod({ statuses: [swapped] });
+    const provider = new AceStepProvider({ baseUrl, ...fast });
+
+    const error = await provider
+      .generate(
+        request({
+          variantUploadTargets: [
+            { url: 'https://r2.example/presigned-b', storageKey: 'songs/def/master.flac', contentType: 'audio/flac' },
+          ],
+        }),
+      )
+      .catch((e) => e);
+
+    expect(error.retryable).toBe(false);
+    expect(error.message).toContain('songs/def/master.flac');
+  });
+
   it('recusa resultado gravado numa chave diferente da pedida', async () => {
     const wrongKey = structuredClone(COMPLETED);
     wrongKey.json.output.tracks[0].storage_key = 'outro/lugar.flac';
@@ -223,8 +294,52 @@ describe('buildJobInput', () => {
 
     expect(input.instrumental).toBe(true);
     expect(input.lyrics).toBe('');
-    expect(input.caption).toContain('without rap, distortion');
     expect(String(input.caption)).not.toMatch(/vocal/i);
+    // As demais exclusões seguem à parte: no caption elas puxariam o modelo para o que se quer evitar.
+    expect(input.caption).not.toMatch(/rap|distortion|without/i);
+    expect(input.negative_caption).toBe('rap, distortion');
+  });
+
+  it('não manda negativo quando não há o que evitar', () => {
+    expect(buildJobInput(request()).negative_caption).toBeNull();
+    expect(
+      buildJobInput(request({ controls: advancedControlsSchema.parse({ excludeStyles: 'vocals' }) })).negative_caption,
+    ).toBeNull();
+  });
+
+  it('repassa aderência ao estilo e variedade para o worker traduzir', () => {
+    const input = buildJobInput(
+      request({ controls: advancedControlsSchema.parse({ styleInfluence: 80, variety: 'low' }) }),
+    );
+
+    expect(input).toMatchObject({ style_influence: 80, variety: 'low' });
+  });
+
+  describe('variantes', () => {
+    const variantTarget = { url: 'https://r2.example/presigned-b', storageKey: 'songs/def/master.flac', contentType: 'audio/flac' };
+
+    it('pede uma faixa por destino, na mesma chamada', () => {
+      const input = buildJobInput(request({ variantUploadTargets: [variantTarget] }));
+
+      expect(input.batch_size).toBe(2);
+      expect(input.uploads).toEqual([
+        { url: 'https://r2.example/presigned', storage_key: 'songs/abc/master.flac' },
+        { url: 'https://r2.example/presigned-b', storage_key: 'songs/def/master.flac' },
+      ]);
+    });
+
+    it('sem variantes, segue com uma faixa', () => {
+      expect(buildJobInput(request()).batch_size).toBe(1);
+    });
+
+    it('recusa variantes em remix/cover/repaint e mais de duas faixas', () => {
+      const cover = () =>
+        buildJobInput(request({ kind: 'remix', sourceAudioUrl: 'https://r2/src.flac', variantUploadTargets: [variantTarget] }));
+      expect(cover).toThrow(/não aceita 2 faixas/);
+
+      const tres = () => buildJobInput(request({ variantUploadTargets: [variantTarget, variantTarget] }));
+      expect(tres).toThrow(/limite é 2/);
+    });
   });
 
   it('deixa a duração para o modelo decidir quando o usuário não escolhe', () => {

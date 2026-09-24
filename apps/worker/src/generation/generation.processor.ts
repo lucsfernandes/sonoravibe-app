@@ -18,13 +18,14 @@ import {
   type MusicGenerationRequest,
   type AdvancedControls,
   type PlaylistInspiration,
+  type UploadTarget,
   type WaveformJob,
 } from '@sonora/shared';
 import { CreditsLedger, Generation, Song } from '@sonora/db';
 import { StorageService, storageKeys } from '@sonora/storage';
 import type { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
-import type { DataSource } from 'typeorm';
+import { In, type DataSource } from 'typeorm';
 import type { MusicRouter } from '../providers/music-router';
 import { durationOfBuffer } from '../audio/ffmpeg';
 import { coverPromptFor, type CoverArtGenerator } from './cover-art';
@@ -63,6 +64,28 @@ function masterFormatOf(sourceFormat: string, providerId: string): MasterFormat 
     );
   }
   return master;
+}
+
+/**
+ * Uma faixa do pedido: a primária ou uma variante. Cada uma é uma música na
+ * biblioteca, com a própria Generation, mas todas nascem da mesma chamada ao motor.
+ */
+interface Alvo {
+  generationId: string;
+  songId: string;
+}
+
+interface Faixa extends Alvo {
+  song: Song;
+}
+
+/** Uma faixa com o áudio já no R2, pronta para virar `complete`. */
+interface Gravada {
+  faixa: Faixa;
+  master: MasterFormat;
+  masterKey: string;
+  durationMs: number;
+  capa: { key: string | null };
 }
 
 export interface ProcessorDeps {
@@ -119,16 +142,24 @@ export class GenerationProcessor {
       return;
     }
 
-    await this.transition(job, 'compiling_prompt');
+    // A primária e as variantes que ainda valem. Todas saem da mesma chamada ao
+    // motor, então andam juntas: mesmas etapas, mesmo desfecho.
+    const faixas = await this.faixasDoPedido(job, song);
+
+    await this.transition(job, faixas, 'compiling_prompt');
 
     // A capa parte junto com a música, não depois dela. É uma chamada ao
     // modelo de imagem que costuma levar menos que o motor de áudio, então
     // quase sempre está pronta quando a música termina e já entra no evento
     // de conclusão; se demorar mais, publica o próprio evento ao sair. Não
-    // custa crédito (é o mesmo pedido) e nunca rejeita.
-    const capa = { key: null as string | null };
-    const capaTerminou = this.gerarCapa(job, song, coverPromptFor(song)).then((key) => {
-      capa.key = key;
+    // custa crédito (é o mesmo pedido) e nunca rejeita. Cada faixa tem a sua:
+    // são músicas distintas na biblioteca.
+    const capas = faixas.map((faixa) => {
+      const capa = { key: null as string | null };
+      const terminou = this.gerarCapa(userId, faixa, coverPromptFor(faixa.song)).then((key) => {
+        capa.key = key;
+      });
+      return { capa, terminou };
     });
 
     try {
@@ -136,25 +167,41 @@ export class GenerationProcessor {
 
       // O destino no R2 é assinado antes de chamar o motor: o worker de GPU
       // roda fora do cluster e sobe o master direto, sem passar o arquivo por
-      // aqui (um FLAC de 4 min estoura o limite de resposta da RunPod).
-      const provisionalKey = storageKeys.master(songId, 'flac');
-      const uploadUrl = await this.deps.storage.presignPut(
-        provisionalKey,
-        AUDIO_FORMAT_SPECS.flac.mimeType,
+      // aqui (um FLAC de 4 min estoura o limite de resposta da RunPod). Um
+      // destino por faixa, na ordem em que o motor devolve.
+      const destinos = await Promise.all(
+        faixas.map(async (faixa): Promise<UploadTarget> => {
+          const storageKey = storageKeys.master(faixa.songId, 'flac');
+          const contentType = AUDIO_FORMAT_SPECS.flac.mimeType;
+          return { url: await this.deps.storage.presignPut(storageKey, contentType), storageKey, contentType };
+        }),
       );
-      request.uploadTarget = {
-        url: uploadUrl,
-        storageKey: provisionalKey,
-        contentType: AUDIO_FORMAT_SPECS.flac.mimeType,
-      };
+      request.uploadTarget = destinos[0];
+      if (destinos.length > 1) request.variantUploadTargets = destinos.slice(1);
 
-      await this.transition(job, 'generating_audio');
+      await this.transition(job, faixas, 'generating_audio');
       const result = await this.deps.router.generate(request);
 
-      await this.transition(job, 'uploading');
-      const master = masterFormatOf(result.sourceFormat, result.servedBy);
-      const masterKey = await this.storeAudio(songId, master, result.audio);
-      const durationMs = await this.resolveDuration(result, master);
+      await this.transition(job, faixas, 'uploading');
+
+      // O que o motor entregou, na ordem das faixas. O Lyria (reserva) só
+      // entrega uma: as variantes sem áudio são descartadas mais abaixo, em vez
+      // de ficarem na biblioteca como falha de algo que o usuário não errou.
+      const entregas = [
+        { audio: result.audio, sourceFormat: result.sourceFormat, durationMs: result.durationMs },
+        ...(result.variants ?? []),
+      ];
+      const prontas = faixas.slice(0, entregas.length);
+      const descartadas = faixas.slice(entregas.length);
+
+      const gravadas: Gravada[] = [];
+      for (const [indice, faixa] of prontas.entries()) {
+        const entrega = entregas[indice]!;
+        const master = masterFormatOf(entrega.sourceFormat, result.servedBy);
+        const masterKey = await this.storeAudio(faixa.songId, master, entrega.audio);
+        const durationMs = await this.resolveDuration(entrega, master);
+        gravadas.push({ faixa, master, masterKey, durationMs, capa: capas[indice]!.capa });
+      }
 
       // O título do modelo só entra se o usuário não tiver escolhido um. Quem
       // digitou o nome da música espera vê-lo de volta — e o que o Lyria manda
@@ -165,67 +212,125 @@ export class GenerationProcessor {
           : result.suggestedTitle.slice(0, 160);
 
       await this.deps.dataSource.transaction(async (em) => {
-        await em.getRepository(Song).update(
-          { id: songId },
-          {
-            status: 'complete',
-            masterKey,
-            durationMs,
-            providerId: result.servedBy,
-            compiledPrompt: request.prompt,
-            ...(titulo ? { title: titulo } : {}),
-          },
-        );
-        await em.getRepository(Generation).update(
-          { id: generationId },
-          {
-            status: 'complete',
-            providerId: result.servedBy,
-            providerRef: result.providerRef ?? null,
-            compiledPrompt: request.prompt,
-            finishedAt: new Date(),
-          },
-        );
+        for (const { faixa, masterKey, durationMs } of gravadas) {
+          await em.getRepository(Song).update(
+            { id: faixa.songId },
+            {
+              status: 'complete',
+              masterKey,
+              durationMs,
+              providerId: result.servedBy,
+              compiledPrompt: request.prompt,
+              ...(titulo ? { title: titulo } : {}),
+            },
+          );
+          await em.getRepository(Generation).update(
+            { id: faixa.generationId },
+            {
+              status: 'complete',
+              providerId: result.servedBy,
+              providerRef: result.providerRef ?? null,
+              compiledPrompt: request.prompt,
+              finishedAt: new Date(),
+            },
+          );
+        }
+
+        if (descartadas.length > 0) {
+          await em.getRepository(Generation).update(
+            { id: In(descartadas.map((f) => f.generationId)) },
+            { status: 'canceled', finishedAt: new Date() },
+          );
+          // Status e lixeira: a música some da biblioteca sem apagar o registro,
+          // e quem investigar vê que nasceu e não teve áudio.
+          await em.getRepository(Song).update(
+            { id: In(descartadas.map((f) => f.songId)) },
+            { status: 'canceled' },
+          );
+          await em.getRepository(Song).softDelete({ id: In(descartadas.map((f) => f.songId)) });
+        }
       });
-      this.andamento.set(generationId, 'complete');
+      for (const { faixa } of gravadas) this.andamento.set(faixa.generationId, 'complete');
+      for (const faixa of descartadas) this.andamento.set(faixa.generationId, 'canceled');
 
       // Só agora o crédito sai da reserva: até aqui, qualquer falha estornava.
+      // Uma vez por pedido, e não por faixa: o preço é do pedido.
       await this.deps.credits.commit(userId, job.reservedCredits);
 
-      await this.enqueueEagerFormats(songId, userId, master);
-      await this.enqueueWaveform(songId);
+      for (const { faixa, master, masterKey, durationMs, capa } of gravadas) {
+        await this.enqueueEagerFormats(faixa.songId, userId, master);
+        await this.enqueueWaveform(faixa.songId);
 
-      await this.publish({
-        userId,
-        generationId,
-        songId,
-        status: 'complete',
-        progress: STATUS_PROGRESS.complete,
-        song: {
-          id: songId,
-          title: titulo ?? song.title,
-          durationMs,
-          audioUrl: await this.deps.storage.presignGet(masterKey),
-          // Quase sempre já desenhada. Se não, o evento dela vem em seguida.
-          coverUrl: capa.key ? await this.deps.storage.presignGet(capa.key) : null,
-        },
-      });
+        await this.publish({
+          userId,
+          generationId: faixa.generationId,
+          songId: faixa.songId,
+          status: 'complete',
+          progress: STATUS_PROGRESS.complete,
+          song: {
+            id: faixa.songId,
+            title: titulo ?? faixa.song.title,
+            durationMs,
+            audioUrl: await this.deps.storage.presignGet(masterKey),
+            // Quase sempre já desenhada. Se não, o evento dela vem em seguida.
+            coverUrl: capa.key ? await this.deps.storage.presignGet(capa.key) : null,
+          },
+        });
+      }
+
+      for (const faixa of descartadas) {
+        await this.publish({
+          userId,
+          generationId: faixa.generationId,
+          songId: faixa.songId,
+          status: 'canceled',
+          progress: STATUS_PROGRESS.canceled,
+        });
+      }
+      if (descartadas.length > 0) {
+        this.logger.warn(
+          `Geração ${generationId}: ${result.servedBy} entregou ${prontas.length} de ` +
+            `${faixas.length} faixas; a(s) sem áudio foram descartadas.`,
+        );
+      }
 
       const viaReserva = result.fallbackReason ? ` (reserva: ${result.fallbackReason})` : '';
+      const segundos = gravadas.map((g) => `${Math.round(g.durationMs / 1000)}s`).join(' + ');
       this.logger.log(
         `Geração ${generationId} concluída por ${result.servedBy}: ` +
-          `${Math.round(durationMs / 1000)}s de áudio${viaReserva}`,
+          `${segundos} de áudio${viaReserva}`,
       );
     } catch (err) {
-      await this.fail(job, err);
+      await this.fail(job, faixas, err);
       throw err; // devolve ao BullMQ para ele decidir sobre o retry
     } finally {
-      // O job só é dado como terminado quando a capa também terminou (ou
-      // desistiu): uma chamada pendente num worker "ocioso" se perderia num
+      // O job só é dado como terminado quando as capas também terminaram (ou
+      // desistiram): uma chamada pendente num worker "ocioso" se perderia num
       // desligamento. Nunca rejeita, então não muda o resultado acima.
-      await capaTerminou;
-      this.andamento.delete(generationId);
+      await Promise.all(capas.map((c) => c.terminou));
+      for (const faixa of faixas) this.andamento.delete(faixa.generationId);
     }
+  }
+
+  /**
+   * A primária e as variantes do pedido, prontas para gerar.
+   *
+   * Uma variante cancelada (ou apagada) enquanto esperava na fila fica de fora:
+   * o motor gera só o que ainda tem dono, e o destino de upload dela nem é
+   * assinado.
+   */
+  private async faixasDoPedido(job: GenerationJob, song: Song): Promise<Faixa[]> {
+    const faixas: Faixa[] = [{ generationId: job.generationId, songId: job.songId, song }];
+
+    for (const variante of job.variants ?? []) {
+      const [generation, songDaVariante] = await Promise.all([
+        this.deps.dataSource.getRepository(Generation).findOneBy({ id: variante.generationId }),
+        this.deps.dataSource.getRepository(Song).findOneBy({ id: variante.songId }),
+      ]);
+      if (!generation || !songDaVariante || generation.status === 'canceled') continue;
+      faixas.push({ generationId: variante.generationId, songId: variante.songId, song: songDaVariante });
+    }
+    return faixas;
   }
 
   /**
@@ -361,7 +466,9 @@ export class GenerationProcessor {
 
       this.logger.log(`Capa nova de ${song.id} pronta.`);
     } catch (err) {
-      await this.fail(job, err, { mexeNaMusica: false });
+      await this.fail(job, [{ generationId: job.generationId, songId: song.id }], err, {
+        mexeNaMusica: false,
+      });
       throw err;
     }
   }
@@ -435,14 +542,15 @@ export class GenerationProcessor {
    * o card troca o gradiente pela capa por baixo da barra de progresso; se já
    * terminou, é o segundo evento de conclusão, agora com a arte.
    */
-  private async gerarCapa(job: GenerationJob, song: Song, prompt: string): Promise<string | null> {
+  private async gerarCapa(userId: string, faixa: Faixa, prompt: string): Promise<string | null> {
     if (!this.deps.coverArt.available) return null;
+    const { song } = faixa;
 
     try {
       const resultado = await this.deps.coverArt.generate(prompt);
       if (!resultado) return null;
 
-      const status = this.andamento.get(job.generationId) ?? 'complete';
+      const status = this.andamento.get(faixa.generationId) ?? 'complete';
       // A música falhou (ou foi cancelada) enquanto a capa era desenhada: não
       // há o que ilustrar, e um evento agora reabriria o card na interface.
       if (status === 'failed' || status === 'canceled') return null;
@@ -452,8 +560,8 @@ export class GenerationProcessor {
       await this.deps.dataSource.getRepository(Song).update({ id: song.id }, { coverKey: key });
 
       await this.publish({
-        userId: job.userId,
-        generationId: job.generationId,
+        userId,
+        generationId: faixa.generationId,
         songId: song.id,
         status,
         progress: STATUS_PROGRESS[status],
@@ -537,47 +645,61 @@ export class GenerationProcessor {
     return key;
   }
 
-  /** Grava o status e avisa o navegador, nessa ordem. */
-  private async transition(job: GenerationJob, status: GenerationStatus): Promise<void> {
+  /** Grava o status de todas as faixas e avisa o navegador, nessa ordem. */
+  private async transition(
+    job: GenerationJob,
+    faixas: Alvo[],
+    status: GenerationStatus,
+  ): Promise<void> {
     await this.deps.dataSource.getRepository(Generation).update(
-      { id: job.generationId },
+      { id: In(faixas.map((f) => f.generationId)) },
       { status, ...(status === 'compiling_prompt' ? { startedAt: new Date() } : {}) },
     );
     await this.deps.dataSource
       .getRepository(Song)
-      .update({ id: job.songId }, { status });
-    this.andamento.set(job.generationId, status);
+      .update({ id: In(faixas.map((f) => f.songId)) }, { status });
 
-    await this.publish({
-      userId: job.userId,
-      generationId: job.generationId,
-      songId: job.songId,
-      status,
-      progress: STATUS_PROGRESS[status],
-    });
+    for (const faixa of faixas) {
+      this.andamento.set(faixa.generationId, status);
+      await this.publish({
+        userId: job.userId,
+        generationId: faixa.generationId,
+        songId: faixa.songId,
+        status,
+        progress: STATUS_PROGRESS[status],
+      });
+    }
   }
 
   /**
-   * Marca a geração como falha, estorna e avisa.
+   * Marca as gerações como falhas, estorna e avisa.
+   *
+   * Todas as faixas do pedido falham juntas: vieram de uma chamada só. O
+   * crédito está na primária (a primeira de `faixas`), e é dela o estorno.
    *
    * `mexeNaMusica: false` é para a capa pedida à parte: a música já estava
    * pronta antes do pedido e continua pronta depois dele.
    */
   private async fail(
     job: GenerationJob,
+    faixas: Alvo[],
     err: unknown,
     { mexeNaMusica = true }: { mexeNaMusica?: boolean } = {},
   ): Promise<void> {
     const message = err instanceof Error ? err.message : String(err);
-    if (mexeNaMusica) this.andamento.set(job.generationId, 'failed');
+    if (mexeNaMusica) {
+      for (const faixa of faixas) this.andamento.set(faixa.generationId, 'failed');
+    }
 
     await this.deps.dataSource.transaction(async (em) => {
       await em.getRepository(Generation).update(
-        { id: job.generationId },
+        { id: In(faixas.map((f) => f.generationId)) },
         { status: 'failed', errorMessage: message, finishedAt: new Date() },
       );
       if (mexeNaMusica) {
-        await em.getRepository(Song).update({ id: job.songId }, { status: 'failed' });
+        await em
+          .getRepository(Song)
+          .update({ id: In(faixas.map((f) => f.songId)) }, { status: 'failed' });
       }
     });
 
@@ -592,14 +714,16 @@ export class GenerationProcessor {
         return { refunded: 0 };
       });
 
-    await this.publish({
-      userId: job.userId,
-      generationId: job.generationId,
-      songId: job.songId,
-      status: 'failed',
-      progress: STATUS_PROGRESS.failed,
-      error: message,
-    });
+    for (const faixa of faixas) {
+      await this.publish({
+        userId: job.userId,
+        generationId: faixa.generationId,
+        songId: faixa.songId,
+        status: 'failed',
+        progress: STATUS_PROGRESS.failed,
+        error: message,
+      });
+    }
 
     this.logger.error(
       `Geração ${job.generationId} falhou (${refunded} créditos estornados): ${message}`,
