@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ENTITIES, Generation, Song, User } from '@sonora/db';
-import { CREDIT_COSTS, type GenerationJob } from '@sonora/shared';
+import { CREDIT_COSTS, effectiveDuration, generationRequestSchema, songCreditCost, type GenerationJob } from '@sonora/shared';
 import { DataSource } from 'typeorm';
 import type { SessionUser } from '../src/auth/session.guard';
 import type { AppConfig } from '../src/config/env';
@@ -112,7 +112,13 @@ beforeEach(async () => {
   await credits.grant(USER_ID, 50, 'plan', 'plan_renewal');
 });
 
-const pedidoSimples = { mode: 'simple' as const, prompt: 'forró pé de serra com sanfona', instrumental: false };
+const pedidoSimples = generationRequestSchema.parse({
+  mode: 'simple',
+  prompt: 'forró pé de serra com sanfona',
+  instrumental: false,
+});
+/** Pedido Simple sem versão nem duração, no Free (teto de 2 min): v1 cobrada pelo teto do plano. */
+const CUSTO_PADRAO = songCreditCost('v1', effectiveDuration(undefined, 120));
 
 describe('generate: duas faixas por música nova', () => {
   it('cria duas músicas e duas gerações, um job e uma reserva', async () => {
@@ -120,7 +126,7 @@ describe('generate: duas faixas por música nova', () => {
 
     expect(r.variants).toHaveLength(2);
     expect(r.variants[0]).toEqual({ songId: r.songId, generationId: r.generationId });
-    expect(r.creditsCharged).toBe(CREDIT_COSTS.song);
+    expect(r.creditsCharged).toBe(CUSTO_PADRAO);
 
     const musicas = await dataSource.getRepository(Song).find({ where: { userId: USER_ID } });
     const geracoes = await dataSource.getRepository(Generation).find({ where: { userId: USER_ID } });
@@ -134,7 +140,7 @@ describe('generate: duas faixas por música nova', () => {
     expect(queue.add).toHaveBeenCalledTimes(1);
     const [, job, opts] = queue.add.mock.calls[0] as [string, GenerationJob, { jobId: string }];
     expect(opts.jobId).toBe(r.generationId);
-    expect(job.reservedCredits).toBe(CREDIT_COSTS.song);
+    expect(job.reservedCredits).toBe(CUSTO_PADRAO);
     expect(job.variants).toEqual([r.variants[1]]);
   });
 
@@ -143,21 +149,19 @@ describe('generate: duas faixas por música nova', () => {
 
     const primaria = await dataSource.getRepository(Generation).findOneByOrFail({ id: r.generationId });
     const extra = await dataSource.getRepository(Generation).findOneByOrFail({ id: r.variants[1].generationId });
-    expect(primaria.creditsCharged).toBe(CREDIT_COSTS.song);
+    expect(primaria.creditsCharged).toBe(CUSTO_PADRAO);
     expect(extra.creditsCharged).toBe(0);
     // A extra aponta para o job da primária: é assim que o cancelamento a acha.
     expect(extra.jobId).toBe(r.generationId);
 
-    expect(await credits.balanceOf(USER_ID)).toMatchObject({ total: 50 - CREDIT_COSTS.song, reserved: CREDIT_COSTS.song });
+    expect(await credits.balanceOf(USER_ID)).toMatchObject({ total: 50 - CUSTO_PADRAO, reserved: CUSTO_PADRAO });
   });
 
   it('remix e clipe continuam com uma faixa só', async () => {
-    const clipe = await songs.generate(USER, {
-      mode: 'sounds',
-      prompt: 'kick seco de 808',
-      soundType: 'one-shot',
-      key: 'any',
-    });
+    const clipe = await songs.generate(
+      USER,
+      generationRequestSchema.parse({ mode: 'sounds', prompt: 'kick seco de 808', soundType: 'one-shot', key: 'any' }),
+    );
     expect(clipe.variants).toHaveLength(1);
 
     const origem = await dataSource.getRepository(Song).save({
@@ -167,7 +171,11 @@ describe('generate: duas faixas por música nova', () => {
       kind: 'song',
       masterKey: 'songs/base/master.flac',
     });
-    const remix = await songs.generate(USER, { ...pedidoSimples, sourceSongId: origem.id });
+    const remix = await songs.generate(
+      USER,
+      generationRequestSchema.parse({ mode: 'simple', prompt: 'forró com sanfona', sourceSongId: origem.id }),
+    );
+    expect(remix.creditsCharged).toBe(CREDIT_COSTS.remix);
     expect(remix.variants).toHaveLength(1);
 
     const [, jobDoRemix] = queue.add.mock.calls[1] as [string, GenerationJob];
@@ -188,6 +196,59 @@ describe('generate: duas faixas por música nova', () => {
   });
 });
 
+describe('generate: versão do motor', () => {
+  const avancado = (model: string, durationSeconds?: number, extra: Record<string, unknown> = {}) =>
+    generationRequestSchema.parse({
+      mode: 'advanced',
+      model,
+      ...extra,
+      instrumental: true,
+      controls: { styles: 'midnight retrowave', ...(durationSeconds ? { durationSeconds } : {}) },
+    });
+
+  it('cobra pela versão e pela faixa de duração', async () => {
+    await credits.grant(USER_ID, 200, 'plan', 'plan_renewal');
+
+    expect((await songs.generate(USER, avancado('v1', 120))).creditsCharged).toBe(10);
+    expect((await songs.generate(USER, avancado('v2.0', 120))).creditsCharged).toBe(20);
+    expect((await songs.generate(USER, avancado('v2.5', 60))).creditsCharged).toBe(26);
+    // Duração no automático num plano de 2 min: cobrada (e gerada) pelo teto do plano.
+    expect((await songs.generate(USER, avancado('v2.5'))).creditsCharged).toBe(26);
+  });
+
+  it('no automático, o Free paga e gera pelo teto do plano (2 min), não por 4 min', async () => {
+    const r = await songs.generate(USER, pedidoSimples);
+
+    expect(r.creditsCharged).toBe(10);
+    const musica = await dataSource.getRepository(Song).findOneByOrFail({ id: r.songId });
+    expect((musica.params as { durationSeconds?: number }).durationSeconds).toBe(120);
+  });
+
+  it('grava a versão na música, que é o que o worker lê', async () => {
+    const r = await songs.generate(USER, avancado('v2.5', 120));
+
+    const musicas = await dataSource.getRepository(Song).find({ where: { userId: USER_ID } });
+    expect(musicas.map((m) => (m.params as { model?: string }).model)).toEqual(['v2.5', 'v2.5']);
+    const [, job] = queue.add.mock.calls[0] as [string, GenerationJob];
+    expect(job.reservedCredits).toBe(r.creditsCharged);
+  });
+
+  it('remix ignora a versão: roda e cobra como sempre', async () => {
+    const origem = await dataSource.getRepository(Song).save({
+      userId: USER_ID,
+      title: 'Base',
+      status: 'complete',
+      kind: 'song',
+      masterKey: 'songs/base/master.flac',
+    });
+    const r = await songs.generate(USER, avancado('v2.5', 120, { sourceSongId: origem.id }));
+
+    expect(r.creditsCharged).toBe(CREDIT_COSTS.remix);
+    const remix = await dataSource.getRepository(Song).findOneByOrFail({ id: r.songId });
+    expect((remix.params as { model?: string }).model).toBe('v1');
+  });
+});
+
 describe('cancel: o pedido é uma unidade', () => {
   const remover = vi.fn(async () => undefined);
 
@@ -204,7 +265,7 @@ describe('cancel: o pedido é uma unidade', () => {
 
     const { refunded } = await generations.cancel(USER_ID, r.variants[indice].generationId);
 
-    expect(refunded).toBe(CREDIT_COSTS.song);
+    expect(refunded).toBe(CUSTO_PADRAO);
     const geracoes = await dataSource.getRepository(Generation).find({ where: { userId: USER_ID } });
     expect(geracoes.map((g) => g.status)).toEqual(['canceled', 'canceled']);
     const musicas = await dataSource.getRepository(Song).find({ where: { userId: USER_ID } });

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useSessao } from '@/lib/sessao';
+import { MODEL_CREDITS } from '@sonora/shared';
 
 /**
  * Página de vendas dos planos. Pública, sem a casca do aplicativo.
@@ -41,8 +42,12 @@ interface PlanoApi {
   };
 }
 
-/** O que uma música custa. Fixo no produto, não por plano. */
-const CREDITOS_POR_MUSICA = 10;
+/**
+ * Base da conta "quantas músicas o plano dá": o pedido mais barato (v1, até
+ * 2 min). Versões e durações maiores custam mais (models.ts); o número aqui é o
+ * teto, e o botão Criar mostra o custo real de cada pedido.
+ */
+const CREDITOS_POR_MUSICA = MODEL_CREDITS.v1[0];
 
 export default function Planos() {
   const { t, locale } = useI18n();

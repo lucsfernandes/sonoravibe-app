@@ -286,6 +286,65 @@ describe('AceStepProvider', () => {
   });
 });
 
+describe('versões do motor', () => {
+  it('v1 (padrão) vai ao endpoint turbo, com reescrita e sem passos', () => {
+    const input = buildJobInput(request());
+    expect(input).toMatchObject({ model_family: 'turbo', cot_caption: true });
+    expect(input).not.toHaveProperty('inference_steps');
+  });
+
+  it('v1.5 desliga só a reescrita do caption', () => {
+    expect(buildJobInput(request({ model: 'v1.5' }))).toMatchObject({ model_family: 'turbo', cot_caption: false });
+  });
+
+  it.each([
+    ['v2.0', 32],
+    ['v2.5', 50],
+  ] as const)('%s vai ao endpoint SFT com %i passos e sem reescrita', (model, steps) => {
+    expect(buildJobInput(request({ model }))).toMatchObject({
+      model_family: 'sft',
+      inference_steps: steps,
+      cot_caption: false,
+    });
+  });
+
+  it('remix e trecho rodam na v1 mesmo com v2 pedida', () => {
+    const remix = buildJobInput(request({ kind: 'remix', model: 'v2.5', sourceAudioUrl: 'https://r2/src.flac' }));
+    expect(remix).toMatchObject({ model_family: 'turbo', cot_caption: true });
+  });
+
+  it('cobra pela versão e duração', () => {
+    const provider = new AceStepProvider({ baseUrl: 'http://turbo' });
+    expect(provider.estimateCredits(request({ model: 'v2.5', durationSeconds: 360 }))).toBe(78);
+    expect(provider.estimateCredits(request({ model: 'v1', durationSeconds: 100 }))).toBe(10);
+  });
+
+  it('manda cada família ao seu endpoint', async () => {
+    const turbo = await fakeRunPod({ statuses: [COMPLETED] });
+    const turboServer = server;
+    server = null;
+    const sft = await fakeRunPod({ statuses: [COMPLETED] });
+    const provider = new AceStepProvider({ baseUrl: turbo.baseUrl, sftBaseUrl: sft.baseUrl, ...fast });
+
+    await provider.generate(request({ model: 'v2.5' }));
+    expect(sft.calls.some((c) => c.path === '/run')).toBe(true);
+    expect(turbo.calls).toHaveLength(0);
+
+    await provider.generate(request({ model: 'v1' }));
+    expect(turbo.calls.some((c) => c.path === '/run')).toBe(true);
+    await new Promise<void>((r) => turboServer!.close(() => r()));
+  });
+
+  it('v2 sem endpoint SFT falha sem retentar (não cai no Lyria cobrando como v2)', async () => {
+    const provider = new AceStepProvider({ baseUrl: 'http://127.0.0.1:9', ...fast });
+    const error = await provider.generate(request({ model: 'v2.0' })).catch((e) => e);
+
+    expect(error).toBeInstanceOf(MusicProviderError);
+    expect(error.retryable).toBe(false);
+    expect(error.message).toContain('v2.0');
+  });
+});
+
 describe('buildJobInput', () => {
   it('transforma exclusão de voz em instrumental nativo, sem citar "vocals" no caption', () => {
     const input = buildJobInput(

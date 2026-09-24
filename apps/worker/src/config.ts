@@ -24,13 +24,30 @@ const envSchema = z.object({
 
   MUSIC_PROVIDER: z.enum(['acestep', 'lyria', 'mock']).default('mock'),
   RUNPOD_API_KEY: z.string().optional(),
+  /** Endpoint da família turbo (v1, v1.5): a imagem construída com DIT_MODEL=acestep-v15-xl-turbo. */
   RUNPOD_ENDPOINT_ID: z.string().optional(),
+  /**
+   * Endpoint da família SFT (v2.0, v2.5): a imagem com DIT_MODEL=acestep-v15-xl-sft.
+   * Opcional: sem ele, pedidos de v2 falham e o crédito é estornado.
+   */
+  RUNPOD_ENDPOINT_ID_SFT: z.string().optional(),
+  /** Emulador local do endpoint SFT, quando houver. */
+  RUNPOD_SFT_BASE_URL: z.string().url().optional(),
+  /**
+   * Endpoint de capas (apps/image-worker, FLUX.2 [klein] 4B). Sem ele, as capas
+   * saem do OpenRouter como antes.
+   */
+  RUNPOD_ENDPOINT_ID_IMAGE: z.string().optional(),
+  /** Emulador local do endpoint de capas, quando houver. */
+  RUNPOD_IMAGE_BASE_URL: z.string().url().optional(),
   /** Aponta para o emulador local do SDK da RunPod, quando houver. */
   RUNPOD_BASE_URL: z.string().url().optional(),
 
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
   OPENROUTER_IMAGE_MODEL: z.string().default('google/gemini-2.5-flash-image'),
+  /** Modelo de texto que descreve a cena da capa a partir da letra (o mesmo da API). */
+  OPENROUTER_TEXT_MODEL: z.string().default('google/gemini-2.5-flash'),
   OPENROUTER_MUSIC_MODEL: z.string().default('google/lyria-3-pro-preview'),
   OPENROUTER_CLIP_MODEL: z.string().default('google/lyria-3-clip-preview'),
   OPENROUTER_APP_NAME: z.string().default('Sonora'),

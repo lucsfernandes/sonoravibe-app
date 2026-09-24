@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_MUSIC_MODEL, MUSIC_MODELS } from './models';
 
 /**
  * Contrato de geração.
@@ -87,6 +88,11 @@ export type AdvancedControls = z.infer<typeof advancedControlsSchema>;
 const referenceFields = {
   sourceSongId: z.string().uuid().optional(),
   inspirationPlaylistId: z.string().uuid().optional(),
+  /**
+   * Versão do motor (ver models.ts). Vale para música nova; remix e clipe rodam
+   * sempre na v1, que é a família turbo.
+   */
+  model: z.enum(MUSIC_MODELS).default(DEFAULT_MUSIC_MODEL),
 };
 
 /** Aba Simple: só a descrição em linguagem natural. */
@@ -182,8 +188,7 @@ export interface PlaylistInspiration {
  * uma coisa específica, e a segunda opção só gastaria GPU.
  *
  * O preço NÃO muda com o número de faixas: 1 pedido = 1 cobrança
- * (CREDIT_COSTS). Duas versões pelo preço de uma é decisão de produto; se um
- * dia mudar, é aqui e em CREDIT_COSTS.
+ * (songCreditCost, em models.ts, já conta as duas faixas no custo de GPU).
  */
 export const VARIANTS_PER_GENERATION: Partial<Record<GenerationKind, number>> = {
   song: 2,

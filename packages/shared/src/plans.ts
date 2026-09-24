@@ -106,7 +106,14 @@ export const PLANS: Record<PlanCode, Plan> = {
     code: 'pro',
     name: 'Pro',
     priceBrl: 39,
-    monthlyCredits: 5_000,
+    /**
+     * 2.000 créditos por R$ 39 = ~R$ 0,0195 por crédito. Era 5.000 quando toda
+     * música custava 10 créditos no Lyria; com as versões do ACE-Step
+     * (models.ts) o preço de cada música foi feito para que a GPU fique em até
+     * ~30% da receita a esse valor de crédito. Com 5.000, a v2.5 de 6 min daria
+     * prejuízo. Ver docs/PRECOS.md.
+     */
+    monthlyCredits: 2_000,
     features: {
       downloadFormats: ['mp3', 'wav', 'flac', 'm4a', 'opus'],
       mp3Quality: 'full',
@@ -123,7 +130,8 @@ export const PLANS: Record<PlanCode, Plan> = {
     code: 'premier',
     name: 'Premier',
     priceBrl: 99,
-    monthlyCredits: 20_000,
+    /** 5.000 créditos por R$ 99 = ~R$ 0,0198 por crédito: o mesmo valor do Pro. */
+    monthlyCredits: 5_000,
     features: {
       downloadFormats: ['mp3', 'wav', 'flac', 'm4a', 'opus'],
       mp3Quality: 'full',

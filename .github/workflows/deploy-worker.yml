@@ -61,6 +61,10 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_ENDPOINT_ID: ${{ secrets.RUNPOD_ENDPOINT_ID }}
+          # Família SFT (v2.0 e v2.5). Vazio = essas versões falham e estornam.
+          RUNPOD_ENDPOINT_ID_SFT: ${{ secrets.RUNPOD_ENDPOINT_ID_SFT }}
+          # Capas (FLUX.2 klein). Vazio = as capas saem do OpenRouter, como antes.
+          RUNPOD_ENDPOINT_ID_IMAGE: ${{ secrets.RUNPOD_ENDPOINT_ID_IMAGE }}
         run: |
           kubectl create secret generic sonora-worker-secret -n sonora \
             --from-literal=DATABASE_URL="$DATABASE_URL" \
@@ -72,6 +76,8 @@ jobs:
             --from-literal=OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
             --from-literal=RUNPOD_API_KEY="$RUNPOD_API_KEY" \
             --from-literal=RUNPOD_ENDPOINT_ID="$RUNPOD_ENDPOINT_ID" \
+            --from-literal=RUNPOD_ENDPOINT_ID_SFT="$RUNPOD_ENDPOINT_ID_SFT" \
+            --from-literal=RUNPOD_ENDPOINT_ID_IMAGE="$RUNPOD_ENDPOINT_ID_IMAGE" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Replace image placeholder

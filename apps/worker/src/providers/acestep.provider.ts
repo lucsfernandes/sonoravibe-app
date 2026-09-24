@@ -1,6 +1,11 @@
 import {
   CREDIT_COSTS,
+  DEFAULT_MUSIC_MODEL,
+  MUSIC_MODEL_SPECS,
   MusicProviderError,
+  songCreditCost,
+  type ModelFamily,
+  type MusicModel,
   type GenerationKind,
   type GeneratedVariant,
   type MusicGenerationRequest,
@@ -21,11 +26,11 @@ import {
  * master FLAC 24-bit direto no R2 (URL pré-assinada em `uploadTarget`) e só
  * devolve a chave — a resposta da RunPod é limitada a 10–30 MB.
  *
- * Tempos de referência medidos na L4 com o turbo 2B + LM 1.7B: cold start 56 s,
- * música de 4min30 em 44,8 s. O XL-SFT + LM 4B (50 passos com CFG, duas
- * variantes) NÃO foi medido: é bem mais lento e carrega mais pesos, então os
- * timeouts padrão abaixo têm folga para isso. Quando estouram, o erro é marcado
- * como retentável para o roteador cair no Lyria.
+ * Dois endpoints, um por família de modelo (models.ts): o turbo atende v1 e
+ * v1.5, o SFT atende v2.0 e v2.5. Medido na L4 com duas faixas: v1 em 6 min leva
+ * ~70 s, v2.5 em 6 min ~325 s, mais 40–80 s de cold start. Os timeouts padrão
+ * abaixo têm folga para isso; quando estouram, o erro é marcado como retentável
+ * para o roteador cair no Lyria.
  *
  * Funciona também contra o emulador local do SDK da RunPod
  * (`handler.py --rp_serve_api`), com duas diferenças que o provider tolera:
@@ -33,8 +38,16 @@ import {
  */
 
 export interface AceStepConfig {
-  /** https://api.runpod.ai/v2/<endpointId>, ou http://127.0.0.1:8008 no emulador. */
+  /**
+   * Endpoint da família turbo (v1, v1.5): https://api.runpod.ai/v2/<endpointId>,
+   * ou http://127.0.0.1:8008 no emulador.
+   */
   baseUrl: string;
+  /**
+   * Endpoint da família SFT (v2.0, v2.5). Ausente = essas versões ficam
+   * indisponíveis: o pedido falha sem cair no Lyria, e o crédito é estornado.
+   */
+  sftBaseUrl?: string;
   /** Chave da RunPod. O emulador local não exige. */
   apiKey?: string;
   /** A RunPod usa GET em /status; o emulador local do SDK usa POST. */
@@ -102,7 +115,7 @@ export class AceStepProvider implements MusicProvider {
   readonly maxDurationSeconds = 480;
   readonly supportedKinds = SUPPORTED;
 
-  private readonly baseUrl: string;
+  private readonly baseUrls: Partial<Record<ModelFamily, string>>;
   private readonly statusMethod: 'GET' | 'POST';
   private readonly queueTimeoutMs: number;
   private readonly totalTimeoutMs: number;
@@ -114,7 +127,10 @@ export class AceStepProvider implements MusicProvider {
 
   constructor(private readonly config: AceStepConfig) {
     if (!config.baseUrl) throw new Error('AceStepProvider exige baseUrl do endpoint da RunPod.');
-    this.baseUrl = config.baseUrl.replace(/\/+$/, '');
+    this.baseUrls = {
+      turbo: config.baseUrl.replace(/\/+$/, ''),
+      ...(config.sftBaseUrl ? { sft: config.sftBaseUrl.replace(/\/+$/, '') } : {}),
+    };
     this.statusMethod = config.statusMethod ?? 'GET';
     // Um job fica IN_QUEUE também enquanto o worker sobe e carrega os modelos.
     // Com o XL-SFT e o LM 4B (~17 GB de pesos) isso passa dos 120 s de antes, e
@@ -133,14 +149,21 @@ export class AceStepProvider implements MusicProvider {
     if (req.kind === 'clip') return CREDIT_COSTS.clip;
     if (req.kind === 'replace_section') return CREDIT_COSTS.replaceSection;
     if (req.kind === 'cover' || req.kind === 'remix') return CREDIT_COSTS.remix;
-    return CREDIT_COSTS.song;
+    return songCreditCost(modelOf(req), req.durationSeconds);
   }
 
   async generate(req: MusicGenerationRequest): Promise<MusicGenerationResult> {
     const input = buildJobInput(req);
+    const family = MUSIC_MODEL_SPECS[modelOf(req)].family;
+    const base = this.baseUrls[family];
+    if (!base) {
+      // Versão sem endpoint configurado: é configuração nossa, não falha passageira.
+      // Não retentável, para não cair no Lyria cobrando como se fosse a v2.
+      throw this.error(`A versão ${modelOf(req)} não está disponível (sem endpoint '${family}').`, false);
+    }
     const startedAt = this.now();
 
-    const submitted = await this.call<RunPodJob>('POST', '/run', { input });
+    const submitted = await this.call<RunPodJob>(base, 'POST', '/run', { input });
     if (!submitted?.id) {
       throw this.error('RunPod aceitou o /run mas não devolveu o id do job.', true);
     }
@@ -151,21 +174,21 @@ export class AceStepProvider implements MusicProvider {
     while (!isTerminal(job.status)) {
       const elapsed = this.now() - startedAt;
       if (job.status === 'IN_QUEUE' && elapsed > this.queueTimeoutMs) {
-        await this.cancel(job.id);
+        await this.cancel(base, job.id);
         throw this.error(
           `Sem GPU disponível na RunPod: job ${job.id} ficou ${Math.round(elapsed / 1000)}s na fila.`,
           true,
         );
       }
       if (elapsed > this.totalTimeoutMs) {
-        await this.cancel(job.id);
+        await this.cancel(base, job.id);
         throw this.error(`Job ${job.id} passou do tempo máximo de ${this.totalTimeoutMs / 1000}s.`, true);
       }
 
       await this.sleep(this.pollIntervalMs);
       try {
         // O emulador local executa o job dentro desta chamada; dá tempo a ela.
-        job = await this.call<RunPodJob>(this.statusMethod, `/status/${job.id}`, undefined, {
+        job = await this.call<RunPodJob>(base, this.statusMethod, `/status/${job.id}`, undefined, {
           timeoutMs: Math.max(this.requestTimeoutMs, this.totalTimeoutMs - elapsed),
         });
         consecutiveFailures = 0;
@@ -228,15 +251,16 @@ export class AceStepProvider implements MusicProvider {
     };
   }
 
-  private async cancel(jobId: string): Promise<void> {
+  private async cancel(base: string, jobId: string): Promise<void> {
     try {
-      await this.call('POST', `/cancel/${jobId}`);
+      await this.call(base, 'POST', `/cancel/${jobId}`);
     } catch {
       // Cancelar é cortesia para não pagar GPU à toa; a falha real já vai ser lançada.
     }
   }
 
   private async call<T>(
+    base: string,
     method: 'GET' | 'POST',
     path: string,
     body?: unknown,
@@ -244,7 +268,7 @@ export class AceStepProvider implements MusicProvider {
   ): Promise<T> {
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+      response = await this.fetchImpl(`${base}${path}`, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -311,8 +335,16 @@ export function buildJobInput(req: MusicGenerationRequest): Record<string, unkno
     );
   }
 
+  // Remix, cover e trecho rodam sempre na v1 (família turbo): partem do áudio de
+  // origem, e a v2 não foi escutada nesses casos.
+  const spec = MUSIC_MODEL_SPECS[taskType === 'text2music' ? modelOf(req) : DEFAULT_MUSIC_MODEL];
+
   return {
     task_type: taskType,
+    // A família confere com o endpoint; passos e reescrita definem a versão.
+    model_family: spec.family,
+    ...(spec.family === 'sft' ? { inference_steps: spec.steps } : {}),
+    cot_caption: spec.cotCaption,
     caption,
     // O que evitar vai à parte do caption: ver compileAceStepCaption.
     negative_caption: buildAceStepNegative(req.controls.excludeStyles) ?? null,
@@ -351,4 +383,12 @@ function describeHttpError(status: number, path: string, body: string): string {
     return `Endpoint da RunPod não encontrado (${path}). Confira RUNPOD_ENDPOINT_ID.`;
   }
   return `RunPod respondeu ${status} em ${path}: ${body.slice(0, 300)}`;
+}
+
+/**
+ * Versão efetiva do pedido. Só música nova escolhe versão; o resto (clipe,
+ * remix, trecho) roda na padrão, que é da família turbo.
+ */
+export function modelOf(req: MusicGenerationRequest): MusicModel {
+  return req.kind === 'song' ? (req.model ?? DEFAULT_MUSIC_MODEL) : DEFAULT_MUSIC_MODEL;
 }
