@@ -28,6 +28,8 @@ data:
 
   OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
   OPENROUTER_IMAGE_MODEL: "meta/muse-image"
+  # Descreve a cena da capa a partir da letra antes do FLUX (o mesmo modelo de texto da API).
+  OPENROUTER_TEXT_MODEL: "openai/gpt-6-luna"
   OPENROUTER_MUSIC_MODEL: "google/lyria-3-pro-preview"
   OPENROUTER_CLIP_MODEL: "google/lyria-3-clip-preview"
   OPENROUTER_APP_NAME: "Sonora"

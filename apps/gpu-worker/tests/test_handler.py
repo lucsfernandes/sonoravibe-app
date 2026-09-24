@@ -6,7 +6,8 @@ O que isto cobre é a FIAÇÃO — que perfil de difusão cada modelo recebe, qu
 negativo chega ao LM, que duas variantes viram duas faixas. A qualidade do
 áudio em si só se mede numa GPU.
 
-Rodar:  python -m unittest discover -s apps/gpu-worker/tests -v
+Rodar (precisa de numpy, que o handler usa no fim da faixa):
+    python -m unittest discover -s apps/gpu-worker/tests -v
 """
 
 from __future__ import annotations
@@ -131,6 +132,7 @@ class ModelSettings(unittest.TestCase):
 
         self.assertEqual(s["inference_steps"], 8)
         self.assertEqual(s["timesteps"], h.TURBO_TIMESTEPS)
+        self.assertIs(s["dcw_enabled"], True)
         self.assertEqual(s["lm_temperature"], 0.85)
         self.assertEqual(s["lm_cfg_scale"], 2.0)
         # O que evitar chega ao LM: foi assim no job F.
@@ -149,15 +151,36 @@ class ModelSettings(unittest.TestCase):
         text = DOCKERFILE.read_text(encoding="utf-8")
         h = load_handler(DEFAULT)
 
+        import re
+
+        args = dict(re.findall(r"^ARG (\w+)=(\S+)", text, re.M))
+
         def env(name: str) -> str:
-            import re
+            value = re.search(rf"^\s*(?:ENV\s+)?{name}=(\S+)", text, re.M).group(1)
+            return re.sub(r"\$\{(\w+)\}", lambda m: args[m.group(1)], value)
 
-            return re.search(rf"^\s*(?:ENV\s+)?{name}=(\S+)", text, re.M).group(1)
-
+        # O build padrão (sem --build-arg) é a imagem turbo, que é o padrão do handler.
         self.assertEqual(env("ACESTEP_CONFIG_PATH"), h.CONFIG_PATH)
         self.assertEqual(env("ACESTEP_LM_MODEL_PATH"), h.LM_MODEL_PATH)
-        # O que o Dockerfile usa de padrão tem que estar baixado na imagem.
-        self.assertIn(f"--model {h.CONFIG_PATH}", text)
+        # O XL escolhido no build é o que a imagem baixa.
+        self.assertIn("--model ${DIT_MODEL}", text)
+
+    def test_versoes_do_produto_batem_com_as_familias_do_handler(self):
+        """models.ts (TypeScript) e o handler precisam concordar em checkpoint, passos e família."""
+        import re
+
+        models = (HANDLER.parents[2] / "packages" / "shared" / "src" / "models.ts").read_text(encoding="utf-8")
+        specs = re.findall(
+            r"family: '(\w+)',\s*checkpoint: '([\w.-]+)',\s*steps: (\d+),\s*cotCaption: (\w+)", models
+        )
+        self.assertEqual(len(specs), 4)
+        for family, checkpoint, steps, _cot in specs:
+            h = load_handler({"ACESTEP_CONFIG_PATH": checkpoint})
+            self.assertEqual("turbo" if h.IS_TURBO else "sft", family)
+            if family == "turbo":
+                self.assertEqual(int(steps), 8)
+            parsed = h._parse_input(req(model_family=family, **({} if family == "turbo" else {"inference_steps": int(steps)})))
+            self.assertEqual(h._model_settings(parsed)["inference_steps"], int(steps))
 
     def test_sft_usa_50_passos_shift_3_e_nunca_o_cronograma_do_turbo(self):
         h = load_handler(SFT)
@@ -165,6 +188,8 @@ class ModelSettings(unittest.TestCase):
 
         self.assertEqual(s["inference_steps"], 50)
         self.assertEqual(s["shift"], 3.0)
+        # DCW ligado num modelo não destilado distorce o áudio (issue #1259 do ACE-Step).
+        self.assertIs(s["dcw_enabled"], False)
         # timesteps sobrepõe passos e shift: se o do turbo vazasse, o SFT rodaria 8 passos.
         self.assertIsNone(s["timesteps"])
 
@@ -260,14 +285,15 @@ class HandlerWiring(unittest.TestCase):
         captured: dict = {}
         h = load_handler(env, captured, audios=wavs)
 
-        def fake_flac(_wav, flac_path):
+        def fake_flac(_wav, flac_path, finish_ending=False):
+            captured.setdefault("finish_ending", []).append(finish_ending)
             Path(flac_path).write_bytes(b"flac")
             return {"duration_ms": 30_000, "sample_rate": 48_000, "bit_depth": 24}
 
         uploaded: list[str] = []
         with mock.patch.object(h, "_to_flac_24", fake_flac), mock.patch.object(
             h, "_upload", lambda _path, url: uploaded.append(url)
-        ):
+        ), mock.patch.object(h, "_download", lambda _url, _dir: str(Path(tmp) / "src")):
             return h.handler({"input": payload}), captured, uploaded
 
     def test_duas_variantes_saem_como_duas_faixas_nos_destinos_pedidos(self):
@@ -347,6 +373,111 @@ class HandlerWiring(unittest.TestCase):
         self.assertTrue(params.thinking)
         self.assertTrue(params.use_cot_caption)
         self.assertEqual((config.batch_size, config.seeds), (2, [42, 43]))
+
+
+class Versions(unittest.TestCase):
+    """O pedido carrega a versão (família, passos, reescrita); o endpoint confere a família."""
+
+    def test_v2_5_no_endpoint_sft_usa_50_passos_sem_reescrita_e_sem_dcw(self):
+        _, captured, _ = HandlerWiring().run_handler(
+            SFT, req(model_family="sft", inference_steps=50, cot_caption=False)
+        )
+        params = captured["params"]
+        self.assertEqual(params.inference_steps, 50)
+        self.assertFalse(params.use_cot_caption)
+        self.assertIs(params.dcw_enabled, False)
+
+    def test_v2_0_usa_32_passos(self):
+        _, captured, _ = HandlerWiring().run_handler(
+            SFT, req(model_family="sft", inference_steps=32, cot_caption=False)
+        )
+        self.assertEqual(captured["params"].inference_steps, 32)
+
+    def test_v1_5_no_turbo_desliga_so_a_reescrita(self):
+        _, captured, _ = HandlerWiring().run_handler(DEFAULT, req(model_family="turbo", cot_caption=False))
+        params = captured["params"]
+        self.assertFalse(params.use_cot_caption)
+        self.assertEqual(params.inference_steps, 8)
+        self.assertIs(params.dcw_enabled, True)
+
+    def test_familia_errada_e_recusada_sem_gerar(self):
+        out, captured, _ = HandlerWiring().run_handler(DEFAULT, req(model_family="sft", inference_steps=50))
+        self.assertTrue(out["error"].startswith("entrada inválida"))
+        self.assertIn("xl-turbo", out["error"])
+        self.assertNotIn("params", captured)
+
+    def test_turbo_nao_aceita_outro_numero_de_passos(self):
+        h = load_handler(DEFAULT)
+        with self.assertRaisesRegex(h.InputError, "8 passos"):
+            h._parse_input(req(inference_steps=50))
+
+    def test_sem_os_campos_novos_segue_o_ambiente(self):
+        """Pedido antigo, sem versão: comportamento de antes."""
+        h = load_handler({"ACESTEP_COT_CAPTION": "false"})
+        self.assertFalse(h._parse_input(req())["cot_caption"])
+
+
+class Ending(unittest.TestCase):
+    """O fim da faixa: corte do silêncio final e fade. Casos tirados do benchmark Midnight."""
+
+    SR = 48_000
+
+    def setUp(self):
+        import numpy as np
+
+        self.np = np
+        self.h = load_handler(DEFAULT)
+
+    def music(self, seconds: float, level: float = 0.3):
+        np = self.np
+        t = np.arange(int(seconds * self.SR)) / self.SR
+        tone = (level * np.sin(2 * np.pi * 220 * t)).astype(np.float32)
+        return np.stack([tone, tone], axis=1)
+
+    def silence(self, seconds: float):
+        return self.np.zeros((int(seconds * self.SR), 2), dtype=self.np.float32)
+
+    def test_corta_o_silencio_final_como_no_ref(self):
+        """REF-0: música até 1:52 e 8 s de silêncio até 2:00."""
+        audio = self.np.concatenate([self.music(112), self.silence(8)])
+        out, info = self.h._finish_ending(audio, self.SR)
+
+        self.assertAlmostEqual(len(out) / self.SR, 112.3, delta=0.1)  # a música + 0,3 s de respiro
+        self.assertAlmostEqual(info["trimmed_ms"], 7_700, delta=100)
+
+    def test_parada_seca_vira_fade(self):
+        """S32-0: volume cheio até o último instante."""
+        out, info = self.h._finish_ending(self.music(30), self.SR)
+        np = self.np
+
+        self.assertEqual(info["trimmed_ms"], 0)
+        self.assertEqual(info["fade_ms"], 1_500)
+        self.assertLess(float(np.abs(out[-10:]).max()), 1e-4)  # chega a zero, sem degrau
+        mid = len(out) // 2
+        np.testing.assert_array_equal(out[:mid], self.music(30)[:mid])  # o corpo não muda
+
+    def test_final_que_ja_desce_quase_nao_muda(self):
+        """S50N: fade natural, ~0,2 s de silêncio no fim: abaixo do mínimo, não corta."""
+        audio = self.np.concatenate([self.music(30), self.silence(0.2)])
+        out, info = self.h._finish_ending(audio, self.SR)
+
+        self.assertEqual(info["trimmed_ms"], 0)
+        self.assertEqual(len(out), len(audio))
+
+    def test_faixa_toda_em_silencio_fica_como_esta(self):
+        audio = self.silence(10)
+        out, info = self.h._finish_ending(audio, self.SR)
+        self.assertEqual(info, {"trimmed_ms": 0, "fade_ms": 0})
+        self.assertEqual(len(out), len(audio))
+
+    def test_so_text2music_arruma_o_fim(self):
+        _, captured, _ = HandlerWiring().run_handler(DEFAULT, req())
+        self.assertEqual(captured["finish_ending"], [True])
+
+        _, captured, _ = HandlerWiring().run_handler(
+            DEFAULT, req(task_type="repaint", src_audio_url="http://x", repainting_start=10.0)
+        )
+        self.assertEqual(captured.get("finish_ending"), [False])
 
 
 if __name__ == "__main__":

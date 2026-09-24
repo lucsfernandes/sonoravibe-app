@@ -102,6 +102,8 @@ const T: Dicionario = {
   'criar.botao': { pt: 'Criar', en: 'Create' },
   'criar.criando': { pt: 'Criando...', en: 'Creating...' },
   'criar.custo': { pt: 'créditos', en: 'credits' },
+  'criar.versao': { pt: 'Versão do motor', en: 'Engine version' },
+  'criar.aPartirDe': { pt: 'a partir de', en: 'from' },
   'criar.custoUm': { pt: 'crédito', en: 'credit' },
   'criar.sortear': { pt: 'Sortear estilo', en: 'Random style' },
   'criar.cancelada': { pt: 'Cancelada', en: 'Cancelled' },
@@ -553,8 +555,8 @@ const T: Dicionario = {
     en: 'Start free. Subscribe when the music becomes work.',
   },
   'planos.sub': {
-    pt: 'Cada música custa 10 créditos. No plano gratuito você ganha 30 por mês, sem cartão de crédito.',
-    en: 'Each song costs 10 credits. The free plan gives you 30 a month, no credit card.',
+    pt: 'Cada pedido gera duas versões da música, a partir de 10 créditos. No plano gratuito você ganha 30 por mês, sem cartão de crédito.',
+    en: 'Each request makes two versions of the song, from 10 credits. The free plan gives you 30 a month, no credit card.',
   },
   'planos.gratis': { pt: 'Grátis', en: 'Free' },
   'planos.sugerido': { pt: 'Mais escolhido', en: 'Most popular' },
@@ -592,8 +594,8 @@ const T: Dicionario = {
   'planos.duvidas': { pt: 'Perguntas', en: 'Questions' },
   'planos.p1': { pt: 'O que é um crédito?', en: 'What is a credit?' },
   'planos.r1': {
-    pt: 'A unidade que a plataforma gasta para gerar. Uma música completa custa 10 créditos e um efeito curto custa 5. O plano mostra quantas músicas dá, para você não precisar fazer conta.',
-    en: 'The unit the platform spends to generate. A full song costs 10 credits and a short sound effect costs 5. The plan shows how many songs that is, so you do not have to do the math.',
+    pt: 'A unidade que a plataforma gasta para gerar. Cada pedido de música gera duas versões e custa de 10 a 78 créditos, conforme a versão do motor (v1 a v2.5) e a duração; um efeito curto custa 5. O botão Criar mostra o custo antes de você confirmar.',
+    en: 'The unit the platform spends to generate. Each song request makes two versions and costs 10 to 78 credits, depending on the engine version (v1 to v2.5) and the length; a short sound effect costs 5. The Create button shows the cost before you confirm.',
   },
   'planos.p2': { pt: 'Posso usar as músicas comercialmente?', en: 'Can I use the songs commercially?' },
   'planos.r2': {

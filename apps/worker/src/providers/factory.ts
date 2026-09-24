@@ -32,6 +32,11 @@ function buildPrimary(config: WorkerConfig): MusicProvider {
       return new AceStepProvider({
         baseUrl:
           config.RUNPOD_BASE_URL ?? `https://api.runpod.ai/v2/${config.RUNPOD_ENDPOINT_ID}`,
+        sftBaseUrl:
+          config.RUNPOD_SFT_BASE_URL ??
+          (config.RUNPOD_ENDPOINT_ID_SFT
+            ? `https://api.runpod.ai/v2/${config.RUNPOD_ENDPOINT_ID_SFT}`
+            : undefined),
         apiKey: config.RUNPOD_API_KEY,
         // O emulador local do SDK responde /status em POST; a RunPod, em GET.
         statusMethod: config.RUNPOD_BASE_URL ? 'POST' : 'GET',

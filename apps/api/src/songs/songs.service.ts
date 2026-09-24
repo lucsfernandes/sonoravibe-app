@@ -13,7 +13,11 @@ import {
   DEFAULT_JOB_OPTIONS,
   MAX_DURATION_SECONDS,
   maxDurationFor,
+  songCreditCost,
+  effectiveDuration,
   variantsFor,
+  DEFAULT_MUSIC_MODEL,
+  type MusicModel,
   type AdvancedControls,
   type GenerationJob,
   type GenerationKind,
@@ -88,10 +92,24 @@ export class SongsService {
         : null;
 
     const kind: GenerationKind = request.mode === 'sounds' ? 'clip' : source ? 'remix' : 'song';
-    const cost =
-      kind === 'clip' ? CREDIT_COSTS.clip : kind === 'remix' ? CREDIT_COSTS.remix : CREDIT_COSTS.song;
-
     const controls = request.mode === 'advanced' ? request.controls : undefined;
+    // A versão só vale para música nova; remix e clipe rodam na padrão.
+    const model: MusicModel =
+      kind === 'song' && request.mode !== 'sounds' ? request.model : DEFAULT_MUSIC_MODEL;
+    // Música nova custa por versão e faixa de duração (models.ts). No automático
+    // cobra "até 4 min", ou o teto do plano quando ele é menor — e aí a música é
+    // gerada com esse teto (`duracao` vai para params.durationSeconds).
+    const duracao =
+      kind === 'song'
+        ? effectiveDuration(controls?.durationSeconds, maxDurationFor(plan.code, this.config.MUSIC_PROVIDER))
+        : undefined;
+    const cost =
+      kind === 'clip'
+        ? CREDIT_COSTS.clip
+        : kind === 'remix'
+          ? CREDIT_COSTS.remix
+          : songCreditCost(model, duracao);
+
     this.assertPlanAllows(plan.code, plan.features, controls);
 
     const workspaceId = await this.resolveWorkspace(user.id, request.workspaceId);
@@ -112,7 +130,7 @@ export class SongsService {
           instrumental: request.mode === 'sounds' ? true : request.instrumental,
           status: 'queued',
           kind,
-          params: this.paramsOf(request, inspiration),
+          params: this.paramsOf(request, inspiration, model, duracao),
         });
 
       const song = await songs.save(novaMusica());
@@ -191,7 +209,7 @@ export class SongsService {
 
     this.logger.log(
       `Geração ${generation.id} na fila | usuário ${user.id} | plano ${plan.code} | ` +
-        `${todas.length} faixa(s) | ${cost} créditos`,
+        `${model} | ${todas.length} faixa(s) | ${cost} créditos`,
     );
 
     return {
@@ -354,13 +372,22 @@ export class SongsService {
   private paramsOf(
     request: GenerationRequest,
     inspiration: PlaylistInspiration | null,
+    model: MusicModel,
+    durationSeconds: number | undefined,
   ): Partial<AdvancedControls> | null {
-    const extra = inspiration ? { inspiration } : {};
+    // A versão fica gravada na música: é o que o worker lê para escolher o
+    // endpoint, e o que "gerar de novo" precisa para repetir o pedido. A duração
+    // também, quando foi fixada pelo teto do plano: é a que foi cobrada.
+    const extra = {
+      model,
+      ...(durationSeconds ? { durationSeconds } : {}),
+      ...(inspiration ? { inspiration } : {}),
+    };
     if (request.mode === 'advanced') return { ...request.controls, ...extra };
     if (request.mode === 'sounds') {
       return { bpm: request.bpm, key: request.key };
     }
-    return inspiration ? (extra as Partial<AdvancedControls>) : null;
+    return extra as Partial<AdvancedControls>;
   }
 }
 

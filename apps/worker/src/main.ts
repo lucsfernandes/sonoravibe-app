@@ -18,6 +18,7 @@ import IORedis from 'ioredis';
 import { DataSource } from 'typeorm';
 import { loadWorkerConfig } from './config';
 import { CoverArtGenerator } from './generation/cover-art';
+import { CoverArtChain, FluxCoverGenerator, openRouterSceneWriter } from './generation/flux-cover';
 import { GenerationProcessor } from './generation/generation.processor';
 import { buildMusicRouter } from './providers/factory';
 import { EditProcessor } from './edit/edit.processor';
@@ -76,13 +77,43 @@ async function bootstrap(): Promise<void> {
     credits: new CreditsLedger(dataSource),
     transcodeQueue,
     ffmpegPath: config.FFMPEG_PATH,
-    coverArt: new CoverArtGenerator({
-      apiKey: config.OPENROUTER_API_KEY,
-      baseUrl: config.OPENROUTER_BASE_URL,
-      model: config.OPENROUTER_IMAGE_MODEL,
-      siteUrl: config.OPENROUTER_SITE_URL,
-      appName: config.OPENROUTER_APP_NAME,
-    }),
+    // Capa: FLUX.2 [klein] no nosso endpoint da RunPod; se ele falhar ou demorar,
+    // o modelo de imagem do OpenRouter desenha (decisão de 2026-09-24).
+    coverArt: new CoverArtChain(
+      [
+        {
+          name: 'FLUX.2 klein (RunPod)',
+          source: new FluxCoverGenerator({
+            baseUrl:
+              config.RUNPOD_IMAGE_BASE_URL ??
+              (config.RUNPOD_ENDPOINT_ID_IMAGE
+                ? `https://api.runpod.ai/v2/${config.RUNPOD_ENDPOINT_ID_IMAGE}`
+                : undefined),
+            apiKey: config.RUNPOD_API_KEY,
+            statusMethod: config.RUNPOD_IMAGE_BASE_URL ? 'POST' : 'GET',
+            // A letra vira uma cena antes de chegar ao FLUX, que escreveria os versos na capa.
+            sceneWriter: openRouterSceneWriter({
+              apiKey: config.OPENROUTER_API_KEY,
+              baseUrl: config.OPENROUTER_BASE_URL,
+              model: config.OPENROUTER_TEXT_MODEL,
+              siteUrl: config.OPENROUTER_SITE_URL,
+              appName: config.OPENROUTER_APP_NAME,
+            }),
+          }),
+        },
+        {
+          name: 'OpenRouter',
+          source: new CoverArtGenerator({
+            apiKey: config.OPENROUTER_API_KEY,
+            baseUrl: config.OPENROUTER_BASE_URL,
+            model: config.OPENROUTER_IMAGE_MODEL,
+            siteUrl: config.OPENROUTER_SITE_URL,
+            appName: config.OPENROUTER_APP_NAME,
+          }),
+        },
+      ],
+      (msg) => console.warn(msg),
+    ),
   });
 
   const transcoder = new TranscodeProcessor({

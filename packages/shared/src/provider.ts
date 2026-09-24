@@ -1,4 +1,5 @@
 import type { AdvancedControls, GenerationKind, SoundType } from './generation';
+import type { MusicModel } from './models';
 
 /**
  * Contrato que todo motor de geração musical precisa cumprir.
@@ -29,6 +30,12 @@ export interface MusicGenerationRequest {
   controls: AdvancedControls;
   /** Aba Sounds: one-shot ou loop. */
   soundType?: SoundType;
+  /**
+   * Versão escolhida (models.ts). Ausente = DEFAULT_MUSIC_MODEL. Só o ACE-Step
+   * a usa: ela decide o endpoint (família do modelo), os passos e a reescrita
+   * do caption. Os outros motores ignoram.
+   */
+  model?: MusicModel;
   /** Idioma dos vocais ('pt', 'en'...). Ausente = o modelo detecta pela letra. */
   vocalLanguage?: string;
   /**

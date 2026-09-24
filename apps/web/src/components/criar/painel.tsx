@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
-import { CREDIT_COSTS, maxDurationFor, type PlanCode } from '@sonora/shared';
+import { CREDIT_COSTS, effectiveDuration, maxDurationFor, songCreditCost, type PlanCode } from '@sonora/shared';
 import { ApiError, api, type Workspace } from '@/lib/api';
 import { formatarContagem, formatarDuracao, useI18n } from '@/lib/i18n';
 import { useAoConcluirGeracao, useProgresso } from '@/lib/progresso';
@@ -10,6 +10,7 @@ import { AdicionarAudio, type Referencia } from './adicionar-audio';
 import { AdicionarInspiracao, type Inspiracao } from './adicionar-inspiracao';
 import { BotaoIcone, CampoComIcone, CartaoSecao, Interruptor, LinhaOpcao, SeletorChip } from './controles';
 import { CartaoEstilos } from './estilos';
+import { SeletorVersao, useVersaoMotor } from './seletor-versao';
 import {
   BrilhoIcone,
   CarregandoIcone,
@@ -60,6 +61,7 @@ export function PainelCriar({
   const { acompanhar } = useProgresso();
 
   const [aba, setAba] = useState<Aba>('simples');
+  const [versao, setVersao] = useVersaoMotor();
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -110,7 +112,21 @@ export function PainelCriar({
   });
 
   const planCode = (saldo?.planCode ?? 'free') as PlanCode;
-  const custo = aba === 'sons' ? CREDIT_COSTS.clip : referencia ? CREDIT_COSTS.remix : CREDIT_COSTS.song;
+  // Música nova custa por versão e duração; a conta é a mesma da API
+  // (effectiveDuration): no automático, "até 4 min" ou o teto do plano, se
+  // menor. Remix e sons têm preço fixo e rodam na v1.
+  const custo =
+    aba === 'sons'
+      ? CREDIT_COSTS.clip
+      : referencia
+        ? CREDIT_COSTS.remix
+        : songCreditCost(
+            versao,
+            effectiveDuration(
+              aba === 'avancado' && !opcoes.duracaoAuto ? opcoes.duracao : undefined,
+              maxDurationFor(planCode, 'acestep'),
+            ),
+          );
   const semSaldo = saldo ? saldo.balance.total < custo : false;
   const referenciaPronta = !referencia || referencia.status === 'complete';
 
@@ -181,6 +197,7 @@ export function PainelCriar({
               mode: 'simple',
               prompt: descricao,
               instrumental,
+              model: versao,
               workspaceId: workspaceId || undefined,
               ...referencias,
             }
@@ -198,6 +215,7 @@ export function PainelCriar({
                 lyrics: instrumental ? undefined : letra || undefined,
                 title: titulo || undefined,
                 instrumental,
+                model: versao,
                 workspaceId: workspaceId || undefined,
                 ...referencias,
                 controls: {
@@ -275,6 +293,13 @@ export function PainelCriar({
             </button>
           ))}
         </div>
+
+        {/* A versão só vale para música nova: Sons e remix rodam na v1. */}
+        {aba !== 'sons' && !referencia && (
+          <div className="ml-auto">
+            <SeletorVersao valor={versao} onChange={setVersao} />
+          </div>
+        )}
       </div>
 
       {/* `relative` é obrigatório na área que rola: os rótulos `sr-only` lá

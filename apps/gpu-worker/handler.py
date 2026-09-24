@@ -17,6 +17,10 @@ Contrato (entrada em job["input"]):
     variety          str                "low" | "medium" | "high" (padrão): temperatura do LM.
                                         Também só age no perfil SFT
     batch_size       int                1 ou 2 variações por pedido (2 só em text2music)
+    model_family     str | None         "turbo" | "sft": a família que o pedido espera. Se o
+                                        endpoint carregou a outra, o pedido é recusado
+    inference_steps  int | None         passos de difusão, só no SFT (8–100); None = ACESTEP_SFT_STEPS
+    cot_caption      bool | None        o LM reescreve o caption? None = ACESTEP_COT_CAPTION
     task_type        str                "text2music" | "cover" | "repaint"
     src_audio_url    str                obrigatório para cover/repaint
     repainting_start float              repaint: início do trecho, em segundos
@@ -30,17 +34,16 @@ Saída:
 
 Decisões — as de ritmo e cold start vêm de medições em docs/ARQUITETURA.md; a escolha
 do modelo, do benchmark com escuta em docs/BENCHMARK-QUALIDADE.md:
-  - O padrão é o `acestep-v15-xl-turbo` (DiT de 4B destilado, 8 passos, sem CFG)
-    com o LM 1.7B. Foi a ÚNICA configuração que soou limpa e coerente numa escuta
-    às cegas de 29 faixas do mesmo prompt. O XL-SFT (50 passos com CFG) e o LM 4B,
-    que as métricas espectrais apontavam como melhores, soaram com ruído e sem
-    coesão — inclusive com pulso mais irregular (~7% de variação entre batidas,
-    contra 1,4–2,7% do XL-turbo). Não trocar sem escutar de novo.
-  - O perfil SFT continua no código, só que fora do padrão (ACESTEP_CONFIG_PATH).
-    O SFT NÃO é o turbo: precisa de ~50 passos de difusão com CFG, enquanto o
-    turbo é destilado para 8 passos sem CFG. Por isso os parâmetros de difusão
-    saem de um perfil por família de DiT (`_model_settings`). Rodar o SFT com os
-    8 passos e o cronograma fixo do turbo não dá erro nenhum: dá ruído.
+  - Cada endpoint carrega UMA família de DiT (ACESTEP_CONFIG_PATH): o XL-turbo
+    (v1 e v1.5 do produto) ou o XL-SFT (v2.0 e v2.5). O que muda entre as versões
+    da mesma família — passos e reescrita do caption — vem no pedido; o mapa
+    versão → parâmetros vive em packages/shared/src/models.ts. Todas as versões
+    foram escolhidas por escuta (docs/BENCHMARK-MIDNIGHT.md); as métricas
+    apontaram o vencedor errado duas vezes. Não trocar sem escutar de novo.
+  - O SFT NÃO é o turbo: precisa de ~50 passos de difusão com CFG e SEM DCW,
+    enquanto o turbo é destilado para 8 passos sem CFG e COM DCW. Por isso os
+    parâmetros de difusão saem de um perfil por família (`_model_settings`).
+    Misturar os dois não dá erro nenhum: dá ruído ou áudio "quebrado".
   - O que evitar (exclude styles) vai em `lm_negative_prompt`, nunca no caption.
     O DiT não tem negativo próprio (o CFG dele usa um caption nulo); o único
     negativo real do ACE-Step é o do LM, o ramo incondicional do guidance dele,
@@ -77,6 +80,7 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import requests
 import runpod
 import soundfile as sf
@@ -159,6 +163,16 @@ DEFAULT_VARIETY = "high"
 # Medido no benchmark (nvidia-smi, 2 faixas): XL-SFT + LM 4B chega a 26,1 GB de
 # VRAM; XL + LM 1.7B, a 18–21 GB. Com o LM 4B não cabe numa GPU de 24 GB.
 XL_4B_MIN_VRAM_GB = 32.0
+
+# --- Fim da faixa (ver _finish_ending) ------------------------------------------
+# Só em text2music: cover e repaint devolvem a estrutura da faixa de origem, e
+# cortar o fim dela mudaria o que o usuário mandou preservar.
+TRIM_TAIL = _env_bool("ACESTEP_TRIM_TAIL", True)
+FADE_OUT_S = float(os.environ.get("ACESTEP_FADE_OUT_S", "1.5"))
+TAIL_SILENCE_DB = -50.0  # abaixo disso (RMS em 50 ms) é silêncio; o corpo das faixas fica em -16 a -20
+TAIL_WINDOW_S = 0.05
+TAIL_KEEP_S = 0.3  # respiro depois do último som, para o corte não soar seco
+TAIL_MIN_TRIM_S = 0.5  # menos que isso de silêncio não vale mexer
 
 SUPPORTED_TASKS = {"text2music", "cover", "repaint"}
 # Estas tarefas usam o áudio de origem; o LM é pulado nelas de qualquer forma.
@@ -302,6 +316,25 @@ def _parse_input(data: dict) -> dict:
     if batch_size > 1 and task_type != "text2music":
         raise InputError(f"'{task_type}' aceita só batch_size 1")
 
+    # Um pedido de v2 (SFT) no endpoint turbo, ou o contrário, geraria com o modelo
+    # errado sem erro nenhum. Melhor recusar: é configuração, não acaso.
+    model_family = data.get("model_family")
+    if model_family is not None and model_family not in ("turbo", "sft"):
+        raise InputError(f"'model_family' desconhecida: {model_family}")
+    loaded_family = "turbo" if IS_TURBO else "sft"
+    if model_family is not None and model_family != loaded_family:
+        raise InputError(
+            f"pedido para a família '{model_family}', mas este endpoint carregou '{CONFIG_PATH}'"
+        )
+
+    inference_steps = _optional_number(data, "inference_steps", 8, 100, as_int=True)
+    if inference_steps is not None and IS_TURBO and inference_steps != 8:
+        raise InputError("o turbo é destilado para 8 passos; 'inference_steps' não se aplica")
+
+    cot_caption = data.get("cot_caption")
+    if cot_caption is not None and not isinstance(cot_caption, bool):
+        raise InputError("'cot_caption' precisa ser booleano")
+
     style_influence = _optional_number(data, "style_influence", 0, 100, as_int=True)
     variety = (data.get("variety") or DEFAULT_VARIETY).strip().lower()
     if variety not in LM_TEMPERATURE_BY_VARIETY:
@@ -333,6 +366,8 @@ def _parse_input(data: dict) -> dict:
         "negative_caption": negative_caption,
         "style_influence": 50 if style_influence is None else style_influence,
         "variety": variety,
+        "inference_steps": inference_steps,
+        "cot_caption": COT_CAPTION if cot_caption is None else cot_caption,
         "lyrics": lyrics,
         "instrumental": bool(data.get("instrumental", False)),
         "duration": _optional_number(data, "duration", MIN_DURATION, MAX_DURATION),
@@ -374,6 +409,8 @@ def _model_settings(req: dict) -> dict[str, Any]:
             "guidance_scale": 7.0,  # o pipeline força 1.0 no turbo; fica por clareza
             "infer_method": "ode",
             "timesteps": TURBO_TIMESTEPS,
+            # DCW é a correção feita para o turbo; é assim que o XL-turbo foi escutado.
+            "dcw_enabled": True,
             "lm_temperature": 0.85,
             "lm_cfg_scale": 2.0,
             "lm_negative_prompt": lm_negative_prompt,
@@ -381,12 +418,17 @@ def _model_settings(req: dict) -> dict[str, Any]:
 
     influence = max(0, min(100, int(req.get("style_influence", 50))))
     return {
-        "inference_steps": SFT_STEPS,
+        "inference_steps": req.get("inference_steps") or SFT_STEPS,
         "guidance_scale": round(CFG_MIN + (CFG_MAX - CFG_MIN) * influence / 100, 2),
         "shift": SFT_SHIFT,
         "infer_method": "ode",
         # `timesteps` sobrepõe passos e shift; o do turbo NUNCA pode vir para o SFT.
         "timesteps": None,
+        # DCW DESLIGADO fora do turbo. Na imagem fixada (dce6214) ele vem ligado para
+        # qualquer modelo, e num modelo sem destilação distorce o áudio (issue #1259 do
+        # ACE-Step, corrigida depois com um padrão por modelo). Foi o que deixou todas as
+        # faixas XL-SFT dos primeiros benchmarks "quebradas".
+        "dcw_enabled": False,
         "lm_temperature": LM_TEMPERATURE_BY_VARIETY[req.get("variety", DEFAULT_VARIETY)],
         "lm_cfg_scale": LM_CFG_SCALE,
         "lm_negative_prompt": lm_negative_prompt,
@@ -408,14 +450,63 @@ def _download(url: str, dest_dir: Path) -> str:
     return str(target)
 
 
-def _to_flac_24(wav_path: str, flac_path: Path) -> dict:
+def _finish_ending(audio: "np.ndarray", sample_rate: int) -> tuple["np.ndarray", dict]:
+    """
+    Arruma o fim da faixa: corta o silêncio final e aplica um fade curto.
+
+    O ACE-Step gera a duração pedida, mas quem decide onde a música acaba é o
+    plano do LM. Medido no benchmark "Midnight retrowave" (120 s pedidos): várias
+    faixas acabaram entre 1:35 e 1:52 e o resto era silêncio; outras pararam de
+    uma vez, de volume cheio a nada em menos de 1 s. O ouvinte percebe as duas
+    coisas como defeito. O corte entrega a música do tamanho que ela tem; o fade
+    transforma a parada seca em final.
+
+    Uma faixa que já termina em fade (a maioria das boas) passa quase intacta: o
+    silêncio a cortar é menor que o mínimo, e o fade só suaviza o que já descia.
+    """
+    info = {"trimmed_ms": 0, "fade_ms": 0}
+    if len(audio) == 0:
+        return audio, info
+
+    window = max(1, int(sample_rate * TAIL_WINDOW_S))
+    mono = audio.mean(axis=1)
+    n_windows = len(mono) // window
+    if n_windows == 0:
+        return audio, info
+    frames = mono[: n_windows * window].reshape(n_windows, window)
+    rms_db = 20 * np.log10(np.sqrt((frames**2).mean(axis=1)) + 1e-9)
+    loud = np.nonzero(rms_db > TAIL_SILENCE_DB)[0]
+    if len(loud) == 0:
+        return audio, info  # faixa inteira em silêncio: não é caso para mexer no fim
+
+    if TRIM_TAIL:
+        end = min(len(audio), (int(loud[-1]) + 1) * window + int(sample_rate * TAIL_KEEP_S))
+        if len(audio) - end >= int(sample_rate * TAIL_MIN_TRIM_S):
+            info["trimmed_ms"] = int(round((len(audio) - end) / sample_rate * 1000))
+            audio = audio[:end]
+
+    fade = min(int(sample_rate * FADE_OUT_S), len(audio) // 4)
+    if fade > 0:
+        # Meio cosseno: cai devagar no começo e some sem degrau no fim.
+        ramp = (0.5 * (1 + np.cos(np.linspace(0, np.pi, fade)))).astype(audio.dtype)
+        audio = audio.copy()
+        audio[-fade:] *= ramp[:, None]
+        info["fade_ms"] = int(round(fade / sample_rate * 1000))
+    return audio, info
+
+
+def _to_flac_24(wav_path: str, flac_path: Path, finish_ending: bool = False) -> dict:
     """WAV float32 -> FLAC 24-bit, sem perdas. Devolve duração e taxa."""
     audio, sample_rate = sf.read(wav_path, dtype="float32", always_2d=True)
+    ending = {"trimmed_ms": 0, "fade_ms": 0}
+    if finish_ending:
+        audio, ending = _finish_ending(audio, sample_rate)
     sf.write(str(flac_path), audio, sample_rate, format="FLAC", subtype="PCM_24")
     return {
         "duration_ms": int(round(len(audio) / sample_rate * 1000)),
         "sample_rate": int(sample_rate),
         "bit_depth": 24,
+        **ending,
     }
 
 
@@ -502,7 +593,7 @@ def handler(job: dict) -> dict:
             # Obrigatório: sem thinking, sem esqueleto rítmico.
             thinking=uses_lm,
             use_cot_metas=uses_lm,
-            use_cot_caption=uses_lm and COT_CAPTION,
+            use_cot_caption=uses_lm and req["cot_caption"],
             use_cot_language=uses_lm,
             use_constrained_decoding=True,
             # Difusão e LM conforme o modelo carregado (turbo x SFT).
@@ -539,7 +630,7 @@ def handler(job: dict) -> dict:
         tracks = []
         for index, (audio, upload) in enumerate(zip(audios, req["uploads"])):
             flac_path = workdir / f"track-{index}.flac"
-            info = _to_flac_24(audio["path"], flac_path)
+            info = _to_flac_24(audio["path"], flac_path, finish_ending=req["task_type"] == "text2music")
             _upload(flac_path, upload["url"])
             track_seed = (audio.get("params") or {}).get("seed")
             tracks.append(
@@ -563,8 +654,9 @@ def handler(job: dict) -> dict:
         # O que de fato rodou, para diagnosticar qualidade sem abrir o log do worker.
         metadata["settings"] = {
             key: settings[key]
-            for key in ("inference_steps", "guidance_scale", "lm_temperature", "lm_cfg_scale")
+            for key in ("inference_steps", "guidance_scale", "lm_temperature", "lm_cfg_scale", "dcw_enabled")
         }
+        metadata["settings"]["cot_caption"] = req["cot_caption"]
         metadata["negative_applied"] = settings["lm_negative_prompt"] != "NO USER INPUT"
 
         return {

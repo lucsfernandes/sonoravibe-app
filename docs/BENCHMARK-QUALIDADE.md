@@ -17,6 +17,12 @@ Este documento responde a três perguntas do pedido:
 
 ---
 
+> **⚠ Correção (2026-09-24):** todas as faixas XL-SFT deste documento foram geradas com o **DCW
+> ligado por um bug da imagem do ACE-Step** (issue #1259): a correção é feita para o turbo e
+> distorce modelos não destilados. As conclusões sobre o XL-SFT e o LM 4B aqui **não valem**. O
+> XL-SFT sem o bug está em `docs/BENCHMARK-MIDNIGHT.md`. As conclusões sobre o turbo e o XL-turbo
+> continuam válidas (neles o DCW é o correto).
+
 > ## ⚠ Decisão final (depois da escuta) — substitui as recomendações abaixo
 >
 > **Configuração escolhida: XL-turbo (`acestep-v15-xl-turbo`) + LM 1.7B, 8 passos, com offload de
