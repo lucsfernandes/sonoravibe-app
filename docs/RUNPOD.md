@@ -33,11 +33,16 @@ Quando o endpoint existir:
 A RunPod puxa a imagem de um registry; ela não constrói do seu repositório.
 
 ```bash
-docker build -t lucsfernandes/sonora-gpu-worker:v1 apps/gpu-worker
-docker push lucsfernandes/sonora-gpu-worker:v1
+docker build -t lucsfernandes/sonora-gpu-worker:v2 apps/gpu-worker
+docker push lucsfernandes/sonora-gpu-worker:v2
 ```
 
-A imagem é grande (o ACE-Step e os pesos vêm na base). O primeiro push demora.
+A imagem é grande: ~30 GB de pesos (DiT XL-turbo ~20 GB em fp32 e o modelo principal ~10 GB),
+então o build pede ~70 GB livres em disco e o primeiro push demora.
+Um runner padrão do GitHub Actions não comporta: construa de uma máquina com disco.
+
+Publique como `v2` e **não apague a `v1`** (turbo 2B + LM 1.7B): voltar ao motor anterior é apontar
+o endpoint de volta para ela, sem rebuild.
 
 > A base está fixada por **digest**, não por tag, em `apps/gpu-worker/Dockerfile`. Isso é
 > deliberado: uma tag móvel trocaria o modelo em produção sem ninguém medir de novo o ritmo e o
@@ -49,21 +54,31 @@ No console: **runpod.io → Serverless → New Endpoint**.
 
 | Campo | O que colocar | Por quê |
 |---|---|---|
-| Container Image | `lucsfernandes/sonora-gpu-worker:v1` | a imagem do passo 1 |
-| GPU | **L4 24 GB** (ou A5000 / 3090) | o benchmark em `docs/ARQUITETURA.md` foi feito na L4; abaixo de 24 GB o LM não cabe junto com o DiT |
+| Container Image | `lucsfernandes/sonora-gpu-worker:v2` | a imagem do passo 1 |
+| GPU | **24 GB** (L4, A5000 ou 3090) | XL-turbo + LM 1.7B com offload de encoder e VAE: pico medido de 16,7–18,6 GB, e 2 faixas de 6 min passaram numa RTX 3090. A L4 é mais lenta que a 3090 (até ~2× no tempo, pela medição antiga) |
 | Active Workers | `0` | escala a zero: você paga só o que gerar |
 | Max Workers | `1` para começar | um worker já atende a fila inicial; subir depois é um clique |
 | Idle Timeout | `5` s | tempo que o worker fica vivo esperando o próximo job |
 | FlashBoot | **ligado** | é o que faz diferença de verdade aqui — ver abaixo |
-| Container Disk | `20 GB` | os pesos e o áudio temporário |
+| Execution Timeout | `600` s (padrão) | 2 faixas de 6 min levaram 59,5 s de geração na 3090; mesmo numa L4 sobra folga |
+| Container Disk | `50 GB` | os pesos (~30 GB) e o áudio temporário |
 
 **Sobre o FlashBoot:** o handler carrega os modelos na *importação do módulo*, não no primeiro
 job. Isso é de propósito — é o que permite à RunPod congelar um worker já carregado. Com o
 FlashBoot desligado, todo cold start paga de novo os ~56 s de carga dos modelos.
 
 Não é preciso configurar variáveis de ambiente: os defaults do Dockerfile já estão certos para
-uma GPU de 24 GB. As `ACESTEP_*_OFFLOAD_TO_CPU` existem só para rodar em 8 GB no teste local, e
-ligá-las em produção deixaria a geração muito mais lenta.
+uma GPU de 24 GB, inclusive `ACESTEP_OFFLOAD_TO_CPU=true`: sem ele, 2 faixas de 6 min são recusadas pela
+checagem prévia de VRAM do ACE-Step. Ele só move encoder e VAE; o DiT e o LM ficam na GPU.
+
+Botões que **podem** ser mexidos no endpoint, sem rebuild (o worker precisa reiniciar):
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `ACESTEP_SFT_STEPS` | `50` | só vale com `ACESTEP_CONFIG_PATH=acestep-v15-xl-sft`, que não está na imagem e soou pior na escuta |
+| `ACESTEP_COT_CAPTION` | `true` | o LM reescreve o caption e o DiT recebe a versão dele. A configuração escolhida foi escutada com a reescrita ligada; desligar só foi testado com o XL-SFT. Escute antes de mudar |
+| `ACESTEP_LM_MODEL_PATH` | `acestep-5Hz-lm-1.7B` | o LM 4B não está na imagem: não melhorou nada na escuta e exige GPU de 48 GB |
+| `ACESTEP_CONFIG_PATH` | `acestep-v15-xl-turbo` | `acestep-v15-turbo` volta ao turbo de 2B (o antigo, com ruído); o worker troca sozinho o perfil de difusão |
 
 ## 3. Onde está o Endpoint ID
 
@@ -116,13 +131,22 @@ Com `Active Workers = 0`, o primeiro pedido depois de um período parado sobe um
 puxar a imagem, carregar o ACE-Step e o LM. São alguns minutos. Do segundo pedido em diante,
 com o FlashBoot, cai para segundos.
 
+Com o XL-turbo isso pesa mais que no turbo de 2B: a carga medida foi de 54–79 s na 3090 (o DiT
+de 4B está em fp32 em disco e vira bf16 na carga). O provider espera até 5 min na fila antes de
+cair para o Lyria (`queueTimeoutMs`), justamente para um cold start não virar uma música do motor
+de reserva — que é ~10x mais cara e de outra qualidade. Se a taxa de fallback subir, o remédio é
+`Active Workers = 1`.
+
 Se isso for inaceitável para o produto, a saída é `Active Workers = 1` — mas aí a GPU fica
 ligada o tempo todo e o custo deixa de ser por uso. É uma decisão de negócio, não técnica.
 
 ## Quanto custa
 
-A RunPod cobra por segundo de GPU. A L4 fica na casa de US$ 0,0004/s no serverless (confira o
-preço atual no console — ele muda). Uma música de 4 minutos levou cerca de 90 s de GPU no
-benchmark, o que dá algo em torno de US$ 0,04 por faixa.
+A RunPod cobra por segundo de GPU. Os números abaixo são do **turbo + LM 1.7B na L4** (US$
+0,0004/s no serverless — confira o preço atual no console, ele muda): uma música de 4 minutos
+levou cerca de 90 s de GPU, algo em torno de US$ 0,04 por faixa.
 
-Compare com os 10 créditos que uma geração custa no produto antes de decidir o preço dos planos.
+**XL-turbo + LM 1.7B, medido na RTX 3090** (classe de 24 GB, US$ 0,69/h no serverless), com 2
+faixas por pedido: 2 min **US$ 0,004**, 4 min US$ 0,007, 5 min US$ 0,009, 6 min **US$ 0,012**.
+Um pedido de música nova entrega duas faixas pelos mesmos 10 créditos. Detalhes, a escuta e as
+configurações descartadas em `docs/BENCHMARK-QUALIDADE.md`.

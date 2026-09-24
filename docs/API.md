@@ -183,9 +183,19 @@ curl -X POST http://localhost:3001/songs/generate \
   -d '{"mode":"sounds","prompt":"stab de synth analógico quente","soundType":"one-shot","bpm":120,"key":"Cm"}'
 ```
 
-Resposta das três abas: `202` com `{ songId, generationId, creditsCharged, status: "queued" }`.
+Resposta das três abas: `202` com
+`{ songId, generationId, creditsCharged, status: "queued", variants: [{ songId, generationId }] }`.
 `402` quando falta crédito, `403` quando a duração ou o Max Mode excedem o plano, `400` com a
 lista de campos inválidos, `401` sem sessão.
+
+**Duas versões por pedido.** Uma música nova (Simple e Advanced, sem faixa de referência) sai em
+**duas** faixas, geradas na mesma chamada ao motor com seeds diferentes; `variants` traz as duas,
+a principal primeiro (`songId` e `generationId` na raiz são os dela). Cada faixa é uma música na
+biblioteca, com a própria geração e o próprio progresso no SSE, mas o pedido é uma unidade: **uma
+cobrança** (`creditsCharged` é o do pedido, não por faixa), um job, um estorno. Cancelar qualquer
+uma das gerações cancela o pedido inteiro. Remix (`+ Áudio`) e a aba Sounds continuam com uma
+faixa, e `variants` vem com um item só. Se o motor de reserva (Lyria) atender o pedido, ele
+entrega uma faixa: a segunda é descartada (cancelada e na lixeira), sem cobrar a mais.
 
 Os créditos são reservados **antes** de o job entrar na fila. É o que impede alguém com saldo
 para uma música disparar dez de uma vez: a fila aceitaria todas e a cobrança só apareceria no
