@@ -128,6 +128,12 @@ LM_OFFLOAD_TO_CPU = _env_bool("ACESTEP_LM_OFFLOAD_TO_CPU", False)
 # foi medido com ela ligada. Escute antes de mudar o padrão.
 COT_CAPTION = _env_bool("ACESTEP_COT_CAPTION", True)
 
+# Adapters LoRA/LoKr treinados (scripts/lora), um por subpasta: o nome da pasta
+# é o nome que o pedido usa em 'lora'. Vazio = sem adapters, o modelo de sempre.
+# Cada imagem só leva adapters da SUA família: um LoKr treinado no XL-SFT não
+# foi escutado sobre o XL-turbo.
+LORA_DIR = os.environ.get("ACESTEP_LORA_DIR", "").strip()
+
 MIN_DURATION = 10.0
 # Teto com o LM ligado, segundo o gpu_config do ACE-Step. Os 10 min anunciados
 # exigem o LM desligado — e sem LM volta o descompasso.
@@ -154,6 +160,14 @@ SFT_SHIFT = 3.0
 # disso o CFG passa a saturar o áudio, que é justamente o ruído que se quer evitar.
 CFG_MIN, CFG_MAX = 5.0, 9.0
 LM_CFG_SCALE = 2.5  # >1 é o que faz o lm_negative_prompt valer
+
+# COM VOZ o SFT pede menos: na escuta (docs/BENCHMARK-VOZ.md) o padrão acima
+# (CFG 7, LM 0,85) deu voz gritada e desarmônica nas duas faixas, e CFG 6 com
+# LM 0,8 ou menos deu as mais bem construídas e com menos agudo. Aderência 50
+# passa a dar CFG 6; as pontas (5 e 7) também foram escutadas. O instrumental
+# fica como foi aprovado (S50N).
+CFG_VOCAL_MIN, CFG_VOCAL_MAX = 5.0, 7.0
+LM_TEMPERATURE_VOCAL_MAX = 0.8
 
 # "Variedade" da UI -> temperatura do LM. O teto é 0.85, a temperatura em que o
 # ritmo foi medido; abaixo dela o modelo segue o caption com mais fidelidade.
@@ -260,8 +274,36 @@ def _load_models() -> tuple[AceStepHandler, LLMHandler, dict[str, Any]]:
                 f"ou volte o LM para 1.7B (ACESTEP_LM_MODEL_PATH).",
                 flush=True,
             )
+    info["loras"] = _load_adapters(dit)
     print(f"[sonora] modelos carregados: {info}", flush=True)
     return dit, llm, info
+
+
+def _ok(message: Any, action: str) -> None:
+    """Os métodos de LoRA do ACE-Step devolvem texto: '❌' é falha, '⚠️' é aviso."""
+    text = str(message)
+    if text.startswith("❌"):
+        raise RuntimeError(f"{action}: {text}")
+    if text.startswith("⚠️"):
+        print(f"[sonora] {action}: {text}", flush=True)
+
+
+def _load_adapters(dit: AceStepHandler) -> list[str]:
+    """Carrega os adapters de LORA_DIR e os deixa DESLIGADOS até um pedido citar um."""
+    if not LORA_DIR:
+        return []
+    root = Path(LORA_DIR)
+    names = sorted(p.name for p in root.iterdir() if p.is_dir()) if root.is_dir() else []
+    if not names:
+        raise RuntimeError(f"ACESTEP_LORA_DIR={LORA_DIR} não tem nenhum adapter")
+    lokr = [n for n in names if (root / n / "lokr_weights.safetensors").exists()]
+    # O ACE-Step só aceita UM LoKr carregado por vez (não soma a outro adapter).
+    if lokr and len(names) > 1:
+        raise RuntimeError(f"um LoKr não convive com outros adapters na mesma imagem: {names}")
+    for name in names:
+        _ok(dit.add_lora(str(root / name), adapter_name=name), f"carregar o adapter '{name}'")
+    _ok(dit.set_use_lora(False), "desligar os adapters")
+    return names
 
 
 DIT, LLM, WORKER_INFO = _load_models()
@@ -353,6 +395,14 @@ def _parse_input(data: dict) -> dict:
     if task_type in AUDIO_TASKS and not src_audio_url:
         raise InputError(f"'{task_type}' exige 'src_audio_url'")
 
+    lora = (data.get("lora") or "").strip() or None
+    if lora is not None and lora not in WORKER_INFO["loras"]:
+        raise InputError(
+            f"adapter '{lora}' não existe neste endpoint ({CONFIG_PATH}); "
+            f"disponíveis: {WORKER_INFO['loras'] or 'nenhum'}"
+        )
+    lora_scale = _optional_number(data, "lora_scale", 0, 1)
+
     seed = data.get("seed")
     if seed is not None:
         try:
@@ -375,6 +425,8 @@ def _parse_input(data: dict) -> dict:
         "keyscale": (data.get("keyscale") or "").strip(),
         "vocal_language": (data.get("vocal_language") or "unknown").strip(),
         "seed": seed,
+        "lora": lora,
+        "lora_scale": 1.0 if lora_scale is None else lora_scale,
         "batch_size": batch_size,
         "uploads": uploads,
         "src_audio_url": src_audio_url,
@@ -387,6 +439,28 @@ def _parse_input(data: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Perfil do modelo: como o pedido vira parâmetros de difusão e do LM
 # ---------------------------------------------------------------------------
+
+
+def _apply_lora(req: dict) -> None:
+    """Liga o adapter pedido (com a força pedida) ou desliga todos: vale só para este job."""
+    if not WORKER_INFO["loras"]:
+        return
+    name = req.get("lora")
+    if not name:
+        _ok(DIT.set_use_lora(False), "desligar os adapters")
+        return
+    if len(WORKER_INFO["loras"]) > 1:
+        _ok(DIT.set_active_lora_adapter(name), f"ativar o adapter '{name}'")
+    _ok(DIT.set_use_lora(True), f"ligar o adapter '{name}'")
+    _ok(DIT.set_lora_scale(name, req["lora_scale"]), f"força do adapter '{name}'")
+
+
+def _has_vocals(req: dict) -> bool:
+    """Faixa cantada: não instrumental e com letra de verdade (não só "[instrumental]")."""
+    if req.get("instrumental"):
+        return False
+    lyrics = (req.get("lyrics") or "").strip().lower()
+    return bool(lyrics) and lyrics not in ("[instrumental]", "[inst]")
 
 
 def _model_settings(req: dict) -> dict[str, Any]:
@@ -417,9 +491,14 @@ def _model_settings(req: dict) -> dict[str, Any]:
         }
 
     influence = max(0, min(100, int(req.get("style_influence", 50))))
+    vocal = _has_vocals(req)
+    cfg_min, cfg_max = (CFG_VOCAL_MIN, CFG_VOCAL_MAX) if vocal else (CFG_MIN, CFG_MAX)
+    temperature = LM_TEMPERATURE_BY_VARIETY[req.get("variety", DEFAULT_VARIETY)]
+    if vocal:
+        temperature = min(temperature, LM_TEMPERATURE_VOCAL_MAX)
     return {
         "inference_steps": req.get("inference_steps") or SFT_STEPS,
-        "guidance_scale": round(CFG_MIN + (CFG_MAX - CFG_MIN) * influence / 100, 2),
+        "guidance_scale": round(cfg_min + (cfg_max - cfg_min) * influence / 100, 2),
         "shift": SFT_SHIFT,
         "infer_method": "ode",
         # `timesteps` sobrepõe passos e shift; o do turbo NUNCA pode vir para o SFT.
@@ -429,7 +508,7 @@ def _model_settings(req: dict) -> dict[str, Any]:
         # ACE-Step, corrigida depois com um padrão por modelo). Foi o que deixou todas as
         # faixas XL-SFT dos primeiros benchmarks "quebradas".
         "dcw_enabled": False,
-        "lm_temperature": LM_TEMPERATURE_BY_VARIETY[req.get("variety", DEFAULT_VARIETY)],
+        "lm_temperature": temperature,
         "lm_cfg_scale": LM_CFG_SCALE,
         "lm_negative_prompt": lm_negative_prompt,
     }
@@ -574,6 +653,7 @@ def handler(job: dict) -> dict:
             if codes and not str(codes).startswith("❌"):
                 audio_codes = codes
 
+        _apply_lora(req)
         uses_lm = req["task_type"] not in AUDIO_TASKS
         settings = _model_settings(req)
         params = GenerationParams(
@@ -657,6 +737,8 @@ def handler(job: dict) -> dict:
             for key in ("inference_steps", "guidance_scale", "lm_temperature", "lm_cfg_scale", "dcw_enabled")
         }
         metadata["settings"]["cot_caption"] = req["cot_caption"]
+        if req["lora"]:
+            metadata["settings"]["lora"] = {"name": req["lora"], "scale": req["lora_scale"]}
         metadata["negative_applied"] = settings["lm_negative_prompt"] != "NO USER INPUT"
 
         return {

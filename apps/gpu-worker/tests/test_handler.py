@@ -45,6 +45,23 @@ def _stub_modules(captured: dict, audios: list[dict] | None = None) -> dict[str,
         def convert_src_audio_to_codes(self, _path):
             return "codes"
 
+        # LoRA: o ACE-Step devolve texto ("✅"/"❌"); o dublê registra a ordem das chamadas.
+        def add_lora(self, path, adapter_name=None):
+            captured.setdefault("lora_calls", []).append(("add", adapter_name))
+            return captured.get("add_lora_reply", "✅ ok")
+
+        def set_use_lora(self, on):
+            captured.setdefault("lora_calls", []).append(("use", on))
+            return "✅ ok"
+
+        def set_lora_scale(self, name, scale):
+            captured.setdefault("lora_calls", []).append(("scale", name, scale))
+            return "✅ ok"
+
+        def set_active_lora_adapter(self, name):
+            captured.setdefault("lora_calls", []).append(("active", name))
+            return "✅ ok"
+
     class FakeLlm:
         def initialize(self, **kwargs):
             captured["lm_init"] = kwargs
@@ -106,6 +123,7 @@ DEFAULT = {}  # o padrão do handler: xl-turbo + LM 1.7B
 SFT = {"ACESTEP_CONFIG_PATH": "acestep-v15-xl-sft"}  # fora do padrão: soou pior na escuta
 TURBO = {"ACESTEP_CONFIG_PATH": "acestep-v15-turbo", "ACESTEP_LM_MODEL_PATH": "acestep-5Hz-lm-1.7B"}
 DOCKERFILE = HANDLER.parent / "Dockerfile"
+VERSO = "[Verse]" + chr(10) + "la la"  # letra cantada: liga o perfil de voz do SFT
 
 
 def req(**extra) -> dict:
@@ -212,6 +230,31 @@ class ModelSettings(unittest.TestCase):
         self.assertEqual(temp("low"), 0.7)
         self.assertEqual(temp("medium"), 0.8)
         self.assertEqual(temp("high"), 0.85)
+
+    def test_com_voz_o_sft_usa_cfg_6_e_lm_ate_0_8(self):
+        """Veredito da escuta (BENCHMARK-VOZ): CFG 7 + LM 0,85 deixou a voz gritada."""
+        h = load_handler(SFT)
+        s = lambda **kw: h._model_settings(h._parse_input(req(lyrics=VERSO, **kw)))
+
+        self.assertEqual(s()["guidance_scale"], 6.0)
+        self.assertEqual(s(style_influence=0)["guidance_scale"], 5.0)
+        self.assertEqual(s(style_influence=100)["guidance_scale"], 7.0)
+        self.assertEqual(s(variety="high")["lm_temperature"], 0.8)
+        self.assertEqual(s(variety="medium")["lm_temperature"], 0.8)
+        self.assertEqual(s(variety="low")["lm_temperature"], 0.7)
+
+    def test_instrumental_segue_como_foi_aprovado(self):
+        h = load_handler(SFT)
+        for extra in ({"lyrics": "[instrumental]"}, {"lyrics": VERSO, "instrumental": True}, {}):
+            settings = h._model_settings(h._parse_input(req(**extra)))
+            self.assertEqual(settings["guidance_scale"], 7.0, extra)
+            self.assertEqual(settings["lm_temperature"], 0.85, extra)
+
+    def test_turbo_com_voz_nao_muda(self):
+        h = load_handler(DEFAULT)
+        settings = h._model_settings(h._parse_input(req(lyrics=VERSO)))
+        self.assertEqual(settings["lm_temperature"], 0.85)
+        self.assertEqual(settings["inference_steps"], 8)
 
     def test_o_que_evitar_vai_para_o_negativo_do_lm_e_o_cfg_do_lm_fica_acima_de_1(self):
         h = load_handler(SFT)
@@ -415,6 +458,63 @@ class Versions(unittest.TestCase):
         """Pedido antigo, sem versão: comportamento de antes."""
         h = load_handler({"ACESTEP_COT_CAPTION": "false"})
         self.assertFalse(h._parse_input(req())["cot_caption"])
+
+
+class Lora(unittest.TestCase):
+    """Adapters de scripts/lora: carregados desligados, ligados só no job que pede."""
+
+    def lora_dir(self, *names, lokr=()):
+        root = Path(tempfile.mkdtemp())
+        for name in names:
+            (root / name).mkdir()
+            weights = "lokr_weights.safetensors" if name in lokr else "adapter_config.json"
+            (root / name / weights).write_bytes(b"x")
+        return {**SFT, "ACESTEP_LORA_DIR": str(root)}
+
+    def test_sem_pasta_de_adapters_nada_muda(self):
+        _, captured, _ = HandlerWiring().run_handler(SFT, req())
+        self.assertNotIn("lora_calls", captured)
+
+    def test_carrega_desligado_e_liga_so_no_job_que_pede(self):
+        env = self.lora_dir("forro", lokr=("forro",))
+        out, captured, _ = HandlerWiring().run_handler(env, req(lora="forro", lora_scale=0.7))
+        self.assertEqual(
+            captured["lora_calls"],
+            [("add", "forro"), ("use", False), ("use", True), ("scale", "forro", 0.7)],
+        )
+        self.assertEqual(out["metadata"]["settings"]["lora"], {"name": "forro", "scale": 0.7})
+
+    def test_job_sem_lora_desliga_o_adapter(self):
+        env = self.lora_dir("forro", lokr=("forro",))
+        out, captured, _ = HandlerWiring().run_handler(env, req())
+        self.assertEqual(captured["lora_calls"][-1], ("use", False))
+        self.assertNotIn("lora", out["metadata"]["settings"])
+
+    def test_varios_loras_escolhem_o_ativo(self):
+        env = self.lora_dir("forro", "samba")
+        _, captured, _ = HandlerWiring().run_handler(env, req(lora="samba"))
+        self.assertIn(("active", "samba"), captured["lora_calls"])
+        self.assertEqual(captured["lora_calls"][-1], ("scale", "samba", 1.0))
+
+    def test_adapter_desconhecido_e_recusado_sem_gerar(self):
+        env = self.lora_dir("forro", lokr=("forro",))
+        out, captured, _ = HandlerWiring().run_handler(env, req(lora="samba"))
+        self.assertTrue(out["error"].startswith("entrada inválida"))
+        self.assertIn("forro", out["error"])
+        self.assertNotIn("params", captured)
+
+    def test_forca_fora_de_0_a_1_e_recusada(self):
+        h = load_handler(self.lora_dir("forro", lokr=("forro",)))
+        with self.assertRaises(h.InputError):
+            h._parse_input(req(lora="forro", lora_scale=1.5))
+
+    def test_lokr_nao_convive_com_outro_adapter(self):
+        with self.assertRaisesRegex(RuntimeError, "LoKr"):
+            load_handler(self.lora_dir("forro", "samba", lokr=("forro",)))
+
+    def test_falha_ao_carregar_derruba_o_worker(self):
+        with self.assertRaisesRegex(RuntimeError, "carregar o adapter"):
+            load_handler(self.lora_dir("forro"), captured={"add_lora_reply": "❌ caminho inválido"})
 
 
 class Ending(unittest.TestCase):
