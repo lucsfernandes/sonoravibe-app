@@ -72,6 +72,7 @@ Teste local (sem RunPod), no ambiente do ACE-Step:
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
@@ -288,6 +289,21 @@ def _ok(message: Any, action: str) -> None:
         print(f"[sonora] {action}: {text}", flush=True)
 
 
+def _lokr_uses_dora(weights: Path) -> bool:
+    """Lê o lokr_config gravado no cabeçalho do safetensors (8 bytes de tamanho + JSON).
+
+    Arquivo ilegível devolve False: quem recusa é o add_lora do ACE-Step, com a mensagem dele.
+    """
+    try:
+        with open(weights, "rb") as fh:
+            size = int.from_bytes(fh.read(8), "little")
+            header = json.loads(fh.read(size))
+        config = json.loads(header.get("__metadata__", {}).get("lokr_config", "{}"))
+    except (OSError, ValueError, AttributeError):
+        return False
+    return bool(config.get("weight_decompose"))
+
+
 def _load_adapters(dit: AceStepHandler) -> list[str]:
     """Carrega os adapters de LORA_DIR e os deixa DESLIGADOS até um pedido citar um."""
     if not LORA_DIR:
@@ -300,6 +316,14 @@ def _load_adapters(dit: AceStepHandler) -> list[str]:
     # O ACE-Step só aceita UM LoKr carregado por vez (não soma a outro adapter).
     if lokr and len(names) > 1:
         raise RuntimeError(f"um LoKr não convive com outros adapters na mesma imagem: {names}")
+    # Com DoRA (weight_decompose), o multiplicador do LyCORIS só interpola a magnitude: com
+    # 0 o delta do adapter continua inteiro nos pesos. "Desligado" mudaria TODO job do worker.
+    dora = [n for n in lokr if _lokr_uses_dora(root / n / "lokr_weights.safetensors")]
+    if dora:
+        raise RuntimeError(
+            f"LoKr com DoRA (weight_decompose) não desliga: {dora}. Treine de novo com "
+            "lokr_weight_decompose=false (scripts/lora/treinar-lora.mjs já faz isso)"
+        )
     for name in names:
         _ok(dit.add_lora(str(root / name), adapter_name=name), f"carregar o adapter '{name}'")
     _ok(dit.set_use_lora(False), "desligar os adapters")

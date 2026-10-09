@@ -13,6 +13,7 @@ Rodar (precisa de numpy, que o handler usa no fim da faixa):
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import sys
 import tempfile
@@ -511,6 +512,23 @@ class Lora(unittest.TestCase):
     def test_lokr_nao_convive_com_outro_adapter(self):
         with self.assertRaisesRegex(RuntimeError, "LoKr"):
             load_handler(self.lora_dir("forro", "samba", lokr=("forro",)))
+
+    def lokr_com_config(self, config: dict) -> dict:
+        """Um lokr_weights.safetensors só com o cabeçalho, como o treino grava o lokr_config."""
+        env = self.lora_dir("forro", lokr=("forro",))
+        header = json.dumps({"__metadata__": {"lokr_config": json.dumps(config)}}).encode()
+        weights = Path(env["ACESTEP_LORA_DIR"]) / "forro" / "lokr_weights.safetensors"
+        weights.write_bytes(len(header).to_bytes(8, "little") + header)
+        return env
+
+    def test_lokr_com_dora_e_recusado(self):
+        """Com DoRA, multiplicador 0 não desliga o adapter: mudaria todo job do worker."""
+        with self.assertRaisesRegex(RuntimeError, "DoRA"):
+            load_handler(self.lokr_com_config({"linear_dim": 64, "weight_decompose": True}))
+
+    def test_lokr_sem_dora_carrega(self):
+        h = load_handler(self.lokr_com_config({"linear_dim": 64, "weight_decompose": False}))
+        self.assertEqual(h.WORKER_INFO["loras"], ["forro"])
 
     def test_falha_ao_carregar_derruba_o_worker(self):
         with self.assertRaisesRegex(RuntimeError, "carregar o adapter"):
