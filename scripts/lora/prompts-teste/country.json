@@ -1,0 +1,42 @@
+{
+  "observacao": "Prompts de escuta do adapter 'country'. Nenhum vem do dataset: o que se quer ouvir é se o adapter leva o ESTILO para uma música nova, não se ele repete as faixas do treino. O 'controle' é de outro estilo: com o adapter ligado ele deve continuar soando como synthwave.",
+  "prompts": [
+    {
+      "id": "estrada",
+      "descricao": "country com voz masculina, letra nova",
+      "input": {
+        "caption": "classic country song, warm male baritone vocal with a light twang, acoustic guitar strumming, pedal steel guitar, fiddle fills, walking bass, brushed drums, heartfelt and nostalgic, open road feel",
+        "lyrics": "[Verse 1]\nGravel on the county line\nRadio low and the moon in mine\nI left a light on in the hall\nIn case you ever came to call\n\n[Chorus]\nSo I keep driving, keep driving on\nPast the fields where the summers gone\nEvery mile is a song I owe\nTo the girl in the town I used to know",
+        "bpm": 92,
+        "keyscale": "G major",
+        "vocal_language": "en",
+        "instrumental": false
+      }
+    },
+    {
+      "id": "celeiro",
+      "descricao": "country instrumental animado (banjo e fiddle)",
+      "input": {
+        "caption": "upbeat instrumental country hoedown, fast banjo rolls, lively fiddle melody, twangy telecaster licks, upright bass, train beat drums, barn dance energy",
+        "lyrics": "[instrumental]",
+        "bpm": 128,
+        "keyscale": "D major",
+        "vocal_language": "unknown",
+        "instrumental": true
+      }
+    },
+    {
+      "id": "controle",
+      "descricao": "CONTROLE: synthwave instrumental (o adapter não deveria puxar para country)",
+      "controle": true,
+      "input": {
+        "caption": "instrumental synthwave, retro analog synth arpeggios, gated reverb drums, pulsing bassline, neon night drive, dreamy pads",
+        "lyrics": "[instrumental]",
+        "bpm": 110,
+        "keyscale": "A minor",
+        "vocal_language": "unknown",
+        "instrumental": true
+      }
+    }
+  ]
+}
