@@ -58,3 +58,8 @@ docs/benchmarks
 
 scripts/benchmark-qualidade
 benchmark-qualidade.mjs
+
+# LoRA: scripts de envio do dataset e treino (ficam só na máquina)
+scripts/lora
+
+*.pyc

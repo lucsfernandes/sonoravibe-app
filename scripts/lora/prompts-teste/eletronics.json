@@ -1,0 +1,56 @@
+{
+  "observacao": "Prompts de escuta do adapter 'eletronics' (dataset de EDM de festival: progressive/electro house, future bass, complextro). Nenhum vem do dataset. 'pista-cfg6' repete 'pista' com aderência 25: no XL-SFT isso dá CFG 6 em vez de 7, para testar se o CFG 7 dos instrumentais é o que deixou riff e controle robóticos na rodada do modern-metal. No turbo (sem CFG) o style_influence não chega ao modelo e os dois seriam o mesmo pedido, por isso 'pista-cfg6' tem \"familias\": [\"sft\"] e não roda no turbo. O 'controle' é jazz acústico: o adapter não deveria puxá-lo para EDM.",
+  "prompts": [
+    {
+      "id": "pista",
+      "descricao": "progressive house instrumental de festival (build e drop)",
+      "input": {
+        "caption": "instrumental progressive house festival anthem, four-on-the-floor kick, rolling offbeat bassline, bright supersaw lead melody, rising snare build-up into euphoric drop, sidechained pads, polished club mix",
+        "lyrics": "[instrumental]",
+        "bpm": 128,
+        "keyscale": "F minor",
+        "vocal_language": "unknown",
+        "instrumental": true
+      }
+    },
+    {
+      "id": "pista-cfg6",
+      "descricao": "igual a 'pista' com aderência 25 (CFG 6 no XL-SFT)",
+      "familias": ["sft"],
+      "input": {
+        "caption": "instrumental progressive house festival anthem, four-on-the-floor kick, rolling offbeat bassline, bright supersaw lead melody, rising snare build-up into euphoric drop, sidechained pads, polished club mix",
+        "lyrics": "[instrumental]",
+        "bpm": 128,
+        "keyscale": "F minor",
+        "vocal_language": "unknown",
+        "instrumental": true,
+        "style_influence": 25
+      }
+    },
+    {
+      "id": "vocal",
+      "descricao": "future bass com voz feminina, letra nova",
+      "input": {
+        "caption": "future bass, airy female lead vocal, lush detuned supersaw chords, pitched vocal chops, punchy trap-influenced drums, wobbling sidechained chords in the drop, emotional and uplifting",
+        "lyrics": "[Verse]\nCity lights are fading slow\nI can hear you calling low\nEvery heartbeat in the dark\nPulls me closer to the spark\n\n[Pre-Chorus]\nHold on, hold on\n\n[Chorus]\nWe're running through the static night\nTwo hearts in the neon light\nDon't let go, don't let go\nWe're alive, we're alive",
+        "bpm": 150,
+        "keyscale": "E major",
+        "vocal_language": "en",
+        "instrumental": false
+      }
+    },
+    {
+      "id": "controle",
+      "descricao": "CONTROLE: trio de jazz acústico instrumental (o adapter não deveria puxar para EDM)",
+      "controle": true,
+      "input": {
+        "caption": "instrumental acoustic jazz piano trio, warm upright bass walking line, brushed drums, gentle swing, mellow late night lounge, intimate room sound",
+        "lyrics": "[instrumental]",
+        "bpm": 96,
+        "keyscale": "F major",
+        "vocal_language": "unknown",
+        "instrumental": true
+      }
+    }
+  ]
+}
