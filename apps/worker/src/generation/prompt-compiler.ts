@@ -5,7 +5,7 @@ import type { AdvancedControls, VocalGender } from '@sonora/shared';
  *
  * CONTEXTO IMPORTANTE
  * O Lyria 3 não expõe parâmetros de exclude_styles, vocal gender, BPM, key,
- * weirdness, style influence ou seed — diferente do Suno, que as telas de
+ * weirdness, style influence ou seed — diferente do modelo KIE, que as telas de
  * referência mostram. Tudo isso precisa virar texto.
  *
  * A montagem é DETERMINÍSTICA de propósito: mesma entrada gera exatamente o

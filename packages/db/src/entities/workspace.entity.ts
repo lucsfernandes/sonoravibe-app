@@ -12,7 +12,7 @@ import {
 import { User } from './user.entity';
 import type { Song } from './song.entity';
 
-/** Pasta de organização das músicas — equivale ao "Workspace" do Suno. */
+/** Pasta de organização das músicas. */
 @Entity({ name: 'workspaces' })
 @Index(['userId', 'createdAt'])
 export class Workspace {

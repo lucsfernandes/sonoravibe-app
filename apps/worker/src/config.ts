@@ -23,6 +23,14 @@ const envSchema = z.object({
   R2_ENDPOINT: z.string().url().optional(),
 
   MUSIC_PROVIDER: z.enum(['acestep', 'lyria', 'mock']).default('mock'),
+  KIE_API_KEY: z.string().optional(),
+  /** Alias legado usado no .env local antes da integração KIE. */
+  KIE_AI_APIKEY: z.string().optional(),
+  KIE_BASE_URL: z.string().url().default('https://api.kie.ai'),
+  KIE_V55_MODEL: z.string().default('V5_5'),
+  KIE_V6_MODEL: z.string().default('V6'),
+  KIE_POLL_INTERVAL_MS: z.coerce.number().int().min(500).max(30000).default(2500),
+  KIE_TIMEOUT_MS: z.coerce.number().int().min(10000).max(3600000).default(900000),
   RUNPOD_API_KEY: z.string().optional(),
   /** Endpoint da família turbo (v1, v1.5): a imagem construída com DIT_MODEL=acestep-v15-xl-turbo. */
   RUNPOD_ENDPOINT_ID: z.string().optional(),
@@ -83,6 +91,7 @@ export function loadWorkerConfig(source: NodeJS.ProcessEnv = process.env): Worke
     throw new Error(`Configuração inválida do worker:\n${problems}`);
   }
   const env = parsed.data;
+  const kieApiKey = env.KIE_API_KEY ?? env.KIE_AI_APIKEY;
 
   if (env.MUSIC_PROVIDER === 'acestep' && !env.RUNPOD_BASE_URL) {
     if (!(env.RUNPOD_API_KEY && env.RUNPOD_ENDPOINT_ID)) {
@@ -96,5 +105,5 @@ export function loadWorkerConfig(source: NodeJS.ProcessEnv = process.env): Worke
     throw new Error("MUSIC_PROVIDER='lyria' exige OPENROUTER_API_KEY.");
   }
 
-  return { ...env, isProduction: env.NODE_ENV === 'production' };
+  return { ...env, KIE_API_KEY: kieApiKey, isProduction: env.NODE_ENV === 'production' };
 }

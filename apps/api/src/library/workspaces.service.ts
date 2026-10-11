@@ -3,7 +3,7 @@ import { Song, Workspace } from '@sonora/db';
 import { DataSource } from 'typeorm';
 import { DATA_SOURCE } from '../database/database.module';
 
-/** Pastas de organização da biblioteca — o "Workspace" do Suno. */
+/** Pastas de organização da biblioteca — o workspace das faixas. */
 @Injectable()
 export class WorkspacesService {
   constructor(@Inject(DATA_SOURCE) private readonly dataSource: DataSource) {}

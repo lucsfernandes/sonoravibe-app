@@ -13,14 +13,14 @@
  * próprio pedido.
  */
 
-export const MUSIC_MODELS = ['v1', 'v1.5', 'v2.0', 'v2.5'] as const;
+export const MUSIC_MODELS = ['v1', 'v1.5', 'v2.0', 'v2.5', 'v5.5', 'v6'] as const;
 export type MusicModel = (typeof MUSIC_MODELS)[number];
 
 /** A versão de quem não escolhe nada: a mais barata, aprovada na escuta de 2026-09-23. */
 export const DEFAULT_MUSIC_MODEL: MusicModel = 'v1';
 
 /** Família = qual DiT, e portanto qual endpoint da RunPod. */
-export type ModelFamily = 'turbo' | 'sft';
+export type ModelFamily = 'turbo' | 'sft' | 'kie';
 
 export interface MusicModelSpec {
   readonly id: MusicModel;
@@ -88,7 +88,37 @@ export const MUSIC_MODEL_SPECS: Record<MusicModel, MusicModelSpec> = {
       en: 'Best structure and harmony. The slowest.',
     },
   },
+  'v5.5': {
+    id: 'v5.5',
+    family: 'kie',
+    checkpoint: 'V5_5',
+    steps: 0,
+    cotCaption: false,
+    label: { pt: 'v5.5', en: 'v5.5' },
+    description: {
+      pt: 'Vozes e arranjo via KIE AI.',
+      en: 'Vocals and arrangement via KIE AI.',
+    },
+  },
+  v6: {
+    id: 'v6',
+    family: 'kie',
+    checkpoint: 'V6',
+    steps: 0,
+    cotCaption: false,
+    label: { pt: 'v6', en: 'v6' },
+    description: {
+      pt: 'A versão mais recente via KIE AI.',
+      en: 'The latest version via KIE AI.',
+    },
+  },
 };
+
+export const KIE_MUSIC_MODELS = ['v5.5', 'v6'] as const satisfies readonly MusicModel[];
+
+export function isKieMusicModel(value: unknown): value is (typeof KIE_MUSIC_MODELS)[number] {
+  return typeof value === 'string' && (KIE_MUSIC_MODELS as readonly string[]).includes(value);
+}
 
 export function isMusicModel(value: unknown): value is MusicModel {
   return typeof value === 'string' && (MUSIC_MODELS as readonly string[]).includes(value);
@@ -130,6 +160,8 @@ export const MODEL_CREDITS: Record<MusicModel, readonly [number, number, number]
   'v1.5': [10, 20, 30],
   'v2.0': [20, 40, 60],
   'v2.5': [26, 52, 78],
+  'v5.5': [30, 60, 90],
+  v6: [36, 72, 108],
 };
 
 /**

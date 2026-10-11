@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   DEFAULT_MUSIC_MODEL,
+  isKieMusicModel,
   isMusicModel,
   MODEL_CREDITS,
   MUSIC_MODEL_SPECS,
@@ -60,6 +61,8 @@ export function SeletorVersao({
 }) {
   const { t, locale } = useI18n();
   const idioma = locale === 'pt' ? 'pt' : 'en';
+  const nomeVisual = (versao: MusicModel) =>
+    isKieMusicModel(versao) ? versao : MUSIC_MODEL_SPECS[versao].label[idioma];
 
   return (
     <MenuSuspenso
@@ -70,13 +73,13 @@ export function SeletorVersao({
           type="button"
           aria-haspopup="menu"
           aria-expanded={aberto}
-          aria-label={`${t('criar.versao')}: ${MUSIC_MODEL_SPECS[valor].label[idioma]}`}
+          aria-label={`${t('criar.versao')}: ${nomeVisual(valor)}`}
           title={t('criar.versao')}
           className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
             aberto ? 'border-acento text-texto' : 'border-borda text-texto-suave hover:text-texto'
           }`}
         >
-          {MUSIC_MODEL_SPECS[valor].label[idioma]}
+          {nomeVisual(valor)}
           <SetaBaixoIcone tamanho={14} />
         </button>
       )}
@@ -105,7 +108,7 @@ export function SeletorVersao({
               >
                 <span className="flex items-center justify-between gap-2">
                   <span className={`text-sm font-semibold ${ativo ? 'text-acento' : 'text-texto'}`}>
-                    {spec.label[idioma]}
+                    {nomeVisual(versao)}
                   </span>
                   <span className="text-xs text-texto-suave">
                     {t('criar.aPartirDe')} {MODEL_CREDITS[versao][0]} {t('criar.custo')}

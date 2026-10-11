@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  BadRequestException,
   HttpException,
   HttpStatus,
   Inject,
@@ -17,8 +18,10 @@ import {
   effectiveDuration,
   variantsFor,
   DEFAULT_MUSIC_MODEL,
+  isKieMusicModel,
   type MusicModel,
   type AdvancedControls,
+  type KieModelControls,
   type GenerationJob,
   type GenerationKind,
   type GenerationRequest,
@@ -96,6 +99,7 @@ export class SongsService {
     // A versão só vale para música nova; remix e clipe rodam na padrão.
     const model: MusicModel =
       kind === 'song' && request.mode !== 'sounds' ? request.model : DEFAULT_MUSIC_MODEL;
+    this.assertKieModelRequest(request, model);
     // Música nova custa por versão e faixa de duração (models.ts). No automático
     // cobra "até 4 min", ou o teto do plano quando ele é menor — e aí a música é
     // gerada com esse teto (`duracao` vai para params.durationSeconds).
@@ -229,11 +233,11 @@ export class SongsService {
   private assertPlanAllows(
     code: PlanCode,
     features: { maxMode: boolean },
-    controls: AdvancedControls | undefined,
+    controls: AdvancedControls | KieModelControls | undefined,
   ): void {
     if (!controls) return;
 
-    if (controls.maxMode && !features.maxMode) {
+    if ('maxMode' in controls && controls.maxMode && !features.maxMode) {
       throw new ForbiddenException(
         'Max Mode é exclusivo do plano Premier. Desligue-o ou faça upgrade.',
       );
@@ -374,12 +378,13 @@ export class SongsService {
     inspiration: PlaylistInspiration | null,
     model: MusicModel,
     durationSeconds: number | undefined,
-  ): Partial<AdvancedControls> | null {
+  ): Partial<AdvancedControls> | Partial<KieModelControls> | null {
     // A versão fica gravada na música: é o que o worker lê para escolher o
     // endpoint, e o que "gerar de novo" precisa para repetir o pedido. A duração
     // também, quando foi fixada pelo teto do plano: é a que foi cobrada.
     const extra = {
       model,
+      ...(isKieMusicModel(model) ? { customMode: request.mode === 'advanced' } : {}),
       ...(durationSeconds ? { durationSeconds } : {}),
       ...(inspiration ? { inspiration } : {}),
     };
@@ -387,7 +392,24 @@ export class SongsService {
     if (request.mode === 'sounds') {
       return { bpm: request.bpm, key: request.key };
     }
-    return extra as Partial<AdvancedControls>;
+    return extra as Partial<AdvancedControls> | Partial<KieModelControls>;
+  }
+
+  private assertKieModelRequest(request: GenerationRequest, model: MusicModel): void {
+    if (!isKieMusicModel(model) || request.mode !== 'advanced') return;
+    const title = request.title?.trim();
+    const controls = request.controls;
+    if (!title) {
+      throw new BadRequestException('O modelo KIE exige um título no modo personalizado.');
+    }
+    if (title.length > 80) {
+      throw new BadRequestException('O título pode ter no máximo 80 caracteres.');
+    }
+    if (!request.lyrics?.trim() && !controls.styles?.trim() && !controls.excludeStyles?.trim()) {
+      throw new BadRequestException(
+        'No modo personalizado, informe letra, estilo ou tags negativas.',
+      );
+    }
   }
 }
 

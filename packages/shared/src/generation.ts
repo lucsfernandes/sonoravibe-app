@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_MUSIC_MODEL, MUSIC_MODELS } from './models';
+import { DEFAULT_MUSIC_MODEL, isKieMusicModel, MUSIC_MODELS } from './models';
 
 /**
  * Contrato de geração.
@@ -42,7 +42,7 @@ export const MAX_DURATION_SECONDS = 360;
 
 const percent = z.number().int().min(0).max(100);
 
-/** Controles avançados — todos opcionais, com defaults equivalentes ao Suno. */
+/** Controles avançados — todos opcionais, com defaults do motor. */
 export const advancedControlsSchema = z.object({
   /** Estilos desejados, em texto livre ou tags. Vira a base do prompt. */
   styles: z.string().trim().max(1000).optional(),
@@ -72,8 +72,27 @@ export const advancedControlsSchema = z.object({
   personalize: z.boolean().default(false),
   bpm: z.number().int().min(40).max(220).optional(),
   key: z.enum(MUSICAL_KEYS).default('any'),
-});
+}).strict();
 export type AdvancedControls = z.infer<typeof advancedControlsSchema>;
+
+/** Controles dos modelos KIE, sem parâmetros específicos do ACE-Step. */
+export const kieModelControlsSchema = z.object({
+  customMode: z.boolean(),
+  styles: z.string().trim().max(1000).optional(),
+  excludeStyles: z.string().trim().max(1000).optional(),
+  vocalGender: z.enum(VOCAL_GENDERS).default('any'),
+  styleWeight: z.number().min(0).max(1).multipleOf(0.01).optional(),
+  weirdness: z.number().min(0).max(1).multipleOf(0.01).optional(),
+  audioWeight: z.number().min(0).max(1).multipleOf(0.01).optional(),
+  variety: z.number().int().min(0).max(4).optional(),
+  personaId: z.string().trim().min(1).optional(),
+  personaModel: z.enum(['style_persona', 'voice_persona']).optional(),
+  imageUrls: z.array(z.string().url()).max(5).optional(),
+  videoUrls: z.array(z.string().url()).max(1).optional(),
+  audioUrls: z.array(z.string().url()).optional(),
+  durationSeconds: z.number().int().min(MIN_DURATION_SECONDS).max(MAX_DURATION_SECONDS).optional(),
+}).strict();
+export type KieModelControls = z.infer<typeof kieModelControlsSchema>;
 
 /**
  * Referências que valem para Simple e Advanced.
@@ -117,7 +136,7 @@ export const advancedGenerationSchema = z.object({
   instrumental: z.boolean().default(false),
   title: z.string().trim().max(120).optional(),
   workspaceId: z.string().uuid().optional(),
-  controls: advancedControlsSchema.default({}),
+  controls: z.union([kieModelControlsSchema, advancedControlsSchema]).default({}),
   ...referenceFields,
 });
 
@@ -138,6 +157,10 @@ export const generationRequestSchema = z.discriminatedUnion('mode', [
   soundsGenerationSchema,
 ]);
 export type GenerationRequest = z.infer<typeof generationRequestSchema>;
+
+export function isKieModelGenerationRequest(request: GenerationRequest): boolean {
+  return 'model' in request && isKieMusicModel(request.model);
+}
 
 /** Operações derivadas de uma música existente. */
 export const GENERATION_KINDS = [
