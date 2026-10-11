@@ -1,0 +1,42 @@
+{
+  "observacao": "Prompts de escuta do adapter 'modern-metal'. Nenhum vem do dataset (Amaranthe, Dreamland, Seether): o que se quer ouvir é se o adapter leva o ESTILO para uma música nova, não se ele repete as faixas do treino. O 'controle' é jazz acústico de propósito: synthwave ficaria perto demais dos synths do dataset e não mostraria vazamento.",
+  "prompts": [
+    {
+      "id": "dueto",
+      "descricao": "modern metal com voz feminina limpa e gutural masculino, letra nova",
+      "input": {
+        "caption": "modern melodic metal, heavily distorted down-tuned chugging guitars, tight double-bass drumming, soaring clean female lead vocal in the chorus, aggressive male harsh growls in the verses, layered synth pads, polished punchy production, anthemic and energetic",
+        "lyrics": "[Verse 1 - harsh vocals]\nSteel in the veins of a broken machine\nWe burn every bridge that we built in between\nNo signal, no saviour, just static and fire\nWe rise from the ashes, we climb ever higher\n\n[Chorus - clean female vocals]\nWe are the storm in the silence\nWe are the light through the wire\nHold on, we never surrender\nOne heart, one voice, one fire",
+        "bpm": 140,
+        "keyscale": "C minor",
+        "vocal_language": "en",
+        "instrumental": false
+      }
+    },
+    {
+      "id": "riff",
+      "descricao": "modern metal instrumental (riffs sincopados e solo)",
+      "input": {
+        "caption": "instrumental modern metal, syncopated palm-muted djent riffs, seven-string down-tuned guitars, blast beats into half-time breakdown, harmonized twin lead guitars, shredding guitar solo, atmospheric synth layer, heavy and precise",
+        "lyrics": "[instrumental]",
+        "bpm": 160,
+        "keyscale": "B minor",
+        "vocal_language": "unknown",
+        "instrumental": true
+      }
+    },
+    {
+      "id": "controle",
+      "descricao": "CONTROLE: trio de jazz acústico instrumental (o adapter não deveria puxar para metal)",
+      "controle": true,
+      "input": {
+        "caption": "instrumental acoustic jazz piano trio, warm upright bass walking line, brushed drums, gentle swing, mellow late night lounge, intimate room sound",
+        "lyrics": "[instrumental]",
+        "bpm": 96,
+        "keyscale": "F major",
+        "vocal_language": "unknown",
+        "instrumental": true
+      }
+    }
+  ]
+}
