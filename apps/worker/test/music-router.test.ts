@@ -60,6 +60,26 @@ describe('MusicRouter', () => {
     expect(fallback.generate).not.toHaveBeenCalled();
   });
 
+  it('seleciona provider específico para modelo KIE', async () => {
+    const primary = fakeProvider('acestep', { maxDuration: 480 });
+    const kie = fakeProvider('kie-v6', { maxDuration: 360 });
+    const router = new MusicRouter(primary, fakeProvider('lyria'), undefined, { v6: kie });
+
+    const result = await router.generate(request({ model: 'v6' }));
+
+    expect(result.servedBy).toBe('kie-v6');
+    expect(kie.generate).toHaveBeenCalledOnce();
+    expect(primary.generate).not.toHaveBeenCalled();
+  });
+
+  it('não usa Mock/ACE-Step quando o provider KIE não está configurado', async () => {
+    const router = new MusicRouter(fakeProvider('mock'), fakeProvider('lyria'));
+
+    await expect(router.generate(request({ model: 'v6' }))).rejects.toThrow(
+      /Nenhum motor atende 'song' para o modelo 'v6'/,
+    );
+  });
+
   it('cai na reserva em erro retentável e avisa quem está monitorando o custo', async () => {
     const onFallback = vi.fn();
     const router = new MusicRouter(

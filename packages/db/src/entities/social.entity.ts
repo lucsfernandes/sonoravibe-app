@@ -30,7 +30,7 @@ export class SongLike {
   @JoinColumn({ name: 'song_id' })
   song: Song;
 
-  /** Suno tem joinha e deslike; guardamos o sinal para alimentar o "For You". */
+  /** Guardamos o sinal de avaliação para alimentar o "For You". */
   @Column({ type: 'smallint', default: 1 })
   value: number;
 

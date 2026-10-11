@@ -17,10 +17,12 @@ import {
   type MasterFormat,
   type MusicGenerationRequest,
   type AdvancedControls,
+  type KieModelControls,
   type PlaylistInspiration,
   type UploadTarget,
   type WaveformJob,
   isMusicModel,
+  isKieMusicModel,
 } from '@sonora/shared';
 import { CreditsLedger, Generation, Song } from '@sonora/db';
 import { StorageService, storageKeys } from '@sonora/storage';
@@ -480,7 +482,7 @@ export class GenerationProcessor {
 
   /** Traduz a música gravada no banco para o pedido que o motor entende. */
   private async buildRequest(song: Song, job: GenerationJob): Promise<MusicGenerationRequest> {
-    const controls = (song.params ?? {}) as Partial<AdvancedControls> & {
+    const controls = (song.params ?? {}) as Partial<AdvancedControls> & Partial<KieModelControls> & {
       sectionStartMs?: number;
       sectionEndMs?: number;
       addSeconds?: number;
@@ -508,30 +510,51 @@ export class GenerationProcessor {
       sourceAudioUrl = await this.deps.storage.presignGet(origem.masterKey, 3600);
     }
 
+    const aceControls = controls as Partial<AdvancedControls>;
+    const providerControls = isKieMusicModel(controls.model)
+      ? {
+          styles,
+          excludeStyles: song.excludeStyles ?? undefined,
+          customMode: controls.customMode ?? false,
+          vocalGender: controls.vocalGender ?? 'any',
+          styleWeight: controls.styleWeight,
+          weirdness: controls.weirdness,
+          audioWeight: controls.audioWeight,
+          variety: controls.variety,
+          personaId: controls.personaId,
+          personaModel: controls.personaModel,
+          imageUrls: controls.imageUrls,
+          videoUrls: controls.videoUrls,
+          audioUrls: controls.audioUrls,
+          durationSeconds: controls.durationSeconds,
+        }
+      : {
+          styles,
+          excludeStyles: song.excludeStyles ?? undefined,
+          vocalGender: aceControls.vocalGender ?? 'any',
+          maxMode: aceControls.maxMode ?? false,
+          weirdness: aceControls.weirdness ?? 50,
+          styleInfluence: aceControls.styleInfluence ?? 50,
+          variety: aceControls.variety ?? 'high',
+          personalize: aceControls.personalize ?? false,
+          bpm: aceControls.bpm,
+          key: aceControls.key ?? 'any',
+          durationSeconds: aceControls.durationSeconds,
+        };
+
     return {
       ...(sourceAudioUrl ? { sourceAudioUrl } : {}),
       ...(controls.sectionStartMs !== undefined
         ? { sectionStartMs: controls.sectionStartMs, sectionEndMs: controls.sectionEndMs }
         : {}),
       kind: song.kind,
+      title: song.title,
       ...(isMusicModel(controls.model) ? { model: controls.model } : {}),
       prompt: styles,
       lyrics: song.instrumental ? null : song.lyrics,
       instrumental: song.instrumental,
       durationSeconds: controls.durationSeconds,
-      controls: {
-        styles,
-        excludeStyles: song.excludeStyles ?? undefined,
-        vocalGender: controls.vocalGender ?? 'any',
-        maxMode: controls.maxMode ?? false,
-        weirdness: controls.weirdness ?? 50,
-        styleInfluence: controls.styleInfluence ?? 50,
-        variety: controls.variety ?? 'high',
-        personalize: controls.personalize ?? false,
-        bpm: controls.bpm,
-        key: controls.key ?? 'any',
-        durationSeconds: controls.durationSeconds,
-      },
+      controls: providerControls,
     };
   }
 

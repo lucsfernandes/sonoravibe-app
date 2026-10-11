@@ -1,4 +1,4 @@
-import type { AdvancedControls, GenerationKind, SoundType } from './generation';
+import type { AdvancedControls, GenerationKind, SoundType, KieModelControls } from './generation';
 import type { MusicModel } from './models';
 
 /**
@@ -22,12 +22,14 @@ export interface MusicGenerationRequest {
    * parâmetros e passa tudo pelo Prompt Compiler.
    */
   prompt: string;
+  /** Título final da faixa, usado no modo custom do modelo KIE. */
+  title?: string;
   /** Letra final. `null` quando instrumental. */
   lyrics: string | null;
   instrumental: boolean;
   /** Ausente = o provider decide (ACE-Step: pelo tamanho da letra; Lyria: ~3 min). */
   durationSeconds?: number;
-  controls: AdvancedControls;
+  controls: AdvancedControls | KieModelControls;
   /** Aba Sounds: one-shot ou loop. */
   soundType?: SoundType;
   /**

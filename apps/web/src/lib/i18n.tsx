@@ -112,7 +112,7 @@ const T: Dicionario = {
   'estilos.nome': { pt: 'Nome do estilo', en: 'Style name' },
   'criar.tituloPlaceholder': { pt: 'Estrada até o mar', en: 'Road to the sea' },
 
-  // Painel de criação (referência visual do Suno): cabeçalho, referências e cartões
+  // Painel de criação: cabeçalho, referências e cartões
   'criar.audio': { pt: 'Áudio', en: 'Audio' },
   'criar.inspiracao': { pt: 'Inspiração', en: 'Inspo' },
   'criar.descricaoTitulo': { pt: 'Descrição da música', en: 'Song description' },
@@ -420,7 +420,7 @@ const T: Dicionario = {
   'musica.curtidas': { pt: 'curtidas', en: 'likes' },
   'musica.curtida': { pt: 'curtida', en: 'like' },
 
-  // Página da música (referência visual do Suno)
+  // Página da música
   'musica.editar': { pt: 'Editar', en: 'Edit' },
   'musica.edicaoTitulo': { pt: 'Editar a música', en: 'Edit the song' },
   'musica.editarLetra': { pt: 'Editar letra exibida', en: 'Edit displayed lyrics' },

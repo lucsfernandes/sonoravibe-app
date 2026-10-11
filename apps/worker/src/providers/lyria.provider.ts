@@ -2,6 +2,7 @@ import {
   CREDIT_COSTS,
   MusicProviderError,
   type GenerationKind,
+  type AdvancedControls,
   type MusicGenerationRequest,
   type MusicGenerationResult,
   type MusicProvider,
@@ -111,19 +112,20 @@ export class LyriaProvider implements MusicProvider {
    * texto pelo Prompt Compiler. O ACE-Step, ao contrário, recebe isso nativo.
    */
   private buildContent(req: MusicGenerationRequest): string {
+    const controls = req.controls as AdvancedControls;
     const prompt =
       req.kind === 'clip'
         ? compileSoundPrompt({
             prompt: req.prompt,
             soundType: req.soundType ?? 'one-shot',
-            bpm: req.controls.bpm,
-            key: req.controls.key,
+            bpm: controls.bpm,
+            key: controls.key,
           })
         : compilePrompt({
             styles: req.prompt,
-            excludeStyles: req.controls.excludeStyles,
+            excludeStyles: controls.excludeStyles,
             instrumental: req.instrumental,
-            controls: req.controls,
+            controls,
             hasLyrics: Boolean(req.lyrics?.trim()),
           });
     const parts = [prompt];

@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
-import { CREDIT_COSTS, effectiveDuration, maxDurationFor, songCreditCost, type PlanCode } from '@sonora/shared';
+import {
+  CREDIT_COSTS,
+  effectiveDuration,
+  isKieMusicModel,
+  maxDurationFor,
+  songCreditCost,
+  type PlanCode,
+} from '@sonora/shared';
 import { ApiError, api, type Workspace } from '@/lib/api';
 import { formatarContagem, formatarDuracao, useI18n } from '@/lib/i18n';
 import { useAoConcluirGeracao, useProgresso } from '@/lib/progresso';
@@ -25,6 +32,28 @@ import { CartaoLetra } from './letra';
 import { MaisOpcoes, OPCOES_PADRAO, type OpcoesAvancadas } from './mais-opcoes';
 
 type Aba = 'simples' | 'avancado' | 'sons';
+
+interface OpcoesKie {
+  excluir: string;
+  voz: 'any' | 'male' | 'female';
+  aderencia: number;
+  estranheza: number;
+  pesoAudio: number;
+  variedade: number;
+  duracaoAuto: boolean;
+  duracao: number;
+}
+
+const OPCOES_KIE_PADRAO: OpcoesKie = {
+  excluir: '',
+  voz: 'any',
+  aderencia: 65,
+  estranheza: 50,
+  pesoAudio: 50,
+  variedade: 1,
+  duracaoAuto: true,
+  duracao: 180,
+};
 
 interface Resultado {
   songId: string;
@@ -62,6 +91,7 @@ export function PainelCriar({
 
   const [aba, setAba] = useState<Aba>('simples');
   const [versao, setVersao] = useVersaoMotor();
+  const isKieModel = isKieMusicModel(versao);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -73,6 +103,7 @@ export function PainelCriar({
   const [titulo, setTitulo] = useState('');
   const [estilos, setEstilos] = useState('');
   const [opcoes, setOpcoes] = useState<OpcoesAvancadas>(OPCOES_PADRAO);
+  const [opcoesKie, setOpcoesKie] = useState<OpcoesKie>(OPCOES_KIE_PADRAO);
   const [tipoSom, setTipoSom] = useState<'one-shot' | 'loop'>('one-shot');
 
   const [inspiracao, setInspiracao] = useState<Inspiracao | null>(null);
@@ -81,6 +112,22 @@ export function PainelCriar({
   const [escrevendoLetra, setEscrevendoLetra] = useState(false);
   const [aprimorando, setAprimorando] = useState(false);
   const [sorteando, setSorteando] = useState(false);
+
+  function mudarVersao(novaVersao: typeof versao) {
+    setVersao(novaVersao);
+    const novaFamiliaKie = isKieMusicModel(novaVersao);
+    setOpcoes((atuais) =>
+      novaFamiliaKie
+        ? {
+            ...OPCOES_PADRAO,
+            excluir: atuais.excluir,
+            duracaoAuto: atuais.duracaoAuto,
+            duracao: atuais.duracao,
+          }
+        : { ...OPCOES_PADRAO },
+    );
+      setOpcoesKie(OPCOES_KIE_PADRAO);
+  }
 
   useEffect(() => {
     if (!usuario) return;
@@ -218,19 +265,31 @@ export function PainelCriar({
                 model: versao,
                 workspaceId: workspaceId || undefined,
                 ...referencias,
-                controls: {
-                  styles: estilos || undefined,
-                  excludeStyles: opcoes.excluir || undefined,
-                  vocalGender: opcoes.voz,
-                  ...(opcoes.duracaoAuto ? {} : { durationSeconds: opcoes.duracao }),
-                  maxMode: opcoes.maxMode,
-                  weirdness: opcoes.estranheza,
-                  styleInfluence: opcoes.aderencia,
-                  variety: opcoes.variedade,
-                  personalize: opcoes.personalizar,
-                  ...(opcoes.bpm ? { bpm: Number(opcoes.bpm) } : {}),
-                  key: opcoes.tom,
-                },
+                controls: isKieModel
+                  ? {
+                      customMode: true,
+                      styles: estilos || undefined,
+                      excludeStyles: opcoesKie.excluir || undefined,
+                      vocalGender: opcoesKie.voz,
+                      styleWeight: opcoesKie.aderencia / 100,
+                      weirdness: opcoesKie.estranheza / 100,
+                      audioWeight: instrumental ? undefined : opcoesKie.pesoAudio / 100,
+                      variety: opcoesKie.variedade,
+                      ...(opcoesKie.duracaoAuto ? {} : { durationSeconds: opcoesKie.duracao }),
+                    }
+                  : {
+                      styles: estilos || undefined,
+                      excludeStyles: opcoes.excluir || undefined,
+                      vocalGender: opcoes.voz,
+                      ...(opcoes.duracaoAuto ? {} : { durationSeconds: opcoes.duracao }),
+                      maxMode: opcoes.maxMode,
+                      weirdness: opcoes.estranheza,
+                      styleInfluence: opcoes.aderencia,
+                      variety: opcoes.variedade,
+                      personalize: opcoes.personalizar,
+                      ...(opcoes.bpm ? { bpm: Number(opcoes.bpm) } : {}),
+                      key: opcoes.tom,
+                    },
               };
 
       const resultado = await api.post<Resultado>('/songs/generate', corpo);
@@ -254,6 +313,7 @@ export function PainelCriar({
     setTitulo('');
     setEstilos('');
     setOpcoes(OPCOES_PADRAO);
+    setOpcoesKie(OPCOES_KIE_PADRAO);
     setInstrumental(false);
     setInspiracao(null);
     aoMudarReferencia(null);
@@ -261,8 +321,11 @@ export function PainelCriar({
   }
 
   const temConteudo =
-    aba === 'avancado' ? Boolean(estilos.trim() || letra.trim()) : descricao.trim().length >= 3;
-  const podeCriar = !enviando && Boolean(usuario) && temConteudo && referenciaPronta;
+    aba === 'avancado'
+      ? Boolean(estilos.trim() || letra.trim() || (isKieModel && opcoesKie.excluir.trim()))
+      : descricao.trim().length >= 3;
+  const tituloValido = !isKieModel || aba !== 'avancado' || titulo.trim().length > 0;
+  const podeCriar = !enviando && Boolean(usuario) && temConteudo && tituloValido && referenciaPronta;
   const temAlgo = Boolean(descricao || letra || titulo || estilos || referencia || inspiracao);
 
   return (
@@ -297,7 +360,7 @@ export function PainelCriar({
         {/* A versão só vale para música nova: Sons e remix rodam na v1. */}
         {aba !== 'sons' && !referencia && (
           <div className="ml-auto">
-            <SeletorVersao valor={versao} onChange={setVersao} />
+            <SeletorVersao valor={versao} onChange={mudarVersao} />
           </div>
         )}
       </div>
@@ -377,12 +440,13 @@ export function PainelCriar({
             <CartaoEstilos
               titulo={t('criar.estilos')}
               estilos={estilos}
-              excluir={opcoes.excluir}
+              excluir={isKieModel ? opcoesKie.excluir : opcoes.excluir}
               onChange={setEstilos}
               placeholder={t('criar.estilosPlaceholder')}
               aoAplicarPreset={(novo, exclusao) => {
                 setEstilos(novo);
-                setOpcoes((o) => ({ ...o, excluir: exclusao }));
+                if (isKieModel) setOpcoesKie((o) => ({ ...o, excluir: exclusao }));
+                else setOpcoes((o) => ({ ...o, excluir: exclusao }));
               }}
               aoAprimorar={() => void aprimorarEstilo()}
               aprimorando={aprimorando}
@@ -390,21 +454,29 @@ export function PainelCriar({
               sorteando={sorteando}
             />
 
-            <MaisOpcoes
-              valores={opcoes}
-              onChange={(patch) => setOpcoes((o) => ({ ...o, ...patch }))}
-              maxDuracao={maxDurationFor(planCode, 'acestep')}
-              podeMaxMode={planCode === 'premier'}
-              instrumental={instrumental}
-            />
+            {isKieModel ? (
+              <CartaoOpcoesKie
+                valores={opcoesKie}
+                maxDuracao={maxDurationFor(planCode, 'acestep')}
+                onChange={(patch) => setOpcoesKie((o) => ({ ...o, ...patch }))}
+              />
+            ) : (
+              <MaisOpcoes
+                valores={opcoes}
+                onChange={(patch) => setOpcoes((o) => ({ ...o, ...patch }))}
+                maxDuracao={maxDurationFor(planCode, 'acestep')}
+                podeMaxMode={planCode === 'premier'}
+                instrumental={instrumental}
+              />
+            )}
 
             <CampoComIcone
               icone={<NotaIcone tamanho={16} />}
               valor={titulo}
               onChange={setTitulo}
-              placeholder={t('criar.tituloOpcional')}
+              placeholder={isKieModel ? t('criar.tituloMusica') : t('criar.tituloOpcional')}
               rotulo={t('criar.tituloMusica')}
-              maxLength={120}
+              maxLength={isKieModel ? 80 : 120}
             />
           </>
         )}
@@ -517,6 +589,149 @@ export function PainelCriar({
         <AdicionarInspiracao aoFechar={() => setModal(null)} aoEscolher={setInspiracao} />
       )}
     </div>
+  );
+}
+
+function CartaoOpcoesKie({
+  valores,
+  maxDuracao,
+  onChange,
+}: {
+  valores: OpcoesKie;
+  maxDuracao: number;
+  onChange: (patch: Partial<OpcoesKie>) => void;
+}) {
+  const { t } = useI18n();
+  const idExcluir = useId();
+  const idDuracao = useId();
+  const idVoz = useId();
+  const idAderencia = useId();
+  const idEstranheza = useId();
+  const idPesoAudio = useId();
+  const idVariedade = useId();
+
+  return (
+    <CartaoSecao
+      titulo="KIE"
+      resumo={valores.duracaoAuto ? t('criar.auto') : formatarDuracao(valores.duracao * 1000)}
+      aberta
+    >
+      <div className="space-y-2">
+        <div className="flex items-center gap-3 rounded-xl bg-superficie-alta/60 px-3.5 py-3">
+          <label htmlFor={idExcluir} className="text-sm font-medium">
+            {t('criar.excluir')}
+          </label>
+          <input
+            id={idExcluir}
+            value={valores.excluir}
+            onChange={(e) => onChange({ excluir: e.target.value })}
+            placeholder={t('criar.excluir')}
+            maxLength={1000}
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-texto-fraco"
+          />
+        </div>
+        <LinhaOpcao
+          rotulo={t('criar.voz')}
+          direita={
+            <select
+              id={idVoz}
+              value={valores.voz}
+              onChange={(e) => onChange({ voz: e.target.value as OpcoesKie['voz'] })}
+              aria-label={t('criar.voz')}
+              className="cursor-pointer rounded-lg bg-superficie px-2 py-1 text-sm outline-none"
+            >
+              <option value="any" className="bg-superficie">{t('criar.auto')}</option>
+              <option value="male" className="bg-superficie">{t('criar.vozMasculina')}</option>
+              <option value="female" className="bg-superficie">{t('criar.vozFeminina')}</option>
+            </select>
+          }
+        />
+        <LinhaOpcao
+          rotulo={t('criar.aderenciaCurto')}
+          direita={
+            <input
+              id={idAderencia}
+              type="range"
+              min={0}
+              max={100}
+              value={valores.aderencia}
+              onChange={(e) => onChange({ aderencia: Number(e.target.value) })}
+              aria-label={t('criar.aderenciaCurto')}
+            />
+          }
+        />
+        <LinhaOpcao
+          rotulo={t('criar.estranheza')}
+          direita={
+            <input
+              id={idEstranheza}
+              type="range"
+              min={0}
+              max={100}
+              value={valores.estranheza}
+              onChange={(e) => onChange({ estranheza: Number(e.target.value) })}
+              aria-label={t('criar.estranheza')}
+            />
+          }
+        />
+        <LinhaOpcao
+          rotulo="Peso do áudio"
+          dica="Disponível para músicas com vocais."
+          direita={
+            <input
+              id={idPesoAudio}
+              type="range"
+              min={0}
+              max={100}
+              value={valores.pesoAudio}
+              onChange={(e) => onChange({ pesoAudio: Number(e.target.value) })}
+              disabled={false}
+              aria-label="Peso do áudio"
+            />
+          }
+        />
+        <LinhaOpcao
+          rotulo={t('criar.variedade')}
+          direita={
+            <input
+              id={idVariedade}
+              type="range"
+              min={0}
+              max={4}
+              step={1}
+              value={valores.variedade}
+              onChange={(e) => onChange({ variedade: Number(e.target.value) })}
+              aria-label={t('criar.variedade')}
+            />
+          }
+        />
+        <LinhaOpcao
+          rotulo={t('criar.duracao')}
+          dica={t('criar.duracaoDica')}
+          direita={
+            <div className="flex items-center gap-2">
+              <input
+                id={idDuracao}
+                type="number"
+                min={10}
+                max={maxDuracao}
+                value={valores.duracaoAuto ? '' : valores.duracao}
+                onChange={(e) =>
+                  onChange({
+                    duracao: e.target.value === '' ? 180 : Number(e.target.value),
+                    duracaoAuto: e.target.value === '',
+                  })
+                }
+                placeholder={t('criar.auto')}
+                aria-label={t('criar.duracao')}
+                className="w-20 rounded-lg bg-superficie px-2 py-1 text-right text-sm tabular-nums outline-none placeholder:text-texto-fraco"
+              />
+              <span className="text-xs text-texto-suave">s</span>
+            </div>
+          }
+        />
+      </div>
+    </CartaoSecao>
   );
 }
 

@@ -1,8 +1,10 @@
 import {
   MusicProviderError,
+  isKieMusicModel,
   type MusicGenerationRequest,
   type MusicGenerationResult,
   type MusicProvider,
+  type MusicModel,
 } from '@sonora/shared';
 
 /**
@@ -41,11 +43,16 @@ export class MusicRouter {
     private readonly primary: MusicProvider,
     private readonly fallback: MusicProvider | null,
     private readonly onFallback: (event: FallbackEvent) => void = () => {},
+    private readonly modelProviders: Partial<Record<MusicModel, MusicProvider>> = {},
   ) {}
 
   /** Providers capazes de atender o pedido, na ordem de preferência. */
   candidatesFor(req: MusicGenerationRequest): MusicProvider[] {
-    return [this.primary, this.fallback].filter(
+    const selected = req.model ? this.modelProviders[req.model] : undefined;
+    if (req.model && isKieMusicModel(req.model)) {
+      return selected && canServe(selected, req) ? [selected] : [];
+    }
+    return [selected ?? this.primary, selected ? null : this.fallback].filter(
       (p): p is MusicProvider => p !== null && canServe(p, req),
     );
   }
@@ -94,7 +101,12 @@ function canServe(provider: MusicProvider, req: MusicGenerationRequest): boolean
 
 function noProvider(req: MusicGenerationRequest): MusicProviderError {
   const duration = req.durationSeconds ? ` com ${req.durationSeconds}s` : '';
-  return new MusicProviderError(`Nenhum motor atende '${req.kind}'${duration}.`, 'router', false);
+  const model = req.model ? ` para o modelo '${req.model}'` : '';
+  return new MusicProviderError(
+    `Nenhum motor atende '${req.kind}'${model}${duration}. Verifique a configuração do provider.`,
+    'router',
+    false,
+  );
 }
 
 function describe(err: unknown): string {

@@ -14,6 +14,7 @@ import type {
   AdvancedControls,
   GenerationKind,
   GenerationStatus,
+  KieModelControls,
 } from '@sonora/shared';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
@@ -89,7 +90,7 @@ export class Song {
 
   /** Controles da UI usados nesta geração, guardados para permitir "gerar de novo". */
   @Column({ type: 'jsonb', nullable: true })
-  params: Partial<AdvancedControls> | null;
+  params: Partial<AdvancedControls> | Partial<KieModelControls> | null;
 
   /** Prompt final enviado ao provedor, após o Prompt Compiler. Útil para suporte. */
   @Column({ type: 'text', name: 'compiled_prompt', nullable: true })

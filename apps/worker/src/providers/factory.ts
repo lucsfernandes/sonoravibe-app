@@ -3,6 +3,7 @@ import type { WorkerConfig } from '../config';
 import { AceStepProvider } from './acestep.provider';
 import { LyriaProvider } from './lyria.provider';
 import { MockMusicProvider } from './mock.provider';
+import { KieProvider } from './kie.provider';
 import { MusicRouter, type FallbackEvent } from './music-router';
 
 /**
@@ -23,7 +24,26 @@ export function buildMusicRouter(
       ? buildLyria(config)
       : null;
 
-  return new MusicRouter(primary, fallback, onFallback);
+  const modelProviders = config.KIE_API_KEY
+    ? {
+        'v5.5': new KieProvider({
+          apiKey: config.KIE_API_KEY,
+          baseUrl: config.KIE_BASE_URL,
+          model: config.KIE_V55_MODEL,
+          pollIntervalMs: config.KIE_POLL_INTERVAL_MS,
+          timeoutMs: config.KIE_TIMEOUT_MS,
+        }),
+        v6: new KieProvider({
+          apiKey: config.KIE_API_KEY,
+          baseUrl: config.KIE_BASE_URL,
+          model: config.KIE_V6_MODEL,
+          pollIntervalMs: config.KIE_POLL_INTERVAL_MS,
+          timeoutMs: config.KIE_TIMEOUT_MS,
+        }),
+      }
+    : {};
+
+  return new MusicRouter(primary, fallback, onFallback, modelProviders);
 }
 
 function buildPrimary(config: WorkerConfig): MusicProvider {

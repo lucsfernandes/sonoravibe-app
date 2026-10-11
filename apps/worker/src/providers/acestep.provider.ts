@@ -11,6 +11,7 @@ import {
   type MusicGenerationRequest,
   type MusicGenerationResult,
   type MusicProvider,
+  type AdvancedControls,
 } from '@sonora/shared';
 import {
   buildAceStepNegative,
@@ -309,14 +310,15 @@ export function buildJobInput(req: MusicGenerationRequest): Record<string, unkno
     throw new MusicProviderError(`'${req.kind}' exige sourceAudioUrl.`, 'acestep', false);
   }
 
+  const controls = req.controls as AdvancedControls;
   // Exclusão de voz vira instrumental nativo, não "no vocals" no caption.
-  const instrumental = req.instrumental || excludesVocals(req.controls.excludeStyles);
+  const instrumental = req.instrumental || excludesVocals(controls.excludeStyles);
   const caption =
     compileAceStepCaption({
       styles: req.prompt,
-      excludeStyles: req.controls.excludeStyles,
+      excludeStyles: controls.excludeStyles,
       instrumental: req.instrumental,
-      controls: req.controls,
+      controls,
       soundType: req.soundType,
     }) || (instrumental ? 'instrumental music' : 'song');
 
@@ -347,18 +349,18 @@ export function buildJobInput(req: MusicGenerationRequest): Record<string, unkno
     cot_caption: spec.cotCaption,
     caption,
     // O que evitar vai à parte do caption: ver compileAceStepCaption.
-    negative_caption: buildAceStepNegative(req.controls.excludeStyles) ?? null,
+    negative_caption: buildAceStepNegative(controls.excludeStyles) ?? null,
     lyrics: instrumental ? '' : (req.lyrics ?? ''),
     instrumental,
     duration: req.kind === 'clip' ? (req.durationSeconds ?? DEFAULT_CLIP_SECONDS) : (req.durationSeconds ?? null),
-    bpm: req.controls.bpm ?? null,
-    keyscale: toAceStepKeyscale(req.controls.key) ?? null,
+    bpm: controls.bpm ?? null,
+    keyscale: toAceStepKeyscale(controls.key) ?? null,
     vocal_language: req.vocalLanguage ?? 'unknown',
     seed: req.seed ?? null,
     // Controles 0–100 da UI. O worker os traduz para os parâmetros do modelo
     // que estiver carregado: quem conhece o turbo e o SFT é ele.
-    style_influence: req.controls.styleInfluence,
-    variety: req.controls.variety,
+    style_influence: controls.styleInfluence,
+    variety: controls.variety,
     batch_size: targets.length,
     src_audio_url: req.sourceAudioUrl ?? null,
     repainting_start: req.sectionStartMs !== undefined ? req.sectionStartMs / 1000 : 0,
